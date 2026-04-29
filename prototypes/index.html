@@ -608,6 +608,314 @@
       font-weight: 700;
     }
 
+    /* ── Attention Banner ───────────────────────── */
+    .attention-banner {
+      background: #fffbeb;
+      border-bottom: 2px solid #fde68a;
+      display: none;
+    }
+
+    .attention-banner.visible { display: block; }
+
+    .attention-banner-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 14px 24px;
+    }
+
+    .attention-banner-hdr {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .attention-icon {
+      width: 20px;
+      height: 20px;
+      background: #f59e0b;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .attention-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #92400e;
+    }
+
+    .attention-sub {
+      font-size: 12px;
+      color: #b45309;
+      margin-left: auto;
+    }
+
+    .attention-items {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .attention-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: white;
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      padding: 11px 14px;
+      flex-wrap: wrap;
+    }
+
+    .attention-item-info { flex: 1; min-width: 0; }
+
+    .attention-item-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .attention-item-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .attention-item-btns {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* ── Review / Approval buttons ──────────────── */
+    .btn-approve {
+      padding: 7px 13px;
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #6ee7b7;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+
+    .btn-approve:hover { background: #d1fae5; border-color: #34d399; }
+    .btn-approve.active { background: #10b981; color: white; border-color: #10b981; }
+
+    .btn-changes {
+      padding: 7px 13px;
+      background: #fff7ed;
+      color: #9a3412;
+      border: 1px solid #fdba74;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+
+    .btn-changes:hover { background: #ffedd5; border-color: #fb923c; }
+    .btn-changes.active { background: #ea580c; color: white; border-color: #ea580c; }
+
+    /* ── Video item wrapper + review panel ──────── */
+    .video-item-wrap { display: flex; flex-direction: column; }
+
+    .video-card.review-open {
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+      border-bottom-color: transparent;
+    }
+
+    .review-panel {
+      background: #f8f9ff;
+      border: 1px solid var(--accent);
+      border-top: none;
+      border-radius: 0 0 12px 12px;
+      padding: 16px;
+    }
+
+    .review-panel-hdr {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+
+    .review-panel-hdr span {
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .review-textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text);
+      resize: vertical;
+      min-height: 80px;
+      outline: none;
+      transition: border-color 0.15s;
+      background: white;
+    }
+
+    .review-textarea:focus { border-color: var(--accent); }
+
+    .review-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .btn-confirm-approve {
+      padding: 8px 16px;
+      background: #10b981;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-confirm-approve:hover { background: #059669; }
+
+    .btn-confirm-changes {
+      padding: 8px 16px;
+      background: #ea580c;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-confirm-changes:hover { background: #c2410c; }
+
+    .btn-cancel-review {
+      padding: 8px 14px;
+      background: none;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-left: auto;
+    }
+
+    .btn-cancel-review:hover { color: var(--text); border-color: #94a3b8; }
+
+    .review-note {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    /* ── Feedback submitted state ───────────────── */
+    .feedback-log {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 9px 12px;
+      margin-top: 8px;
+    }
+
+    .feedback-log-icon { color: #16a34a; flex-shrink: 0; margin-top: 1px; }
+
+    .feedback-log-body { flex: 1; }
+
+    .feedback-log-action {
+      font-size: 12px;
+      font-weight: 600;
+      color: #15803d;
+    }
+
+    .feedback-log-note {
+      font-size: 12px;
+      color: #166534;
+      margin-top: 2px;
+      font-style: italic;
+    }
+
+    .feedback-log-sub {
+      font-size: 11px;
+      color: #4ade80;
+      margin-top: 3px;
+    }
+
+    /* ── Analytics row (VistaSocial) ────────────── */
+    .analytics-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .analytics-stat {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .analytics-stat strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .analytics-sep { color: var(--border); font-size: 12px; }
+
+    .analytics-eng {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #4f46e5;
+      background: #eef2ff;
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+
+    .analytics-source {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-left: auto;
+      white-space: nowrap;
+    }
+
     /* ── Responsive ─────────────────────────────── */
     @media (max-width: 700px) {
       .header-inner { padding: 0 16px; }
@@ -664,6 +972,18 @@
     </button>
   </div>
 </nav>
+
+<!-- ── Attention Banner ────────────────────────────── -->
+<div id="js-attention-banner" class="attention-banner">
+  <div class="attention-banner-inner">
+    <div class="attention-banner-hdr">
+      <div class="attention-icon">!</div>
+      <div class="attention-title" id="js-attention-title"></div>
+      <div class="attention-sub">Action required</div>
+    </div>
+    <div class="attention-items" id="js-attention-items"></div>
+  </div>
+</div>
 
 <!-- ── Main ────────────────────────────────────────── -->
 <main class="main">
@@ -732,12 +1052,12 @@
 const CLIENT = { name: 'Sarah Mitchell', company: 'Mitchell Ventures' };
 
 const VIDEOS = [
-  { id:  1, title: 'How I scaled my business to $10M',             platform: 'LinkedIn',  status: 'Published', publishDate: '2026-04-01' },
-  { id:  2, title: 'Morning routine that changed everything',       platform: 'Instagram', status: 'Published', publishDate: '2026-04-03' },
-  { id:  3, title: 'Top 5 leadership mistakes CEOs make',           platform: 'YouTube',   status: 'Published', publishDate: '2026-04-07' },
-  { id:  4, title: 'Building a personal brand from scratch',        platform: 'LinkedIn',  status: 'Published', publishDate: '2026-04-09' },
-  { id:  5, title: 'Why authenticity wins on social media',         platform: 'Instagram', status: 'Published', publishDate: '2026-04-12' },
-  { id:  6, title: 'The CEO\'s guide to content creation',          platform: 'LinkedIn',  status: 'Published', publishDate: '2026-04-14' },
+  { id:  1, title: 'How I scaled my business to $10M',             platform: 'LinkedIn',  status: 'Published', publishDate: '2026-04-01', analytics: { views: 2847, likes: 134, comments: 18, shares: 47,  engRate: 4.2 } },
+  { id:  2, title: 'Morning routine that changed everything',       platform: 'Instagram', status: 'Published', publishDate: '2026-04-03', analytics: { views: 1923, likes: 89,  comments: 12, shares: 31,  engRate: 3.8 } },
+  { id:  3, title: 'Top 5 leadership mistakes CEOs make',           platform: 'YouTube',   status: 'Published', publishDate: '2026-04-07', analytics: { views: 4102, likes: 198, comments: 34, shares: 76,  engRate: 5.1 } },
+  { id:  4, title: 'Building a personal brand from scratch',        platform: 'LinkedIn',  status: 'Published', publishDate: '2026-04-09', analytics: { views: 3456, likes: 167, comments: 28, shares: 54,  engRate: 4.7 } },
+  { id:  5, title: 'Why authenticity wins on social media',         platform: 'Instagram', status: 'Published', publishDate: '2026-04-12', analytics: { views: 2198, likes: 103, comments: 15, shares: 38,  engRate: 3.9 } },
+  { id:  6, title: 'The CEO\'s guide to content creation',          platform: 'LinkedIn',  status: 'Published', publishDate: '2026-04-14', analytics: { views: 1654, likes: 78,  comments:  9, shares: 22,  engRate: 3.3 } },
   { id:  7, title: 'Networking in the digital age',                 platform: 'YouTube',   status: 'Approved',  publishDate: '2026-04-30' },
   { id:  8, title: 'My daily reading list for executives',          platform: 'Instagram', status: 'In Review', publishDate: '2026-05-05' },
   { id:  9, title: 'How to delegate effectively',                   platform: 'LinkedIn',  status: 'In Review', publishDate: '2026-05-08' },
@@ -761,10 +1081,90 @@ const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 // ── State ───────────────────────────────────────────────────────────────────
 
-let activeFilter = 'All';
-let calYear  = 2026;
-let calMonth = 3;   // April (0-indexed)
-let selectedDay = null;
+let activeFilter   = 'All';
+let calYear        = 2026;
+let calMonth       = 3;     // April (0-indexed)
+let selectedDay    = null;
+let openPanelId    = null;  // video id with open review panel
+let openPanelAction = null; // 'approved' | 'changes'
+const feedbackState = {};   // { videoId: { action, note, ts } }
+
+// ── Attention Banner ─────────────────────────────────────────────────────────
+
+function renderAttentionBanner() {
+  const pending = VIDEOS.filter(v => v.status === 'In Review');
+  const banner  = document.getElementById('js-attention-banner');
+
+  if (!pending.length) {
+    banner.classList.remove('visible');
+    return;
+  }
+
+  banner.classList.add('visible');
+  document.getElementById('js-attention-title').textContent =
+    pending.length === 1
+      ? '1 video is waiting for your review'
+      : `${pending.length} videos are waiting for your review`;
+
+  document.getElementById('js-attention-items').innerHTML = pending.map(v => `
+    <div class="attention-item">
+      <div class="attention-item-info">
+        <div class="attention-item-title" title="${esc(v.title)}">${esc(v.title)}</div>
+        <div class="attention-item-meta">${v.platform} · Scheduled ${fmtDate(v.publishDate)}</div>
+      </div>
+      <div class="attention-item-btns">
+        <button class="btn-approve" onclick="openReviewPanel(${v.id},'approved')">✓ Approve</button>
+        <button class="btn-changes" onclick="openReviewPanel(${v.id},'changes')">↩ Changes</button>
+      </div>
+    </div>`
+  ).join('');
+}
+
+// ── Review panel ─────────────────────────────────────────────────────────────
+
+function openReviewPanel(id, action) {
+  // toggle off if same button clicked again
+  if (openPanelId === id && openPanelAction === action) {
+    openPanelId = null;
+    openPanelAction = null;
+  } else {
+    openPanelId     = id;
+    openPanelAction = action;
+  }
+  renderVideoList();
+  if (openPanelId) {
+    const el = document.getElementById('review-panel-' + id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function submitReview(id) {
+  const textarea = document.getElementById('review-note-' + id);
+  const note     = textarea ? textarea.value.trim() : '';
+  const action   = openPanelAction;
+
+  if (action === 'changes' && !note) {
+    textarea.focus();
+    textarea.style.borderColor = '#ef4444';
+    textarea.placeholder = 'Please describe the changes needed before submitting.';
+    return;
+  }
+
+  // Record feedback — Phase 2: POST to Netlify Function → ClickUp task update + comment
+  feedbackState[id] = { action, note, ts: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) };
+
+  // Update video status to match decision
+  const video = VIDEOS.find(v => v.id === id);
+  if (video) video.status = action === 'approved' ? 'Approved' : 'Editing';
+
+  openPanelId     = null;
+  openPanelAction = null;
+
+  renderAttentionBanner();
+  renderStats();
+  renderFilters();
+  renderVideoList();
+}
 
 // ── Tabs ────────────────────────────────────────────────────────────────────
 
@@ -824,29 +1224,107 @@ function renderVideoList() {
   }
 
   el.innerHTML = list.map(v => {
-    const key  = STATUS_KEY[v.status];
-    const date = fmtDate(v.publishDate);
-    const lbl  = v.status === 'Published' ? `Published ${date}` : `Scheduled ${date}`;
-    const action = v.status === 'In Review'
-      ? `<button class="btn-action">Review &amp; Approve</button>`
-      : '';
+    const key        = STATUS_KEY[v.status];
+    const date       = fmtDate(v.publishDate);
+    const lbl        = v.status === 'Published' ? `Published ${date}` : `Scheduled ${date}`;
+    const isPanelOpen = openPanelId === v.id;
+    const fb          = feedbackState[v.id];
+
+    // Analytics row for published videos
+    const analyticsHtml = (v.status === 'Published' && v.analytics) ? `
+      <div class="analytics-row">
+        <span class="analytics-stat">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <strong>${v.analytics.views.toLocaleString()}</strong> views
+        </span>
+        <span class="analytics-sep">·</span>
+        <span class="analytics-stat">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          <strong>${v.analytics.likes.toLocaleString()}</strong> likes
+        </span>
+        <span class="analytics-sep">·</span>
+        <span class="analytics-stat">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <strong>${v.analytics.comments}</strong> comments
+        </span>
+        <span class="analytics-sep">·</span>
+        <span class="analytics-stat">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          <strong>${v.analytics.shares}</strong> shares
+        </span>
+        <span class="analytics-sep">·</span>
+        <span class="analytics-eng">&#9650; ${v.analytics.engRate}% engagement</span>
+        <span class="analytics-source">via VistaSocial</span>
+      </div>` : '';
+
+    // Feedback submitted indicator
+    const feedbackHtml = fb ? `
+      <div class="feedback-log">
+        <svg class="feedback-log-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        <div class="feedback-log-body">
+          <div class="feedback-log-action">${fb.action === 'approved' ? 'You approved this video' : 'You requested changes'} · ${fb.ts}</div>
+          ${fb.note ? `<div class="feedback-log-note">"${esc(fb.note)}"</div>` : ''}
+          <div class="feedback-log-sub">Feedback sent to LBM team via ClickUp</div>
+        </div>
+      </div>` : '';
+
+    // Action buttons for In Review
+    const actionsHtml = v.status === 'In Review' ? `
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <button class="btn-approve ${isPanelOpen && openPanelAction==='approved' ? 'active' : ''}"
+          onclick="openReviewPanel(${v.id},'approved')">✓ Approve</button>
+        <button class="btn-changes ${isPanelOpen && openPanelAction==='changes' ? 'active' : ''}"
+          onclick="openReviewPanel(${v.id},'changes')">↩ Changes</button>
+      </div>` : '';
+
+    // Review panel (inline below card)
+    const isApproving  = isPanelOpen && openPanelAction === 'approved';
+    const isChanging   = isPanelOpen && openPanelAction === 'changes';
+    const panelHtml = isPanelOpen ? `
+      <div class="review-panel" id="review-panel-${v.id}">
+        <div class="review-panel-hdr">
+          ${isApproving ? '✓ Approving:' : '↩ Requesting changes on:'}
+          <span>${esc(v.title)}</span>
+        </div>
+        <textarea class="review-textarea" id="review-note-${v.id}"
+          placeholder="${isApproving
+            ? 'Add an optional note for the LBM team (e.g. great job on the intro)…'
+            : 'Describe what needs to change — be as specific as possible…'}"
+        ></textarea>
+        <div class="review-note">
+          ${isChanging ? '* Note is required for change requests.' : ''}
+          Your feedback will be sent directly to the LBM team in ClickUp.
+        </div>
+        <div class="review-actions">
+          <button class="${isApproving ? 'btn-confirm-approve' : 'btn-confirm-changes'}"
+            onclick="submitReview(${v.id})">
+            ${isApproving ? '✓ Confirm Approval' : '↩ Submit Change Request'}
+          </button>
+          <button class="btn-cancel-review" onclick="openReviewPanel(${v.id},'${openPanelAction}')">Cancel</button>
+        </div>
+      </div>` : '';
 
     return `
-      <div class="video-card">
-        <div class="video-thumb">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" opacity=".45">
-            <polygon points="6,3 20,12 6,21"/>
-          </svg>
-        </div>
-        <div class="video-info">
-          <div class="video-title" title="${esc(v.title)}">${esc(v.title)}</div>
-          <div class="video-meta">
-            <span class="badge badge-${key}"><span class="badge-dot dot-${key}"></span>${v.status}</span>
-            <span class="platform-badge">${v.platform}</span>
-            <span class="date-text">${lbl}</span>
+      <div class="video-item-wrap">
+        <div class="video-card ${isPanelOpen ? 'review-open' : ''}">
+          <div class="video-thumb">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" opacity=".45">
+              <polygon points="6,3 20,12 6,21"/>
+            </svg>
           </div>
+          <div class="video-info">
+            <div class="video-title" title="${esc(v.title)}">${esc(v.title)}</div>
+            <div class="video-meta">
+              <span class="badge badge-${key}"><span class="badge-dot dot-${key}"></span>${v.status}</span>
+              <span class="platform-badge">${v.platform}</span>
+              <span class="date-text">${lbl}</span>
+            </div>
+            ${analyticsHtml}
+            ${feedbackHtml}
+          </div>
+          ${actionsHtml}
         </div>
-        ${action}
+        ${panelHtml}
       </div>`;
   }).join('');
 }
@@ -1002,6 +1480,7 @@ document.getElementById('js-count-videos').textContent   = VIDEOS.length;
 document.getElementById('js-count-invoices').textContent = INVOICES.length;
 document.getElementById('js-videos-sub').textContent     = `April–May 2026 · ${VIDEOS.length} videos in production`;
 
+renderAttentionBanner();
 renderStats();
 renderFilters();
 renderVideoList();
