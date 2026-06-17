@@ -11,6 +11,7 @@ export const authUsers = pgTable('auth_user', {
   createdAt:     timestamp('created_at').notNull().defaultNow(),
   updatedAt:     timestamp('updated_at').notNull().defaultNow(),
   role:          varchar('role', { length: 30 }).notNull().default('account_manager'),
+  amName:        text('am_name'),
 });
 
 export const authSessions = pgTable('auth_session', {
