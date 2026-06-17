@@ -27,15 +27,18 @@ export function FiltersBar({ members, clients }: Props) {
     router.push(`${pathname}?${next.toString()}`);
   }, [params, pathname, router]);
 
-  const range  = params.get('range')  ?? 'all';
-  const member = params.get('member') ?? '';
-  const client = params.get('client') ?? '';
+  const range    = params.get('range')    ?? 'all';
+  const member   = params.get('member')   ?? '';
+  const client   = params.get('client')   ?? '';
+  const archived = params.get('archived') === '1';
 
   const selectStyle: React.CSSProperties = {
     fontSize: 13, color: '#111c28', background: '#fff',
     border: '1px solid #d4dbe2', borderRadius: 7, padding: '6px 10px',
     cursor: 'pointer', outline: 'none',
   };
+
+  const hasFilters = range !== 'all' || member || client || archived;
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 24 }}>
@@ -55,7 +58,27 @@ export function FiltersBar({ members, clients }: Props) {
         {clients.map(c => <option key={c} value={c}>{c}</option>)}
       </select>
 
-      {(range !== 'all' || member || client) && (
+      {/* Archived toggle */}
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#54616f', userSelect: 'none' }}>
+        <div
+          onClick={() => set('archived', archived ? '' : '1')}
+          style={{
+            width: 36, height: 20, borderRadius: 10,
+            background: archived ? '#FF6000' : '#d4dbe2',
+            position: 'relative', cursor: 'pointer', transition: 'background 0.2s',
+            flexShrink: 0,
+          }}
+        >
+          <div style={{
+            position: 'absolute', top: 2, left: archived ? 18 : 2,
+            width: 16, height: 16, borderRadius: '50%', background: '#fff',
+            transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+          }} />
+        </div>
+        Show archived
+      </label>
+
+      {hasFilters && (
         <button
           onClick={() => router.push(pathname)}
           style={{ fontSize: 12, color: '#8b97a4', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}

@@ -3,6 +3,7 @@ import { VideoTable } from '@/components/videos/VideoTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { TeamPerformance, EditorStat } from '@/components/dashboard/TeamPerformance';
 import { FiltersBar } from '@/components/dashboard/FiltersBar';
+import { DonutChart } from '@/components/dashboard/DonutChart';
 import { Suspense } from 'react';
 
 export const dynamic = 'force-dynamic';
@@ -93,7 +94,7 @@ function rangeCutoff(range: string): number {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; member?: string; client?: string }>;
+  searchParams: Promise<{ range?: string; member?: string; client?: string; archived?: string }>;
 }) {
   if (!isConfigured()) {
     return (
@@ -106,21 +107,24 @@ export default async function DashboardPage({
     );
   }
 
-  const { range = 'all', member = '', client: clientFilter = '' } = await searchParams;
+  const { range = 'all', member = '', client: clientFilter = '', archived = '' } = await searchParams;
+  const includeArchived = archived === '1';
 
   const folderId = process.env.CLICKUP_FOLDER_ID;
   let allTasks: MappedTask[] = [];
   let error: string | null = null;
 
   try {
-    allTasks = folderId ? await getTasksFromFolder(folderId) : [];
+    allTasks = folderId ? await getTasksFromFolder(folderId, includeArchived) : [];
   } catch (e) {
     error = e instanceof Error ? e.message : 'Unknown error';
   }
 
+  // Build filter lists from ALL tasks (before filtering)
   const allMembers = [...new Set(allTasks.map(t => t.editorName ?? t.assignedAmName).filter(Boolean) as string[])].sort();
   const allClients = [...new Set(allTasks.map(t => t.clientName).filter(Boolean) as string[])].sort();
 
+  // Apply filters
   const cutoff = rangeCutoff(range);
   const tasks = allTasks.filter(t => {
     if (cutoff > 0 && new Date(t.dateUpdated).getTime() < cutoff) return false;
@@ -152,11 +156,13 @@ export default async function DashboardPage({
   return (
     <main style={{ padding: '28px 32px', maxWidth: 1400 }}>
 
+      {/* Header */}
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111c28', margin: 0 }}>Production Overview</h1>
         <p style={{ fontSize: 13, color: '#8b97a4', margin: '4px 0 0' }}>Live from ClickUp · refreshes every 5 min</p>
       </div>
 
+      {/* Filters */}
       <Suspense>
         <FiltersBar members={allMembers} clients={allClients} />
       </Suspense>
@@ -167,6 +173,7 @@ export default async function DashboardPage({
         </div>
       )}
 
+      {/* KPI cards */}
       <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
         <KpiCard label="Videos in Production" value={totalInProduction} accent="#FF6000" sub="active tasks" />
         <KpiCard label="Pending Approval"      value={pendingApproval}   accent="#ffc53d" sub="awaiting client review" />
@@ -177,7 +184,26 @@ export default async function DashboardPage({
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+      {/* Status donut + Pipeline funnel + Client breakdown */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, marginBottom: 24 }}>
+
+        {/* Status breakdown donut */}
+        <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '20px 24px' }}>
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Task Status Breakdown</h2>
+          <DonutChart
+            total={tasks.length}
+            segments={[
+              { label: 'To Do',          color: '#8d8d8d', count: (stats['Backlog / Not Ready'] ?? 0) + (stats['Not Assigned'] ?? 0) },
+              { label: 'In Progress',    color: '#1090e0', count: (stats['In Progress (Editor)'] ?? 0) + (stats['In Progress (Corrections)'] ?? 0) },
+              { label: 'Quality Check',  color: '#7C4DFF', count: (stats['Quality Control – TC / QC'] ?? 0) + (stats['QC Final – AM'] ?? 0) },
+              { label: 'Client Review',  color: '#ffc53d', count: stats['For Client Review'] ?? 0 },
+              { label: 'Ready to Post',  color: '#1090e0', count: stats['Ready to be Posted'] ?? 0 },
+              { label: 'Posted',         color: '#30a46c', count: stats['Posted in Socials'] ?? 0 },
+            ]}
+          />
+        </div>
+
+        {/* Pipeline funnel */}
         <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '20px 24px' }}>
           <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Pipeline Funnel</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -199,6 +225,7 @@ export default async function DashboardPage({
           </div>
         </div>
 
+        {/* Client breakdown */}
         <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '20px 24px' }}>
           <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Client Breakdown</h2>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -236,11 +263,13 @@ export default async function DashboardPage({
         </div>
       </div>
 
+      {/* Team Performance */}
       <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '20px 24px', marginBottom: 24 }}>
         <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Team Performance</h2>
         <TeamPerformance editors={editorStats} />
       </div>
 
+      {/* Approval queue */}
       <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: 0 }}>For Client Review</h2>

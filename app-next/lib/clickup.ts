@@ -108,35 +108,35 @@ export function mapTask(task: ClickUpTask): MappedTask {
   };
 }
 
-const TERMINAL = ['Posted in Socials', 'Archived', 'Not Posted — Discarded'];
+const TERMINAL = ['posted in socials', 'archived', 'not posted — discarded'];
 
-export async function getTasksFromList(listId: string): Promise<MappedTask[]> {
+export async function getTasksFromList(listId: string, includeArchived = false): Promise<MappedTask[]> {
   const all: ClickUpTask[] = [];
   let page = 0;
   while (true) {
     const data = await get(`/list/${listId}/task?subtasks=true&include_closed=true&page=${page}`);
     const tasks: ClickUpTask[] = data.tasks ?? [];
     all.push(...tasks);
-    // ClickUp returns fewer than 100 tasks on the last page
     if (tasks.length < 100) break;
     page++;
   }
-  return all.filter(t => !TERMINAL.includes(t.status.status)).map(mapTask);
+  return all
+    .filter(t => includeArchived ? true : !TERMINAL.includes(t.status.status.toLowerCase()))
+    .map(mapTask);
 }
 
-export async function getTasksFromFolder(folderId: string): Promise<MappedTask[]> {
-  // Get all lists in the folder, then fetch tasks from each
+export async function getTasksFromFolder(folderId: string, includeArchived = false): Promise<MappedTask[]> {
   const data = await get(`/folder/${folderId}/list`);
   const lists: { id: string }[] = data.lists ?? [];
-  const results = await Promise.all(lists.map(l => getTasksFromList(l.id)));
+  const results = await Promise.all(lists.map(l => getTasksFromList(l.id, includeArchived)));
   return results.flat();
 }
 
-export async function getActiveTasks(): Promise<MappedTask[]> {
+export async function getActiveTasks(includeArchived = false): Promise<MappedTask[]> {
   const folderId = process.env.CLICKUP_FOLDER_ID;
   const listId = process.env.CLICKUP_LIST_ID;
-  if (folderId) return getTasksFromFolder(folderId);
-  if (listId) return getTasksFromList(listId);
+  if (folderId) return getTasksFromFolder(folderId, includeArchived);
+  if (listId) return getTasksFromList(listId, includeArchived);
   throw new Error('Set CLICKUP_FOLDER_ID or CLICKUP_LIST_ID');
 }
 
