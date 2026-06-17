@@ -39,47 +39,71 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
     const approved = result?.toLowerCase().includes('approv') && !result?.toLowerCase().includes('changes');
     return (
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '10px 14px', borderRadius: 8,
-        background: approved ? '#e8f5ee' : '#fef4e0',
-        fontSize: 13, fontWeight: 600,
-        color: approved ? '#30a46c' : '#e59700',
+        display: 'inline-flex', alignItems: 'center', gap: 7,
+        padding: '10px 14px', borderRadius: 13,
+        background: approved ? '#e4f3ec' : '#fbe7e2',
+        fontSize: 14, fontWeight: 700,
+        color: approved ? '#14805f' : '#cf3f36',
       }}>
-        <span>{approved ? '✓' : '✎'}</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{width:15,height:15}}>
+          {approved
+            ? <path d="M20 6 9 17l-5-5"/>
+            : <><path d="M18 6 6 18"/><path d="M6 6l12 12"/></>
+          }
+        </svg>
         {result}
       </div>
     );
   }
 
   return (
-    <div>
-      {error && (
-        <div style={{ fontSize: 12, color: '#cf3f36', marginBottom: 8 }}>{error}</div>
-      )}
-      <div style={{ display: 'flex', gap: 10 }}>
-        <button
-          onClick={() => act('approve')}
-          disabled={state === 'loading'}
-          style={{
-            flex: 1, padding: '11px 16px', borderRadius: 8, border: 'none',
-            background: state === 'loading' ? '#eef1f4' : '#30a46c',
-            color: state === 'loading' ? '#8b97a4' : '#fff',
-            fontWeight: 600, fontSize: 14, cursor: state === 'loading' ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {state === 'loading' ? 'Saving…' : '✓ Approve'}
-        </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {error && <div style={{ fontSize: 12, color: '#cf3f36' }}>{error}</div>}
+
+      <p style={{ margin: 0, textAlign: 'center', fontSize: 12, color: '#9d9488', fontWeight: 600 }}>
+        Your decision updates the ClickUp task automatically
+      </p>
+
+      <div style={{ display: 'flex', gap: 9 }}>
         <button
           onClick={() => act('changes')}
           disabled={state === 'loading'}
           style={{
-            flex: 1, padding: '11px 16px', borderRadius: 8,
-            border: '1px solid #d4dbe2', background: '#fff',
-            color: '#54616f', fontWeight: 600, fontSize: 14,
+            flex: 1, padding: '12px 14px', borderRadius: 13,
+            border: '1px solid #fbe7e2', background: '#fbe7e2',
+            color: '#cf3f36', fontWeight: 700, fontSize: 14,
             cursor: state === 'loading' ? 'not-allowed' : 'pointer',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+            fontFamily: 'inherit', opacity: state === 'loading' ? 0.5 : 1,
           }}
         >
-          ✎ Request Changes
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{width:15,height:15}}>
+            <path d="M18 6 6 18"/><path d="M6 6l12 12"/>
+          </svg>
+          Request changes
+        </button>
+
+        <button
+          onClick={() => act('approve')}
+          disabled={state === 'loading'}
+          style={{
+            flex: 1, padding: '12px 14px', borderRadius: 13, border: 'none',
+            background: state === 'loading' ? '#f5f2ef' : '#FF6000',
+            color: state === 'loading' ? '#9d9488' : '#fff',
+            fontWeight: 700, fontSize: 14,
+            cursor: state === 'loading' ? 'not-allowed' : 'pointer',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+            fontFamily: 'inherit',
+          }}
+        >
+          {state === 'loading' ? 'Saving…' : (
+            <>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{width:15,height:15}}>
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+              Approve
+            </>
+          )}
         </button>
       </div>
     </div>
