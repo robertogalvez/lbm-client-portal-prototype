@@ -8,17 +8,31 @@ import { Suspense } from 'react';
 
 export const dynamic = 'force-dynamic';
 
+// Normalized (lowercase) pipeline stage names in order
 const PIPELINE_ORDER = [
-  'Backlog / Not Ready',
-  'Not Assigned',
-  'In Progress (Editor)',
-  'In Progress (Corrections)',
-  'Quality Control – TC / QC',
-  'QC Final – AM',
-  'For Client Review',
-  'Ready to be Posted',
-  'Posted in Socials',
+  'backlog / not ready',
+  'not assigned',
+  'in progress (editor)',
+  'in progress (corrections)',
+  'quality control – tc / qc',
+  'qc final – am',
+  'for client review',
+  'ready to be posted',
+  'posted in socials',
 ];
+
+// Display labels for each normalized stage key
+const PIPELINE_LABELS: Record<string, string> = {
+  'backlog / not ready':        'Backlog / Not Ready',
+  'not assigned':               'Not Assigned',
+  'in progress (editor)':       'In Progress (Editor)',
+  'in progress (corrections)':  'In Progress (Corrections)',
+  'quality control – tc / qc':  'Quality Control – TC / QC',
+  'qc final – am':              'QC Final – AM',
+  'for client review':          'For Client Review',
+  'ready to be posted':         'Ready to be Posted',
+  'posted in socials':          'Posted in Socials',
+};
 
 function norm(s: string) {
   return s.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -26,7 +40,10 @@ function norm(s: string) {
 
 function pipelineStats(tasks: MappedTask[]) {
   const counts: Record<string, number> = {};
-  for (const t of tasks) counts[t.status] = (counts[t.status] ?? 0) + 1;
+  for (const t of tasks) {
+    const key = norm(t.status);
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
   return counts;
 }
 
@@ -193,12 +210,12 @@ export default async function DashboardPage({
           <DonutChart
             total={tasks.length}
             segments={[
-              { label: 'To Do',          color: '#8d8d8d', count: (stats['Backlog / Not Ready'] ?? 0) + (stats['Not Assigned'] ?? 0) },
-              { label: 'In Progress',    color: '#1090e0', count: (stats['In Progress (Editor)'] ?? 0) + (stats['In Progress (Corrections)'] ?? 0) },
-              { label: 'Quality Check',  color: '#7C4DFF', count: (stats['Quality Control – TC / QC'] ?? 0) + (stats['QC Final – AM'] ?? 0) },
-              { label: 'Client Review',  color: '#ffc53d', count: stats['For Client Review'] ?? 0 },
-              { label: 'Ready to Post',  color: '#1090e0', count: stats['Ready to be Posted'] ?? 0 },
-              { label: 'Posted',         color: '#30a46c', count: stats['Posted in Socials'] ?? 0 },
+              { label: 'To Do',          color: '#8d8d8d', count: (stats['backlog / not ready'] ?? 0) + (stats['not assigned'] ?? 0) },
+              { label: 'In Progress',    color: '#1090e0', count: (stats['in progress (editor)'] ?? 0) + (stats['in progress (corrections)'] ?? 0) },
+              { label: 'Quality Check',  color: '#7C4DFF', count: (stats['quality control – tc / qc'] ?? 0) + (stats['qc final – am'] ?? 0) },
+              { label: 'Client Review',  color: '#ffc53d', count: stats['for client review'] ?? 0 },
+              { label: 'Ready to Post',  color: '#20c997', count: stats['ready to be posted'] ?? 0 },
+              { label: 'Posted',         color: '#30a46c', count: stats['posted in socials'] ?? 0 },
             ]}
           />
         </div>
@@ -213,7 +230,7 @@ export default async function DashboardPage({
               return (
                 <div key={stage}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                    <span style={{ fontSize: 12, color: '#54616f' }}>{stage}</span>
+                    <span style={{ fontSize: 12, color: '#54616f' }}>{PIPELINE_LABELS[stage] ?? stage}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: '#111c28', fontFamily: 'monospace' }}>{count}</span>
                   </div>
                   <div style={{ height: 6, background: '#eceef1', borderRadius: 3, overflow: 'hidden' }}>
