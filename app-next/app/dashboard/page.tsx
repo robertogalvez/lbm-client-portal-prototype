@@ -1,6 +1,8 @@
 import { getActiveTasks, isConfigured, MappedTask } from '@/lib/clickup';
-
 import { VideoTable } from '@/components/videos/VideoTable';
+
+// Force server-render on every request so env vars are read at runtime, not build time
+export const dynamic = 'force-dynamic';
 
 function groupByStatus(tasks: MappedTask[]) {
   return tasks.reduce<Record<string, number>>((acc, t) => {
