@@ -22,7 +22,7 @@ export function Sidebar({ active }: { active?: string }) {
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           backgroundClip: 'text',
         }}>
-          Legacy Media
+          Legacy Building Media
         </span>
         <div style={{ fontSize: 11, color: '#6b7888', marginTop: 2, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
           Portal
