@@ -128,8 +128,20 @@ export async function getTasksFromList(listId: string, includeArchived = false):
 export async function getTasksFromFolder(folderId: string, includeArchived = false): Promise<MappedTask[]> {
   const data = await get(`/folder/${folderId}/list`);
   const lists: { id: string }[] = data.lists ?? [];
-  const results = await Promise.all(lists.map(l => getTasksFromList(l.id, includeArchived)));
-  return results.flat();
+
+  // Fetch master list first so its status is authoritative when deduplicating
+  const masterListId = process.env.CLICKUP_LIST_ID;
+  const ordered = masterListId
+    ? [{ id: masterListId }, ...lists.filter(l => l.id !== masterListId)]
+    : lists;
+
+  const results = await Promise.all(ordered.map(l => getTasksFromList(l.id, includeArchived)));
+  const seen = new Set<string>();
+  return results.flat().filter(t => {
+    if (seen.has(t.clickupTaskId)) return false;
+    seen.add(t.clickupTaskId);
+    return true;
+  });
 }
 
 export async function getActiveTasks(includeArchived = false): Promise<MappedTask[]> {
