@@ -16,6 +16,7 @@ export async function POST(req: Request) {
   try {
     const sql = neon(directUrl);
 
+    // Run all DDL in a single pipeline call so they commit together
     await sql.transaction([
       sql`CREATE TABLE IF NOT EXISTS "auth_user" (
         "id"             text PRIMARY KEY NOT NULL,
@@ -73,6 +74,7 @@ export async function POST(req: Request) {
         "created_at"         timestamp DEFAULT now()
       )`,
       sql`ALTER TABLE auth_user ADD COLUMN IF NOT EXISTS am_name text`,
+      sql`ALTER TABLE auth_user ADD COLUMN IF NOT EXISTS client_name text`,
       sql`CREATE TABLE IF NOT EXISTS "video_cache" (
         "clickup_task_id"     varchar(50) PRIMARY KEY NOT NULL,
         "client_id"           varchar(100),

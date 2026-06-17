@@ -15,7 +15,7 @@ export default function LoginPage() {
     setState('loading');
     setError('');
     try {
-      await authClient.signIn.magicLink({ email, callbackURL: '/dashboard' });
+      await authClient.signIn.magicLink({ email, callbackURL: '/' });
       setState('sent');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');

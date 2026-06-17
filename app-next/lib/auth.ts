@@ -48,7 +48,8 @@ export const auth = betterAuth({
   },
   user: {
     additionalFields: {
-      role: { type: 'string', required: false, defaultValue: 'account_manager' },
+      role:       { type: 'string', required: false, defaultValue: 'account_manager' },
+      clientName: { type: 'string', required: false },
     },
   },
 });
