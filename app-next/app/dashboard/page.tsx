@@ -1,4 +1,5 @@
 import { getActiveTasks, isConfigured, MappedTask } from '@/lib/clickup';
+
 import { VideoTable } from '@/components/videos/VideoTable';
 
 function groupByStatus(tasks: MappedTask[]) {
@@ -39,7 +40,7 @@ CLICKUP_LIST_ID=your_list_id_here`}
   let error: string | null = null;
 
   try {
-    tasks = await getActiveTasks(process.env.CLICKUP_LIST_ID!);
+    tasks = await getActiveTasks();
   } catch (e) {
     error = e instanceof Error ? e.message : 'Unknown error fetching tasks';
   }
