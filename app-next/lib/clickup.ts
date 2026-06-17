@@ -94,9 +94,17 @@ export function mapTask(task: ClickUpTask): MappedTask {
 const TERMINAL = ['Posted in Socials', 'Archived', 'Not Posted — Discarded'];
 
 export async function getTasksFromList(listId: string): Promise<MappedTask[]> {
-  const data = await get(`/list/${listId}/task?subtasks=true&include_closed=true&page=0`);
-  const tasks: ClickUpTask[] = data.tasks ?? [];
-  return tasks.filter(t => !TERMINAL.includes(t.status.status)).map(mapTask);
+  const all: ClickUpTask[] = [];
+  let page = 0;
+  while (true) {
+    const data = await get(`/list/${listId}/task?subtasks=true&include_closed=true&page=${page}`);
+    const tasks: ClickUpTask[] = data.tasks ?? [];
+    all.push(...tasks);
+    // ClickUp returns fewer than 100 tasks on the last page
+    if (tasks.length < 100) break;
+    page++;
+  }
+  return all.filter(t => !TERMINAL.includes(t.status.status)).map(mapTask);
 }
 
 export async function getTasksFromFolder(folderId: string): Promise<MappedTask[]> {
