@@ -12,10 +12,11 @@ const DATE_RANGES = [
 
 interface Props {
   members: string[];
+  ams: string[];
   clients: string[];
 }
 
-export function FiltersBar({ members, clients }: Props) {
+export function FiltersBar({ members, ams, clients }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -29,6 +30,7 @@ export function FiltersBar({ members, clients }: Props) {
 
   const range    = params.get('range')    ?? 'all';
   const member   = params.get('member')   ?? '';
+  const am       = params.get('am')       ?? '';
   const client   = params.get('client')   ?? '';
   const archived = params.get('archived') === '1';
 
@@ -38,7 +40,7 @@ export function FiltersBar({ members, clients }: Props) {
     cursor: 'pointer', outline: 'none',
   };
 
-  const hasFilters = range !== 'all' || member || client || archived;
+  const hasFilters = range !== 'all' || member || am || client || archived;
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 24 }}>
@@ -51,6 +53,11 @@ export function FiltersBar({ members, clients }: Props) {
       <select style={selectStyle} value={member} onChange={e => set('member', e.target.value)}>
         <option value="">All editors</option>
         {members.map(m => <option key={m} value={m}>{m}</option>)}
+      </select>
+
+      <select style={selectStyle} value={am} onChange={e => set('am', e.target.value)}>
+        <option value="">All AMs</option>
+        {ams.map(a => <option key={a} value={a}>{a}</option>)}
       </select>
 
       <select style={selectStyle} value={client} onChange={e => set('client', e.target.value)}>
