@@ -116,5 +116,8 @@ export async function getActiveTasks(): Promise<MappedTask[]> {
 }
 
 export function isConfigured(): boolean {
-  return !!(process.env.CLICKUP_API_TOKEN && (process.env.CLICKUP_FOLDER_ID || process.env.CLICKUP_LIST_ID));
+  return !!(
+    process.env.CLICKUP_API_TOKEN &&
+    (process.env.CLICKUP_FOLDER_ID || process.env.CLICKUP_LIST_ID || process.env.CLICKUP_APPROVAL_LIST_ID)
+  );
 }
