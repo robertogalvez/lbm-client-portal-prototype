@@ -13,8 +13,6 @@ async function get(path: string) {
   return res.json();
 }
 
-// The dropdown `value` is an integer INDEX into type_config.options — not the option id.
-// This resolves the index to the stable UUID so we never store the index or the name.
 export function resolveOptionId(field: ClickUpField, valueIndex: number): string | null {
   const options: { id: string; name: string }[] = field?.type_config?.options ?? [];
   return options[valueIndex]?.id ?? null;
@@ -83,7 +81,6 @@ export function mapTask(task: ClickUpTask): MappedTask {
   const amName    = amUsers?.[0]?.username ?? null;
   const editorName = task.assignees?.[0]?.username ?? null;
 
-  // due_date is ms timestamp string or ISO string
   let dueDate: string | null = null;
   if (task.due_date) {
     const ms = Number(task.due_date);
@@ -108,8 +105,9 @@ export function mapTask(task: ClickUpTask): MappedTask {
   };
 }
 
-// Use normalized form (lowercase, trimmed) — matched against t.status.status.toLowerCase()
-const TERMINAL = ['posted in socials', 'archived', 'not posted - discarded'];
+// Only truly dead tasks are hidden by the archived toggle.
+// "posted in socials" stays visible always so the pipeline funnel shows the full picture.
+const HIDDEN_STATUSES = ['archived', 'not posted - discarded'];
 
 export async function getTasksFromList(listId: string, includeArchived = false): Promise<MappedTask[]> {
   const all: ClickUpTask[] = [];
@@ -122,7 +120,7 @@ export async function getTasksFromList(listId: string, includeArchived = false):
     page++;
   }
   return all
-    .filter(t => includeArchived ? true : !TERMINAL.includes(t.status.status.toLowerCase()))
+    .filter(t => includeArchived ? true : !HIDDEN_STATUSES.includes(t.status.status.toLowerCase()))
     .map(mapTask);
 }
 
@@ -130,7 +128,6 @@ export async function getTasksFromFolder(folderId: string, includeArchived = fal
   const data = await get(`/folder/${folderId}/list`);
   const lists: { id: string }[] = data.lists ?? [];
 
-  // Fetch master list first so its status is authoritative when deduplicating
   const masterListId = process.env.CLICKUP_LIST_ID;
   const ordered = masterListId
     ? [{ id: masterListId }, ...lists.filter(l => l.id !== masterListId)]
