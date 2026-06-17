@@ -4,7 +4,6 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
 
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -42,7 +41,7 @@ export async function POST(req: Request) {
   }
 
   // Create new user
-  const id = nanoid();
+  const id = crypto.randomUUID();
   await db.insert(authUsers).values({
     id,
     email,
