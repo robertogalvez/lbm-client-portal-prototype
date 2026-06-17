@@ -10,18 +10,19 @@ export const dynamic = 'force-dynamic';
 
 // Normalized (lowercase) pipeline stage names — must match exact ClickUp status strings
 const PIPELINE_ORDER = [
-  'not ready',
-  'backlog',
+  'not ready',           // ClickUp: "not ready"  (was "backlog / not ready")
+  'backlog',             // ClickUp: "backlog"
   'not assigned',
   'in progress (editor)',
   'in progress (corrections)',
-  'tc - qc (somu)',
-  'qc final - am',
+  'tc - qc (somu)',      // ClickUp: "tc - qc (somu)"  (was "quality control – tc / qc")
+  'qc final - am',       // ClickUp: "qc final - am"   (hyphen, not en dash)
   'for client review',
   'ready to be posted',
   'posted in socials',
 ];
 
+// Display labels for pipeline stages
 const PIPELINE_LABELS: Record<string, string> = {
   'not ready':              'Not Ready',
   'backlog':                'Backlog',
@@ -112,7 +113,7 @@ function rangeCutoff(range: string): number {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; member?: string; client?: string; archived?: string }>;
+  searchParams: Promise<{ range?: string; member?: string; am?: string; client?: string; archived?: string }>;
 }) {
   if (!isConfigured()) {
     return (
@@ -125,9 +126,11 @@ export default async function DashboardPage({
     );
   }
 
-  const { range = 'all', member = '', client: clientFilter = '', archived = '' } = await searchParams;
+  const { range = 'all', member = '', am: amFilter = '', client: clientFilter = '', archived = '' } = await searchParams;
   const includeArchived = archived === '1';
 
+  // Always prefer the master list (single source of truth) to avoid counting
+  // tasks multiple times when they are added to workflow lists in the folder.
   const masterListId = process.env.CLICKUP_LIST_ID;
   const folderId     = process.env.CLICKUP_FOLDER_ID;
   let allTasks: MappedTask[] = [];
@@ -143,13 +146,17 @@ export default async function DashboardPage({
     error = e instanceof Error ? e.message : 'Unknown error';
   }
 
-  const allMembers = [...new Set(allTasks.map(t => t.editorName ?? t.assignedAmName).filter(Boolean) as string[])].sort();
+  // Build filter lists from ALL tasks (before filtering)
+  const allMembers = [...new Set(allTasks.map(t => t.editorName).filter(Boolean) as string[])].sort();
+  const allAMs     = [...new Set(allTasks.map(t => t.assignedAmName).filter(Boolean) as string[])].sort();
   const allClients = [...new Set(allTasks.map(t => t.clientName).filter(Boolean) as string[])].sort();
 
+  // Apply filters
   const cutoff = rangeCutoff(range);
   const tasks = allTasks.filter(t => {
     if (cutoff > 0 && new Date(t.dateUpdated).getTime() < cutoff) return false;
-    if (member && t.editorName !== member && t.assignedAmName !== member) return false;
+    if (member && t.editorName !== member) return false;
+    if (amFilter && t.assignedAmName !== amFilter) return false;
     if (clientFilter && t.clientName !== clientFilter) return false;
     return true;
   });
@@ -165,7 +172,7 @@ export default async function DashboardPage({
   const readyToPost       = tasks.filter(t => norm(t.status) === 'ready to be posted').length;
   const postedThisMonth   = tasks.filter(t => norm(t.status) === POSTED_NORM && new Date(t.dateUpdated).getTime() >= monthStart).length;
 
-  const postedWithDue = tasks.filter(t => norm(t.status) === POSTED_NORM && t.dueDate);
+  const postedWithDue = tasks.filter(t => norm(t.status) === 'posted in socials' && t.dueDate);
   const onTimePct = postedWithDue.length > 0
     ? Math.round(postedWithDue.filter(t => new Date(t.dateUpdated) <= new Date(t.dueDate!)).length / postedWithDue.length * 100)
     : null;
@@ -179,13 +186,15 @@ export default async function DashboardPage({
   return (
     <main style={{ padding: '28px 32px', maxWidth: 1400 }}>
 
+      {/* Header */}
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111c28', margin: 0 }}>Production Overview</h1>
         <p style={{ fontSize: 13, color: '#8b97a4', margin: '4px 0 0' }}>Live from ClickUp · refreshes every 5 min</p>
       </div>
 
+      {/* Filters */}
       <Suspense>
-        <FiltersBar members={allMembers} clients={allClients} />
+        <FiltersBar members={allMembers} ams={allAMs} clients={allClients} />
       </Suspense>
 
       {error && (
@@ -194,6 +203,7 @@ export default async function DashboardPage({
         </div>
       )}
 
+      {/* KPI cards */}
       <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
         <KpiCard label="Videos in Production" value={totalInProduction} accent="#FF6000" sub="active tasks" />
         <KpiCard label="Pending Approval"      value={pendingApproval}   accent="#ffc53d" sub="awaiting client review" />
@@ -204,8 +214,11 @@ export default async function DashboardPage({
         )}
       </div>
 
+      {/* Pipeline + Client breakdown */}
+      {/* Status donut + Pipeline funnel + Client breakdown */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, marginBottom: 24 }}>
 
+        {/* Status breakdown donut */}
         <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '20px 24px' }}>
           <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Task Status Breakdown</h2>
           <DonutChart
@@ -221,6 +234,7 @@ export default async function DashboardPage({
           />
         </div>
 
+        {/* Pipeline funnel */}
         <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '20px 24px' }}>
           <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Pipeline Funnel</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -242,6 +256,7 @@ export default async function DashboardPage({
           </div>
         </div>
 
+        {/* Client breakdown */}
         <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '20px 24px' }}>
           <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Client Breakdown</h2>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -279,11 +294,13 @@ export default async function DashboardPage({
         </div>
       </div>
 
+      {/* Team Performance */}
       <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '20px 24px', marginBottom: 24 }}>
         <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Team Performance</h2>
         <TeamPerformance editors={editorStats} />
       </div>
 
+      {/* Approval queue */}
       <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: 0 }}>For Client Review</h2>
