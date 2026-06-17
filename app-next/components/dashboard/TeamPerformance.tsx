@@ -38,7 +38,6 @@ export function TeamPerformance({ editors }: { editors: EditorStat[] }) {
 
   return (
     <div>
-      {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: '#f4f6f8', padding: 4, borderRadius: 8, width: 'fit-content' }}>
         <button style={tabStyle(tab === 'leaderboard')} onClick={() => setTab('leaderboard')}>Task Leaderboard</button>
         <button style={tabStyle(tab === 'deadline')} onClick={() => setTab('deadline')}>Deadline Accuracy</button>
@@ -58,11 +57,7 @@ export function TeamPerformance({ editors }: { editors: EditorStat[] }) {
               <tr key={e.name} style={{ borderBottom: '1px solid #f4f6f8' }}>
                 <td style={{ padding: '10px 10px', fontWeight: 500, color: '#111c28' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{
-                      width: 28, height: 28, borderRadius: '50%', background: '#FF6000',
-                      color: '#fff', fontSize: 11, fontWeight: 700,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                    }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#FF6000', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       {e.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
                     </div>
                     {e.name}
@@ -71,8 +66,8 @@ export function TeamPerformance({ editors }: { editors: EditorStat[] }) {
                 <td style={{ textAlign: 'center', padding: '10px 10px', color: '#111c28', fontWeight: 600 }}>{e.total}</td>
                 <td style={{ textAlign: 'center', padding: '10px 10px', color: '#30a46c', fontWeight: 600 }}>{e.approved}</td>
                 <td style={{ textAlign: 'center', padding: '10px 10px', color: '#1090e0' }}>{e.inProgress}</td>
-                <td style={{ textAlign: 'center', padding: '10px 10px', color: '#30a46c' }}>{e.onTime > 0 ? `${Math.round(e.onTime / e.withDueDate * 100)}%` : '—'}</td>
-                <td style={{ textAlign: 'center', padding: '10px 10px', color: e.late > 0 ? '#e5484d' : '#8b97a4' }}>{e.late > 0 ? `${Math.round(e.late / e.withDueDate * 100)}%` : '—'}</td>
+                <td style={{ textAlign: 'center', padding: '10px 10px', color: '#30a46c' }}>{e.withDueDate > 0 ? `${Math.round(e.onTime / e.withDueDate * 100)}%` : '—'}</td>
+                <td style={{ textAlign: 'center', padding: '10px 10px', color: e.late > 0 ? '#e5484d' : '#8b97a4' }}>{e.withDueDate > 0 ? `${Math.round(e.late / e.withDueDate * 100)}%` : '—'}</td>
               </tr>
             ))}
           </tbody>
@@ -90,16 +85,12 @@ export function TeamPerformance({ editors }: { editors: EditorStat[] }) {
           </thead>
           <tbody>
             {editors.filter(e => e.withDueDate > 0).sort((a, b) => b.withDueDate - a.withDueDate).map(e => {
-              const rate = e.withDueDate > 0 ? Math.round(e.onTime / e.withDueDate * 100) : 0;
+              const rate = Math.round(e.onTime / e.withDueDate * 100);
               return (
                 <tr key={e.name} style={{ borderBottom: '1px solid #f4f6f8' }}>
                   <td style={{ padding: '10px 10px', fontWeight: 500, color: '#111c28' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{
-                        width: 28, height: 28, borderRadius: '50%', background: '#FF6000',
-                        color: '#fff', fontSize: 11, fontWeight: 700,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                      }}>
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#FF6000', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         {e.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
                       </div>
                       {e.name}
