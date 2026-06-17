@@ -1,4 +1,4 @@
-import { getTasksFromFolder, isConfigured, MappedTask } from '@/lib/clickup';
+import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask } from '@/lib/clickup';
 import { VideoTable } from '@/components/videos/VideoTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { TeamPerformance, EditorStat } from '@/components/dashboard/TeamPerformance';
@@ -127,12 +127,19 @@ export default async function DashboardPage({
   const { range = 'all', member = '', client: clientFilter = '', archived = '' } = await searchParams;
   const includeArchived = archived === '1';
 
-  const folderId = process.env.CLICKUP_FOLDER_ID;
+  // Always prefer the master list (single source of truth) to avoid counting
+  // tasks multiple times when they are added to workflow lists in the folder.
+  const masterListId = process.env.CLICKUP_LIST_ID;
+  const folderId     = process.env.CLICKUP_FOLDER_ID;
   let allTasks: MappedTask[] = [];
   let error: string | null = null;
 
   try {
-    allTasks = folderId ? await getTasksFromFolder(folderId, includeArchived) : [];
+    if (masterListId) {
+      allTasks = await getTasksFromList(masterListId, includeArchived);
+    } else if (folderId) {
+      allTasks = await getTasksFromFolder(folderId, includeArchived);
+    }
   } catch (e) {
     error = e instanceof Error ? e.message : 'Unknown error';
   }

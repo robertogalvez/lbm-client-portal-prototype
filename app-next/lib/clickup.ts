@@ -114,7 +114,7 @@ export async function getTasksFromList(listId: string, includeArchived = false):
   const all: ClickUpTask[] = [];
   let page = 0;
   while (true) {
-    const data = await get(`/list/${listId}/task?subtasks=true&include_closed=true&page=${page}`);
+    const data = await get(`/list/${listId}/task?include_closed=true&page=${page}`);
     const tasks: ClickUpTask[] = data.tasks ?? [];
     all.push(...tasks);
     if (tasks.length < 100) break;
