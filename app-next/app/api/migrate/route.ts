@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 
+// One-time migration endpoint — protect with a secret token
 export async function POST(req: Request) {
   const secret = req.headers.get('x-migrate-secret');
   if (secret !== process.env.MIGRATE_SECRET) {
@@ -10,6 +11,7 @@ export async function POST(req: Request) {
   try {
     const sql = neon(process.env.DATABASE_URL!);
 
+    // Run DDL statements individually
     const statements = [
       `CREATE TABLE IF NOT EXISTS "auth_user" (
         "id"             text PRIMARY KEY NOT NULL,

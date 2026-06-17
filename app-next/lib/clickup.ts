@@ -91,16 +91,41 @@ export function mapTask(task: ClickUpTask): MappedTask {
   };
 }
 
-export async function getActiveTasks(listId: string): Promise<MappedTask[]> {
-  // Exclude terminal statuses to keep the result focused on active work
-  const TERMINAL = ['Posted in Socials', 'Archived', 'Not Posted — Discarded'];
-  const data = await get(`/list/${listId}/task?subtasks=true&include_closed=false&page=0`);
-  const tasks: ClickUpTask[] = data.tasks ?? [];
-  return tasks
-    .filter(t => !TERMINAL.includes(t.status.status))
-    .map(mapTask);
+const TERMINAL = ['Posted in Socials', 'Archived', 'Not Posted — Discarded'];
+
+export async function getTasksFromList(listId: string): Promise<MappedTask[]> {
+  const all: ClickUpTask[] = [];
+  let page = 0;
+  while (true) {
+    const data = await get(`/list/${listId}/task?subtasks=true&include_closed=true&page=${page}`);
+    const tasks: ClickUpTask[] = data.tasks ?? [];
+    all.push(...tasks);
+    // ClickUp returns fewer than 100 tasks on the last page
+    if (tasks.length < 100) break;
+    page++;
+  }
+  return all.filter(t => !TERMINAL.includes(t.status.status)).map(mapTask);
+}
+
+export async function getTasksFromFolder(folderId: string): Promise<MappedTask[]> {
+  // Get all lists in the folder, then fetch tasks from each
+  const data = await get(`/folder/${folderId}/list`);
+  const lists: { id: string }[] = data.lists ?? [];
+  const results = await Promise.all(lists.map(l => getTasksFromList(l.id)));
+  return results.flat();
+}
+
+export async function getActiveTasks(): Promise<MappedTask[]> {
+  const folderId = process.env.CLICKUP_FOLDER_ID;
+  const listId = process.env.CLICKUP_LIST_ID;
+  if (folderId) return getTasksFromFolder(folderId);
+  if (listId) return getTasksFromList(listId);
+  throw new Error('Set CLICKUP_FOLDER_ID or CLICKUP_LIST_ID');
 }
 
 export function isConfigured(): boolean {
-  return !!(process.env.CLICKUP_API_TOKEN && process.env.CLICKUP_LIST_ID);
+  return !!(
+    process.env.CLICKUP_API_TOKEN &&
+    (process.env.CLICKUP_FOLDER_ID || process.env.CLICKUP_LIST_ID || process.env.CLICKUP_APPROVAL_LIST_ID)
+  );
 }
