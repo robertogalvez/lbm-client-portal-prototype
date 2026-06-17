@@ -40,6 +40,7 @@ export interface ClickUpTask {
   custom_fields: ClickUpField[];
   assignees: { id: string; username: string }[];
   date_updated: string;
+  due_date: string | null;
 }
 
 export interface MappedTask {
@@ -51,9 +52,12 @@ export interface MappedTask {
   videoLevel: string | null;
   clientApproval: string | null;
   publishingStatus: string | null;
+  qualityCheck: string | null;
   caption: string | null;
   assignedAmName: string | null;
+  editorName: string | null;
   dateUpdated: string;
+  dueDate: string | null;
 }
 
 function findField(task: ClickUpTask, name: string): ClickUpField | undefined {
@@ -61,33 +65,46 @@ function findField(task: ClickUpTask, name: string): ClickUpField | undefined {
 }
 
 export function mapTask(task: ClickUpTask): MappedTask {
-  const clientField    = findField(task, 'Client Name (AM)');
-  const levelField     = findField(task, 'Video Level (AM)');
-  const approvalField  = findField(task, 'CLIENT APPROVAL');
-  const pubField       = findField(task, 'Publishing Status');
-  const captionField   = findField(task, 'Captions');
-  const amField        = findField(task, 'Account Manager (AM)');
+  const clientField   = findField(task, 'Client Name (AM)');
+  const levelField    = findField(task, 'Video Level (AM)');
+  const approvalField = findField(task, 'CLIENT APPROVAL');
+  const pubField      = findField(task, 'Publishing Status');
+  const captionField  = findField(task, 'Captions');
+  const amField       = findField(task, 'Account Manager (AM)');
+  const qcField       = findField(task, 'QUALITY CHECK (Somu)');
 
-  const clientIdx  = typeof clientField?.value === 'number' ? clientField.value : null;
-  const levelIdx   = typeof levelField?.value === 'number' ? levelField.value : null;
+  const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
+  const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
   const approvalIdx = typeof approvalField?.value === 'number' ? approvalField.value : null;
-  const pubIdx     = typeof pubField?.value === 'number' ? pubField.value : null;
+  const pubIdx      = typeof pubField?.value === 'number' ? pubField.value : null;
+  const qcIdx       = typeof qcField?.value === 'number' ? qcField.value : null;
 
-  const amUsers = amField?.value as { username?: string }[] | undefined;
-  const amName  = amUsers?.[0]?.username ?? null;
+  const amUsers   = amField?.value as { username?: string }[] | undefined;
+  const amName    = amUsers?.[0]?.username ?? null;
+  const editorName = task.assignees?.[0]?.username ?? null;
+
+  // due_date is ms timestamp string or ISO string
+  let dueDate: string | null = null;
+  if (task.due_date) {
+    const ms = Number(task.due_date);
+    dueDate = isNaN(ms) ? task.due_date : new Date(ms).toISOString();
+  }
 
   return {
-    clickupTaskId:   task.id,
-    title:           task.name,
-    status:          task.status.status,
-    clientOptionId:  clientField && clientIdx !== null ? resolveOptionId(clientField, clientIdx) : null,
-    clientName:      clientField && clientIdx !== null ? resolveOptionName(clientField, clientIdx) : null,
-    videoLevel:      levelField && levelIdx !== null ? resolveOptionName(levelField, levelIdx) : null,
-    clientApproval:  approvalField && approvalIdx !== null ? resolveOptionName(approvalField, approvalIdx) : null,
+    clickupTaskId:    task.id,
+    title:            task.name,
+    status:           task.status.status,
+    clientOptionId:   clientField && clientIdx !== null ? resolveOptionId(clientField, clientIdx) : null,
+    clientName:       clientField && clientIdx !== null ? resolveOptionName(clientField, clientIdx) : null,
+    videoLevel:       levelField && levelIdx !== null ? resolveOptionName(levelField, levelIdx) : null,
+    clientApproval:   approvalField && approvalIdx !== null ? resolveOptionName(approvalField, approvalIdx) : null,
     publishingStatus: pubField && pubIdx !== null ? resolveOptionName(pubField, pubIdx) : null,
-    caption:         typeof captionField?.value === 'string' ? captionField.value : null,
-    assignedAmName:  amName,
-    dateUpdated:     task.date_updated,
+    qualityCheck:     qcField && qcIdx !== null ? resolveOptionName(qcField, qcIdx) : null,
+    caption:          typeof captionField?.value === 'string' ? captionField.value : null,
+    assignedAmName:   amName,
+    editorName,
+    dateUpdated:      task.date_updated,
+    dueDate,
   };
 }
 
