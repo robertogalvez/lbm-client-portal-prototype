@@ -2,6 +2,8 @@ import { getTasksFromFolder, isConfigured, MappedTask } from '@/lib/clickup';
 import { VideoTable } from '@/components/videos/VideoTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { TeamPerformance, EditorStat } from '@/components/dashboard/TeamPerformance';
+import { FiltersBar } from '@/components/dashboard/FiltersBar';
+import { Suspense } from 'react';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +32,6 @@ function pipelineStats(tasks: MappedTask[]) {
 function buildEditorStats(tasks: MappedTask[]): EditorStat[] {
   const map = new Map<string, EditorStat>();
   const now = Date.now();
-
   for (const t of tasks) {
     const name = t.editorName ?? t.assignedAmName;
     if (!name) continue;
@@ -55,6 +56,7 @@ function buildEditorStats(tasks: MappedTask[]): EditorStat[] {
 }
 
 function buildClientStats(tasks: MappedTask[]) {
+  const DAY_MS = 86_400_000;
   const map = new Map<string, { total: number; pending: number; oldestPendingMs: number }>();
   const now = Date.now();
   for (const t of tasks) {
@@ -68,12 +70,12 @@ function buildClientStats(tasks: MappedTask[]) {
       if (age > s.oldestPendingMs) s.oldestPendingMs = age;
     }
   }
-  return Array.from(map.entries()).map(([name, s]) => ({ name, ...s })).sort((a, b) => b.total - a.total);
+  return Array.from(map.entries()).map(([name, s]) => ({ name, ...s, DAY_MS })).sort((a, b) => b.total - a.total);
 }
 
 function KpiCard({ label, value, accent, sub }: { label: string; value: string | number; accent: string; sub?: string }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '18px 20px', flex: '1 1 0', minWidth: 0, borderTop: `3px solid ${accent}` }}>
+    <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '18px 20px', flex: '1 1 0', minWidth: 140, borderTop: `3px solid ${accent}` }}>
       <div style={{ fontSize: 11, fontWeight: 600, color: '#8b97a4', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{label}</div>
       <div style={{ fontSize: 28, fontWeight: 700, color: '#111c28', lineHeight: 1 }}>{value}</div>
       {sub && <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 4 }}>{sub}</div>}
@@ -81,7 +83,18 @@ function KpiCard({ label, value, accent, sub }: { label: string; value: string |
   );
 }
 
-export default async function DashboardPage() {
+function rangeCutoff(range: string): number {
+  if (range === '30d')  return Date.now() - 30  * 86_400_000;
+  if (range === '90d')  return Date.now() - 90  * 86_400_000;
+  if (range === '365d') return Date.now() - 365 * 86_400_000;
+  return 0;
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string; member?: string; client?: string }>;
+}) {
   if (!isConfigured()) {
     return (
       <main style={{ padding: 40 }}>
@@ -93,6 +106,8 @@ export default async function DashboardPage() {
     );
   }
 
+  const { range = 'all', member = '', client: clientFilter = '' } = await searchParams;
+
   const folderId = process.env.CLICKUP_FOLDER_ID;
   let allTasks: MappedTask[] = [];
   let error: string | null = null;
@@ -103,34 +118,48 @@ export default async function DashboardPage() {
     error = e instanceof Error ? e.message : 'Unknown error';
   }
 
+  const allMembers = [...new Set(allTasks.map(t => t.editorName ?? t.assignedAmName).filter(Boolean) as string[])].sort();
+  const allClients = [...new Set(allTasks.map(t => t.clientName).filter(Boolean) as string[])].sort();
+
+  const cutoff = rangeCutoff(range);
+  const tasks = allTasks.filter(t => {
+    if (cutoff > 0 && new Date(t.dateUpdated).getTime() < cutoff) return false;
+    if (member && t.editorName !== member && t.assignedAmName !== member) return false;
+    if (clientFilter && t.clientName !== clientFilter) return false;
+    return true;
+  });
+
   const now = Date.now();
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
   const DAY_MS = 86_400_000;
 
-  const totalInProduction = allTasks.length;
-  const pendingApproval   = allTasks.filter(t => norm(t.status) === 'for client review').length;
-  const readyToPost       = allTasks.filter(t => norm(t.status) === 'ready to be posted').length;
-  const postedThisMonth   = allTasks.filter(t => norm(t.status) === 'posted in socials' && new Date(t.dateUpdated).getTime() >= monthStart).length;
+  const totalInProduction = tasks.length;
+  const pendingApproval   = tasks.filter(t => norm(t.status) === 'for client review').length;
+  const readyToPost       = tasks.filter(t => norm(t.status) === 'ready to be posted').length;
+  const postedThisMonth   = tasks.filter(t => norm(t.status) === 'posted in socials' && new Date(t.dateUpdated).getTime() >= monthStart).length;
 
-  const postedWithDue = allTasks.filter(t => norm(t.status) === 'posted in socials' && t.dueDate);
+  const postedWithDue = tasks.filter(t => norm(t.status) === 'posted in socials' && t.dueDate);
   const onTimePct = postedWithDue.length > 0
     ? Math.round(postedWithDue.filter(t => new Date(t.dateUpdated) <= new Date(t.dueDate!)).length / postedWithDue.length * 100)
     : null;
 
-  const stats         = pipelineStats(allTasks);
-  const editorStats   = buildEditorStats(allTasks);
-  const clientStats   = buildClientStats(allTasks);
-  const approvalTasks = allTasks.filter(t => norm(t.status) === 'for client review');
+  const stats         = pipelineStats(tasks);
+  const editorStats   = buildEditorStats(tasks);
+  const clientStats   = buildClientStats(tasks);
+  const approvalTasks = tasks.filter(t => norm(t.status) === 'for client review');
   const maxPipeline   = Math.max(...PIPELINE_ORDER.map(s => stats[s] ?? 0), 1);
 
   return (
     <main style={{ padding: '28px 32px', maxWidth: 1400 }}>
 
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111c28', margin: 0 }}>Production Overview</h1>
         <p style={{ fontSize: 13, color: '#8b97a4', margin: '4px 0 0' }}>Live from ClickUp · refreshes every 5 min</p>
       </div>
+
+      <Suspense>
+        <FiltersBar members={allMembers} clients={allClients} />
+      </Suspense>
 
       {error && (
         <div style={{ background: '#fdedeb', border: '1px solid #f8d0cc', borderRadius: 8, padding: '12px 16px', marginBottom: 20, fontSize: 13, color: '#cf3f36' }}>
@@ -138,7 +167,6 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* KPI cards */}
       <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
         <KpiCard label="Videos in Production" value={totalInProduction} accent="#FF6000" sub="active tasks" />
         <KpiCard label="Pending Approval"      value={pendingApproval}   accent="#ffc53d" sub="awaiting client review" />
@@ -149,10 +177,7 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      {/* Pipeline + Client breakdown */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
-
-        {/* Pipeline funnel */}
         <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '20px 24px' }}>
           <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Pipeline Funnel</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -174,7 +199,6 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Client breakdown */}
         <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '20px 24px' }}>
           <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Client Breakdown</h2>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -212,13 +236,11 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Team Performance */}
       <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '20px 24px', marginBottom: 24 }}>
         <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Team Performance</h2>
         <TeamPerformance editors={editorStats} />
       </div>
 
-      {/* Approval queue */}
       <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: 0 }}>For Client Review</h2>
