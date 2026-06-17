@@ -1,4 +1,4 @@
-import { getTasksFromList, getTasksFromFolder, isConfigured, MappedTask } from '@/lib/clickup';
+import { getTasksFromFolder, isConfigured, MappedTask } from '@/lib/clickup';
 import { VideoTable } from '@/components/videos/VideoTable';
 import { StatusBadge, statusTone } from '@/components/ui/StatusBadge';
 
@@ -54,19 +54,17 @@ CLICKUP_APPROVAL_LIST_ID=your_approval_list_id`}
   }
 
   const folderId = process.env.CLICKUP_FOLDER_ID;
-  const approvalListId = process.env.CLICKUP_APPROVAL_LIST_ID ?? process.env.CLICKUP_LIST_ID;
 
   let allTasks: MappedTask[] = [];
   let approvalTasks: MappedTask[] = [];
   let error: string | null = null;
 
   try {
-    const [all, approval] = await Promise.all([
-      folderId ? getTasksFromFolder(folderId) : Promise.resolve([]),
-      approvalListId ? getTasksFromList(approvalListId) : Promise.resolve([]),
-    ]);
-    allTasks = all;
-    approvalTasks = approval;
+    allTasks = folderId ? await getTasksFromFolder(folderId) : [];
+    // "For Client Review" is a status shared across all lists in the folder
+    approvalTasks = allTasks.filter(t =>
+      t.status.toLowerCase().replace(/\s+/g, ' ').trim() === 'for client review'
+    );
   } catch (e) {
     error = e instanceof Error ? e.message : 'Unknown error fetching tasks';
   }
