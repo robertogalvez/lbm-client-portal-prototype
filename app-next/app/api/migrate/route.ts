@@ -1,17 +1,21 @@
 import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 
-// One-time migration endpoint — protect with a secret token
 export async function POST(req: Request) {
   const secret = req.headers.get('x-migrate-secret');
   if (secret !== process.env.MIGRATE_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  try {
-    const sql = neon(process.env.DATABASE_URL!);
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) return NextResponse.json({ error: 'DATABASE_URL not set' }, { status: 500 });
 
-    // Run DDL statements individually
+  // Show which host we're connecting to (hide password)
+  const host = dbUrl.replace(/:([^@]+)@/, ':***@').split('?')[0];
+
+  try {
+    const sql = neon(dbUrl);
+
     const statements = [
       `CREATE TABLE IF NOT EXISTS "auth_user" (
         "id"             text PRIMARY KEY NOT NULL,
@@ -86,15 +90,20 @@ export async function POST(req: Request) {
       )`,
     ];
 
-    const results: string[] = [];
     for (const stmt of statements) {
       await sql.unsafe(stmt);
-      const tableName = stmt.match(/"(\w+)"/)?.[1] ?? 'unknown';
-      results.push(`✓ ${tableName}`);
     }
 
-    return NextResponse.json({ ok: true, tables: results });
+    // Verify tables actually exist
+    const rows = await sql`
+      SELECT tablename FROM pg_tables
+      WHERE schemaname = 'public'
+      ORDER BY tablename
+    `;
+    const tables = rows.map((r: any) => r.tablename);
+
+    return NextResponse.json({ ok: true, host, tables });
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    return NextResponse.json({ error: String(e), host }, { status: 500 });
   }
 }
