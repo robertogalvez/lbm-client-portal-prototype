@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionCookie } from 'better-auth/cookies';
 
-const PUBLIC_PATHS = ['/login', '/api/auth', '/api/debug'];
+const PUBLIC_PATHS = ['/login', '/api/auth', '/api/debug', '/api/migrate'];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -10,11 +9,22 @@ export function proxy(request: NextRequest) {
   if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) return NextResponse.next();
   if (pathname.startsWith('/_next') || pathname.includes('.')) return NextResponse.next();
 
-  const session = getSessionCookie(request);
-  if (!session) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('callbackUrl', pathname);
-    return NextResponse.redirect(loginUrl);
+  // If auth is not configured yet, pass through (avoids crash during setup)
+  if (!process.env.BETTER_AUTH_SECRET) return NextResponse.next();
+
+  try {
+    // Inline cookie check — avoids importing BetterAuth at proxy level
+    const sessionCookie = request.cookies.get('better-auth.session_token')
+      ?? request.cookies.get('__Secure-better-auth.session_token');
+
+    if (!sessionCookie) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('callbackUrl', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+  } catch {
+    // If anything goes wrong, redirect to login
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   return NextResponse.next();
