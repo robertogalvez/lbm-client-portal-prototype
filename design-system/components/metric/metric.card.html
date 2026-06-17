@@ -1,0 +1,36 @@
+<!-- @dsCard group="Components" viewport="700x230" subtitle="KPI metric card + completion progress bar" name="MetricCard & ProgressBar" -->
+<!DOCTYPE html><html><head><meta charset="UTF-8"><link rel="stylesheet" href="../../styles.css">
+<style>
+  body{margin:0;font-family:var(--font-ui);background:var(--page);padding:20px;color:var(--ink)}
+  .row{display:flex;gap:16px;align-items:stretch}
+  .metric{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 17px;display:flex;flex-direction:column;gap:10px}
+  .kl{font-size:12.5px;color:var(--ink-2);font-weight:600;display:flex;align-items:center;gap:7px}
+  .kl .dot{width:8px;height:8px;border-radius:50%}
+  .krow{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+  .kv{font-size:28px;font-weight:600;letter-spacing:-.02em;line-height:1;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  .kv .u{font-size:14px;font-weight:500;color:var(--ink-3);margin-left:2px;font-family:var(--font-ui)}
+  .kd{font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:5px;color:var(--green)}
+  .kd svg{width:13px;height:13px}.kd .cmp{color:var(--ink-3);font-weight:500}
+  .pb{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 17px;display:flex;flex-direction:column;justify-content:center;gap:18px}
+  .prow{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;margin-bottom:7px}
+  .prow .lab{color:var(--ink-3);font-weight:500}
+  .prow .pct{font-weight:600;font-size:12px;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  .track{height:7px;background:var(--hover);border-radius:100px;overflow:hidden}
+  .track>span{display:block;height:100%;border-radius:100px}
+</style></head>
+<body>
+  <div class="row">
+    <div class="metric">
+      <div class="kl"><span class="dot" style="background:var(--brand)"></span>First-pass approval</div>
+      <div class="krow">
+        <div class="kv">73<span class="u">%</span></div>
+        <svg width="116" height="34" viewBox="0 0 116 34" fill="none"><polyline points="2,26 21,24 40,22 59,18 78,15 97,10 114,6" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="114" cy="6" r="2.6" fill="var(--brand)"/></svg>
+      </div>
+      <div class="kd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"/></svg>+6 pts <span class="cmp">vs last 30d</span></div>
+    </div>
+    <div class="pb">
+      <div><div class="prow"><span class="lab">Tasks completed</span><span class="pct">11 / 12 · 92%</span></div><div class="track"><span style="width:92%;background:var(--brand)"></span></div></div>
+      <div><div class="prow"><span class="lab">Tasks completed</span><span class="pct">14 / 14 · 100%</span></div><div class="track"><span style="width:100%;background:var(--green)"></span></div></div>
+    </div>
+  </div>
+</body></html>

@@ -1,0 +1,38 @@
+<!-- @dsCard group="Components" viewport="700x180" subtitle="Variants, sizes, icon & disabled states" name="Button" -->
+<!DOCTYPE html><html><head><meta charset="UTF-8"><link rel="stylesheet" href="../../styles.css">
+<style>
+  body{margin:0;font-family:var(--font-ui);background:var(--surface);padding:22px;color:var(--ink)}
+  .grid{display:flex;flex-direction:column;gap:16px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .btn{font-family:var(--font-ui);font-size:13.5px;font-weight:600;border-radius:var(--radius-sm);padding:9px 15px;border:1px solid transparent;display:inline-flex;align-items:center;gap:8px;line-height:1;cursor:pointer}
+  .btn svg{width:15px;height:15px}
+  .primary{background:var(--brand);color:#fff}
+  .outline{background:var(--surface);color:var(--ink);border-color:var(--line-strong)}
+  .ghost{background:transparent;color:var(--ink-2)}
+  .danger{background:var(--red-bg);color:var(--red)}
+  .wa{background:var(--whatsapp);color:#fff}
+  .sm{padding:7px 12px;font-size:13px}
+  .lg{padding:12px 16px;font-size:15px}
+  .disabled{background:#eef1f4;color:var(--ink-3);border-color:var(--line);cursor:not-allowed}
+  .lbl{font-family:var(--font-mono);font-size:10px;color:var(--ink-3);width:64px;flex:none}
+</style></head>
+<body>
+  <div class="grid">
+    <div class="row"><span class="lbl">variant</span>
+      <button class="btn primary">Approve</button>
+      <button class="btn outline">View details</button>
+      <button class="btn ghost">Cancel</button>
+      <button class="btn danger">Request changes</button>
+      <button class="btn wa"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2z"/></svg>Notify</button>
+    </div>
+    <div class="row"><span class="lbl">size</span>
+      <button class="btn primary sm">Small</button>
+      <button class="btn primary">Medium</button>
+      <button class="btn primary lg">Large</button>
+    </div>
+    <div class="row"><span class="lbl">state</span>
+      <button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>With icon</button>
+      <button class="btn disabled">Disabled</button>
+    </div>
+  </div>
+</body></html>

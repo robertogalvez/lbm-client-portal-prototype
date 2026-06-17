@@ -1,0 +1,226 @@
+<!-- @dsCard group="Client Mobile" viewport="900x900" subtitle="Retainer review feed + video review (Frame.io + approve)" -->
+<!-- @startingPoint section="Client Mobile" subtitle="Mobile client review feed + approve flow" viewport="900x900" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LBM Portal — Client Mobile UI Kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../styles.css" />
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--font-ui); background: var(--page); -webkit-font-smoothing: antialiased; color: var(--m-ink); }
+  .stage { display: flex; gap: 36px; padding: 44px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+  .phone { width: 392px; background: #0c0e11; border-radius: 54px; padding: 11px; box-shadow: var(--shadow-phone); flex: none; }
+  .screen { position: relative; width: 100%; min-height: 812px; background: var(--m-bg); border-radius: var(--radius-phone); overflow: hidden; display: flex; flex-direction: column; font-size: 15px; }
+  .island { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 112px; height: 30px; background: #0c0e11; border-radius: 100px; z-index: 6; }
+  .statusbar { height: 50px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; }
+  .statusbar .time { font-weight: 700; font-size: 15px; }
+  .sb-right { display: flex; align-items: center; gap: 7px; }
+
+  .m-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 20px 10px; }
+  .m-brand { display: flex; align-items: center; gap: 10px; }
+  .m-logo { width: 34px; height: 34px; border-radius: 10px; background: var(--brand); display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 12px; }
+  .m-greet .hi { font-size: 12px; color: var(--m-ink-3); font-weight: 600; }
+  .m-greet .nm { font-size: 16px; font-weight: 800; letter-spacing: -.01em; line-height: 1.1; }
+  .m-iconbtn { width: 40px; height: 40px; border-radius: 12px; background: var(--m-surface); border: 1px solid var(--m-line); display: grid; place-items: center; color: var(--m-ink-2); position: relative; }
+  .m-iconbtn .ping { position: absolute; top: 8px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: var(--red); border: 1.5px solid var(--m-surface); }
+  .m-iconbtn svg { width: 19px; height: 19px; }
+
+  .scroll { flex: 1; display: flex; flex-direction: column; }
+  .pad { padding: 4px 20px 20px; display: flex; flex-direction: column; gap: 16px; flex: 1; }
+
+  .pkg { background: var(--m-ink); color: #fff; border-radius: 20px; padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; }
+  .pkg .t { font-size: 12px; color: rgba(255,255,255,.6); font-weight: 600; }
+  .pkg .v { font-size: 17px; font-weight: 700; margin-top: 2px; }
+  .pkg .rc { text-align: right; }
+  .pkg .rc .big { font-size: 22px; font-weight: 800; line-height: 1; font-family: var(--font-mono); }
+  .pkg .rc .sm { font-size: 11px; color: rgba(255,255,255,.6); font-weight: 600; }
+
+  .sectitle { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; letter-spacing: -.01em; padding: 2px; }
+  .sectitle .count { font-size: 12px; font-weight: 700; color: var(--amber); background: var(--m-amber-bg); padding: 2px 9px; border-radius: 100px; font-family: var(--font-mono); }
+
+  .vcard { background: var(--m-surface); border: 1px solid var(--m-line); border-radius: var(--radius-m-card); overflow: hidden; }
+  .vthumb { position: relative; aspect-ratio: 16/10; background: linear-gradient(135deg,#2c3540,#4a5562); display: flex; align-items: center; justify-content: center; }
+  .vthumb.v2 { background: linear-gradient(135deg,#3a4a3f,#5e6f56); }
+  .vthumb .play { width: 52px; height: 52px; border-radius: 50%; background: rgba(255,255,255,.92); display: grid; place-items: center; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+  .vthumb .play svg { width: 20px; height: 20px; color: var(--m-ink); margin-left: 2px; }
+  .vthumb .dur { position: absolute; bottom: 10px; right: 10px; background: rgba(12,14,17,.78); color: #fff; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 7px; font-family: var(--font-mono); }
+  .vthumb .plat { position: absolute; top: 10px; left: 10px; background: rgba(12,14,17,.62); color: #fff; font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 8px; }
+  .vthumb .fio { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25); color: #fff; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 7px; }
+  .vbody { padding: 13px 15px 15px; display: flex; flex-direction: column; gap: 11px; }
+  .vtitle { font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; line-height: 1.25; }
+  .vmeta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--m-ink-3); font-weight: 500; }
+  .dotsep { width: 3px; height: 3px; border-radius: 50%; background: var(--m-ink-3); }
+  .av { border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 9.5px; width: 22px; height: 22px; }
+  .av.slate { background: #5e6b7a; } .av.blue { background: #5172c4; } .av.brand { background: var(--brand); }
+
+  .mbadge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 9px; line-height: 1.2; }
+  .mbadge .d { width: 6px; height: 6px; border-radius: 50%; }
+  .mbadge.amber { color: var(--amber); background: var(--m-amber-bg); } .mbadge.amber .d { background: var(--amber); }
+  .mbadge.green { color: var(--green); background: var(--m-green-bg); } .mbadge.green .d { background: var(--green); }
+  .mbadge.red { color: var(--red); background: var(--m-red-bg); } .mbadge.red .d { background: var(--red); }
+
+  .mbtn { font-size: 14px; font-weight: 700; border-radius: var(--radius-m-btn); padding: 12px 14px; border: 1px solid transparent; display: inline-flex; align-items: center; justify-content: center; gap: 7px; line-height: 1; cursor: pointer; }
+  .mbtn svg { width: 16px; height: 16px; }
+  .mbtn.primary { background: var(--brand); color: #fff; }
+  .mbtn.soft { background: var(--m-surface-2); color: var(--m-ink); border-color: var(--m-line); }
+  .mbtn.full { width: 100%; }
+  .mbtn.lg { padding: 15px; font-size: 15px; border-radius: 15px; }
+
+  .revrow { display: flex; align-items: center; gap: 12px; background: var(--m-surface); border: 1px solid var(--m-line); border-radius: 16px; padding: 10px 12px; }
+  .revrow .rt { width: 50px; height: 50px; border-radius: 11px; flex: none; display: grid; place-items: center; color: #fff; }
+  .revrow .rt svg { width: 17px; height: 17px; opacity: .9; }
+  .revrow .ri { flex: 1; min-width: 0; }
+  .revrow .ri .t { font-size: 13.5px; font-weight: 700; line-height: 1.2; }
+  .revrow .ri .s { font-size: 11.5px; color: var(--m-ink-3); font-weight: 500; margin-top: 3px; }
+
+  .tabbar { flex: none; height: 76px; background: var(--m-surface); border-top: 1px solid var(--m-line); display: flex; align-items: flex-start; justify-content: space-around; padding: 11px 12px 0; }
+  .tab { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; color: var(--m-ink-3); position: relative; padding: 2px 14px; }
+  .tab svg { width: 22px; height: 22px; }
+  .tab.active { color: var(--brand-dark); }
+  .tab .tbadge { position: absolute; top: -2px; right: 6px; min-width: 16px; height: 16px; background: var(--red); color: #fff; font-size: 10px; font-weight: 800; border-radius: 100px; display: grid; place-items: center; padding: 0 4px; border: 1.5px solid var(--m-surface); }
+
+  /* review detail */
+  .navbar { display: flex; align-items: center; justify-content: space-between; padding: 4px 16px 10px; }
+  .back { width: 40px; height: 40px; border-radius: 12px; background: var(--m-surface); border: 1px solid var(--m-line); display: grid; place-items: center; color: var(--m-ink); }
+  .back svg { width: 19px; height: 19px; }
+  .navttl { font-size: 14px; font-weight: 700; }
+  .fio-player { position: relative; border-radius: 18px; overflow: hidden; aspect-ratio: 16/9; display: grid; place-items: center; background: linear-gradient(135deg,#2c3540,#4a5562); }
+  .fio-player .bigplay { width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,.95); display: grid; place-items: center; box-shadow: 0 6px 20px rgba(0,0,0,.35); z-index: 2; }
+  .fio-player .bigplay svg { width: 24px; height: 24px; color: #14171b; margin-left: 3px; }
+  .fio-tag { position: absolute; top: 10px; left: 11px; background: rgba(12,14,17,.55); border: 1px solid rgba(255,255,255,.2); color: #fff; font-size: 10.5px; font-weight: 700; padding: 4px 9px; border-radius: 8px; z-index: 2; }
+  .fio-bar { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 12px 11px; background: linear-gradient(0deg, rgba(0,0,0,.6), transparent); }
+  .fio-scrub { height: 4px; border-radius: 100px; background: rgba(255,255,255,.28); position: relative; }
+  .fio-scrub > span { position: absolute; left: 0; top: 0; bottom: 0; width: 38%; background: var(--brand); border-radius: 100px; }
+  .fio-time { display: flex; justify-content: space-between; margin-top: 7px; color: #fff; font-size: 11px; font-family: var(--font-mono); }
+  .cmt { display: flex; gap: 10px; padding: 11px 0; border-top: 1px solid var(--m-line-2); }
+  .cmt:first-of-type { border-top: none; }
+  .cmt .av { width: 28px; height: 28px; font-size: 11px; }
+  .cmt .top { display: flex; align-items: center; gap: 7px; }
+  .cmt .who { font-size: 13px; font-weight: 700; }
+  .cmt .tc { font-size: 10.5px; color: var(--brand-dark); font-weight: 700; background: var(--brand-tint); padding: 1px 6px; border-radius: 6px; font-family: var(--font-mono); }
+  .cmt .ts { font-size: 11px; color: var(--m-ink-3); font-family: var(--font-mono); }
+  .cmt .txt { font-size: 13.5px; color: var(--m-ink-2); margin-top: 4px; line-height: 1.45; }
+  .src { font-size: 10.5px; font-weight: 700; color: var(--m-ink-3); background: var(--m-surface-2); border: 1px solid var(--m-line); padding: 3px 8px; border-radius: 7px; display: inline-flex; align-items: center; gap: 5px; }
+  .src .d { width: 6px; height: 6px; border-radius: 2px; background: var(--frameio); }
+  .dock { background: var(--m-surface); border-top: 1px solid var(--m-line); padding: 13px 18px; display: flex; flex-direction: column; gap: 10px; flex: none; }
+  .dock .hint { text-align: center; font-size: 12px; color: var(--m-ink-3); font-weight: 600; }
+  .dock .row { display: flex; gap: 10px; }
+  .dock .row .mbtn { flex: 1; }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- Phone 1 — review feed -->
+  <div class="phone">
+    <div class="screen">
+      <div class="island"></div>
+      <div class="statusbar"><span class="time">9:41</span><span class="sb-right">
+        <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+        <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="2.5" stroke="currentColor" stroke-width="1.3" opacity=".5"/><rect x="3" y="3" width="14" height="6" rx="1" fill="currentColor"/></svg>
+      </span></div>
+      <div class="m-head">
+        <div class="m-brand"><div class="m-logo">LBM</div><div class="m-greet"><div class="hi">Welcome back</div><div class="nm">Marlowe Homes</div></div></div>
+        <button class="m-iconbtn"><span class="ping"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></button>
+      </div>
+      <div class="scroll">
+        <div class="pad">
+          <div class="pkg">
+            <div><div class="t">JUNE SOCIAL PACKAGE</div><div class="v">8 videos this month</div></div>
+            <div class="rc"><div class="big">3</div><div class="sm">to review</div></div>
+          </div>
+          <div class="sectitle">Needs your review <span class="count">3</span></div>
+          <div class="vcard">
+            <div class="vthumb">
+              <span class="plat">Reel</span><span class="fio">Frame.io</span>
+              <div class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+              <span class="dur">0:41</span>
+            </div>
+            <div class="vbody">
+              <div class="vtitle">Model home tour — Birchwood plan</div>
+              <div class="vmeta"><span class="av slate">SM</span>Sofia M.<span class="dotsep"></span>Submitted 2h ago</div>
+              <span class="mbadge amber"><span class="d"></span>Awaiting your review</span>
+              <button class="mbtn primary full lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>Watch &amp; review</button>
+            </div>
+          </div>
+          <div class="vcard">
+            <div class="vthumb v2">
+              <span class="plat">TikTok</span><span class="fio">Frame.io</span>
+              <div class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+              <span class="dur">0:24</span>
+            </div>
+            <div class="vbody">
+              <div class="vtitle">Foundation → framing timelapse, Lot 14</div>
+              <div class="vmeta"><span class="av blue">JR</span>James R.<span class="dotsep"></span>Yesterday</div>
+              <span class="mbadge amber"><span class="d"></span>Awaiting your review</span>
+              <button class="mbtn primary full lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>Watch &amp; review</button>
+            </div>
+          </div>
+          <div class="sectitle" style="font-size:14px">Recently reviewed</div>
+          <div class="revrow">
+            <div class="rt" style="background:linear-gradient(135deg,#3a4a3f,#5e6f56)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg></div>
+            <div class="ri"><div class="t">Kitchen design spotlight</div><div class="s">Instagram Reel · approved Jun 5</div></div>
+            <span class="mbadge green"><span class="d"></span>Approved</span>
+          </div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg><span class="tbadge">3</span>Reviews</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Calendar</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg>Account</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phone 2 — video review -->
+  <div class="phone">
+    <div class="screen">
+      <div class="island"></div>
+      <div class="statusbar"><span class="time">9:41</span><span class="sb-right">
+        <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+        <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="2.5" stroke="currentColor" stroke-width="1.3" opacity=".5"/><rect x="3" y="3" width="14" height="6" rx="1" fill="currentColor"/></svg>
+      </span></div>
+      <div class="navbar">
+        <div class="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div>
+        <div class="navttl">Review video</div>
+        <div class="back" style="border:none;background:transparent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></div>
+      </div>
+      <div class="scroll">
+        <div class="pad" style="gap:14px">
+          <div class="fio-player">
+            <span class="fio-tag">Frame.io · v3</span>
+            <div class="bigplay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+            <div class="fio-bar"><div class="fio-scrub"><span></span></div><div class="fio-time"><span>0:15</span><span>0:41</span></div></div>
+          </div>
+          <div>
+            <span class="mbadge amber"><span class="d"></span>Awaiting your review</span>
+            <div style="font-size:18px;font-weight:800;letter-spacing:-.01em;line-height:1.2;margin-top:8px">Model home tour — Birchwood plan</div>
+            <div class="vmeta" style="margin-top:8px"><span class="av slate">SM</span>Sofia Marín<span class="dotsep"></span><span style="font-family:var(--font-mono)">0:41</span><span class="dotsep"></span>Submitted 2h ago</div>
+          </div>
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font-size:14px;font-weight:800">Comments</div><span class="src"><span class="d"></span>Synced from Frame.io</span></div>
+            <div class="cmt"><span class="av slate">SM</span><div><div class="top"><span class="who">Sofia Marín</span><span class="tc">0:12</span><span class="ts">2h ago</span></div><div class="txt">Here's the final cut of the Birchwood tour. Let me know if the pacing works 🙌</div></div></div>
+            <div class="cmt"><span class="av brand">MH</span><div><div class="top"><span class="who">You</span><span class="tc">0:28</span><span class="ts">just now</span></div><div class="txt">Looks great — can we hold on the kitchen shot a beat longer?</div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="dock">
+        <div class="hint">Your decision updates the ClickUp task automatically</div>
+        <div class="row">
+          <button class="mbtn soft" style="color:var(--red);border-color:var(--m-red-bg);background:var(--m-red-bg)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>Request changes</button>
+          <button class="mbtn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Approve</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

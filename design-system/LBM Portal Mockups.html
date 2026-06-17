@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LBM Portal — UI Mockups</title>
+<style>
+  :root {
+    /* Brand */
+    --brand: #1A9E75;
+    --brand-dark: #137a5a;
+    --brand-tint: #e8f5ef;
+    --brand-tint-2: #d6ede2;
+
+    /* Neutrals */
+    --page: #eceef0;
+    --surface: #ffffff;
+    --ink: #16201c;
+    --ink-2: #5b6b64;
+    --ink-3: #8a978f;
+    --line: #e6e9e7;
+    --line-strong: #d6dbd8;
+    --hover: #f6f8f7;
+
+    /* Semantic status */
+    --blue: #2563eb;        --blue-bg: #eef3ff;
+    --amber: #b8770a;       --amber-bg: #fdf5e6;
+    --green: #1A9E75;       --green-bg: #e8f5ef;
+    --red: #d6453b;         --red-bg: #fdeeed;
+    --slate: #5b6b64;       --slate-bg: #eef1ef;
+
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 2px rgba(22,32,28,.05), 0 1px 1px rgba(22,32,28,.04);
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--page);
+    font-family: var(--font);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.45;
+  }
+
+  .gallery {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 56px 32px 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 64px;
+  }
+
+  .gallery-head { margin-bottom: 4px; }
+  .gallery-head h1 {
+    font-size: 24px; font-weight: 700; letter-spacing: -.01em; margin: 0;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .gallery-head p { margin: 8px 0 0; color: var(--ink-2); font-size: 15px; max-width: 60ch; }
+
+  /* Screen wrapper */
+  .screen-label {
+    display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px;
+  }
+  .screen-num {
+    font-size: 12px; font-weight: 700; letter-spacing: .08em;
+    color: var(--brand); background: var(--brand-tint);
+    padding: 4px 10px; border-radius: 100px; text-transform: uppercase;
+  }
+  .screen-label h2 { font-size: 17px; font-weight: 650; margin: 0; letter-spacing: -.01em; }
+  .screen-label .who { color: var(--ink-3); font-size: 14px; font-weight: 500; }
+
+  .frame {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 8px 30px rgba(22,32,28,.06);
+  }
+
+  /* App header */
+  .appbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 28px; border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .brand-mark { display: flex; align-items: center; gap: 11px; }
+  .brand-logo {
+    width: 30px; height: 30px; border-radius: 8px; background: var(--brand);
+    display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 14px;
+    letter-spacing: -.02em;
+  }
+  .brand-name { font-weight: 700; font-size: 16px; letter-spacing: -.01em; }
+  .brand-name .sub { color: var(--ink-3); font-weight: 500; }
+
+  .appbar-right { display: flex; align-items: center; gap: 18px; }
+  .nav { display: flex; gap: 4px; }
+  .nav a {
+    font-size: 14px; color: var(--ink-2); text-decoration: none; padding: 7px 12px;
+    border-radius: 8px; font-weight: 500;
+  }
+  .nav a.active { color: var(--brand-dark); background: var(--brand-tint); font-weight: 600; }
+
+  .avatar {
+    width: 34px; height: 34px; border-radius: 50%; background: var(--brand);
+    color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 700;
+    flex: none;
+  }
+  .avatar.sm { width: 28px; height: 28px; font-size: 11px; }
+  .avatar.slate { background: #6b7d74; }
+  .avatar.blue { background: #5e7bd0; }
+  .avatar.amber { background: #c79145; }
+
+  .userchip { display: flex; align-items: center; gap: 10px; }
+  .userchip .meta { text-align: right; line-height: 1.2; }
+  .userchip .meta .name { font-size: 13px; font-weight: 600; }
+  .userchip .meta .role { font-size: 12px; color: var(--ink-3); }
+
+  .body { padding: 28px; }
+  .body.tight { padding: 24px 28px 28px; }
+
+  /* Metric cards */
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .metric {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 18px 20px;
+  }
+  .metric .label { font-size: 13px; color: var(--ink-2); font-weight: 500; display: flex; align-items: center; gap: 8px; }
+  .metric .label .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .metric .value { font-size: 32px; font-weight: 750; letter-spacing: -.02em; margin-top: 10px; line-height: 1; }
+  .metric .value .unit { font-size: 16px; font-weight: 600; color: var(--ink-3); margin-left: 3px; }
+  .metric .delta { font-size: 12px; margin-top: 9px; color: var(--ink-3); font-weight: 500; }
+  .metric .delta b { color: var(--brand-dark); }
+
+  /* Section block */
+  .block { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .block + .block { margin-top: 24px; }
+  .block-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid var(--line);
+  }
+  .block-head h3 { font-size: 15px; font-weight: 650; margin: 0; letter-spacing: -.01em; }
+  .block-head .hint { font-size: 13px; color: var(--ink-3); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  thead th {
+    text-align: left; font-size: 11.5px; font-weight: 650; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--ink-3); padding: 11px 20px; background: var(--hover);
+    border-bottom: 1px solid var(--line);
+  }
+  thead th.num, tbody td.num { text-align: right; }
+  tbody td { padding: 14px 20px; border-bottom: 1px solid var(--line); color: var(--ink); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--hover); }
+  .cell-name { display: flex; align-items: center; gap: 11px; font-weight: 600; }
+  .cell-sub { color: var(--ink-3); font-size: 13px; font-weight: 500; }
+  .muted { color: var(--ink-2); }
+
+  /* Badges */
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600;
+    padding: 4px 11px; border-radius: 100px; line-height: 1.3; white-space: nowrap;
+  }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .badge.blue  { color: var(--blue);  background: var(--blue-bg); }
+  .badge.blue .dot  { background: var(--blue); }
+  .badge.amber { color: var(--amber); background: var(--amber-bg); }
+  .badge.amber .dot { background: var(--amber); }
+  .badge.green { color: var(--green); background: var(--green-bg); }
+  .badge.green .dot { background: var(--green); }
+  .badge.red   { color: var(--red);   background: var(--red-bg); }
+  .badge.red .dot   { background: var(--red); }
+  .badge.slate { color: var(--slate); background: var(--slate-bg); }
+  .badge.slate .dot { background: var(--slate); }
+
+  /* Buttons */
+  .btn {
+    font-family: var(--font); font-size: 14px; font-weight: 600; cursor: pointer;
+    border-radius: var(--radius-sm); padding: 9px 16px; border: 1px solid transparent;
+    display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; line-height: 1;
+  }
+  .btn.primary { background: var(--brand); color: #fff; }
+  .btn.primary:hover { background: var(--brand-dark); }
+  .btn.outline { background: var(--surface); color: var(--ink); border-color: var(--line-strong); }
+  .btn.outline:hover { background: var(--hover); }
+  .btn.ghost { background: transparent; color: var(--ink-2); }
+  .btn.ghost:hover { background: var(--hover); }
+  .btn.sm { padding: 7px 12px; font-size: 13px; }
+  .btn:disabled, .btn.disabled {
+    background: #eef1ef; color: var(--ink-3); border-color: var(--line); cursor: not-allowed;
+  }
+  .btn .ic { width: 15px; height: 15px; }
+
+  /* Client portal specifics */
+  .portal { background: #f6f8f7; }
+  .portal .appbar { background: var(--surface); }
+  .logout { font-size: 14px; color: var(--ink-2); text-decoration: none; font-weight: 500; display: inline-flex; gap: 7px; align-items: center; }
+  .logout:hover { color: var(--ink); }
+
+  .portal-intro { margin-bottom: 22px; }
+  .portal-intro h3 { font-size: 19px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+  .portal-intro p { margin: 5px 0 0; color: var(--ink-2); font-size: 14px; }
+
+  .proj-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .proj-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .proj-card .pc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .proj-card .pc-name { font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
+  .proj-card .pc-client { font-size: 12.5px; color: var(--ink-3); font-weight: 500; margin-top: 2px; }
+
+  .progress { }
+  .progress .pr-row { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 7px; }
+  .progress .pr-row .pct { font-weight: 700; }
+  .progress .pr-row .lab { color: var(--ink-3); font-weight: 500; }
+  .track { height: 7px; background: #eef1ef; border-radius: 100px; overflow: hidden; }
+  .track > span { display: block; height: 100%; background: var(--brand); border-radius: 100px; }
+
+  .pc-am { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+  .pc-am .lab { color: var(--ink-3); }
+  .pc-am .nm { font-weight: 600; }
+
+  .pc-actions { display: flex; gap: 10px; margin-top: 2px; }
+  .pc-actions .btn { flex: 1; justify-content: center; }
+
+  /* Project detail */
+  .detail-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;
+    padding: 22px 28px; border-bottom: 1px solid var(--line);
+  }
+  .breadcrumb { font-size: 13px; color: var(--ink-3); margin-bottom: 9px; display: flex; gap: 7px; align-items: center; }
+  .breadcrumb a { color: var(--ink-3); text-decoration: none; }
+  .breadcrumb a:hover { color: var(--ink-2); }
+  .detail-head h3 { font-size: 21px; font-weight: 750; margin: 0; letter-spacing: -.015em; }
+  .detail-meta { display: flex; align-items: center; gap: 14px; margin-top: 11px; }
+  .detail-meta .am { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+  .detail-meta .am .nm { font-weight: 600; color: var(--ink); }
+
+  td.notes { color: var(--ink-2); font-size: 13px; max-width: 280px; }
+
+  .approve-box {
+    margin-top: 24px; border: 1px solid var(--brand-tint-2); background: var(--brand-tint);
+    border-radius: var(--radius); padding: 22px 24px;
+  }
+  .approve-box h4 { font-size: 16px; font-weight: 700; margin: 0 0 4px; letter-spacing: -.01em; }
+  .approve-box p { margin: 0 0 14px; color: var(--ink-2); font-size: 13.5px; }
+  textarea {
+    width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+    padding: 12px 14px; font-family: var(--font); font-size: 14px; resize: vertical;
+    min-height: 78px; background: var(--surface); color: var(--ink);
+  }
+  textarea::placeholder { color: var(--ink-3); }
+  textarea:focus { outline: 2px solid var(--brand); outline-offset: -1px; border-color: var(--brand); }
+  .approve-actions { display: flex; gap: 12px; margin-top: 14px; justify-content: flex-end; }
+
+  /* Status select (admin) */
+  .status-select {
+    display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600;
+    padding: 5px 10px 5px 11px; border-radius: 100px; border: 1px solid transparent; cursor: pointer;
+    line-height: 1.3;
+  }
+  .status-select .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .status-select .chev { width: 11px; height: 11px; opacity: .7; }
+  .status-select.blue  { color: var(--blue);  background: var(--blue-bg);  border-color: #dbe6ff; }
+  .status-select.blue .dot  { background: var(--blue); }
+  .status-select.amber { color: var(--amber); background: var(--amber-bg); border-color: #f3e2bf; }
+  .status-select.amber .dot { background: var(--amber); }
+  .status-select.green { color: var(--green); background: var(--green-bg); border-color: var(--brand-tint-2); }
+  .status-select.green .dot { background: var(--green); }
+  .status-select.slate { color: var(--slate); background: var(--slate-bg); border-color: #dde2df; }
+  .status-select.slate .dot { background: var(--slate); }
+
+  /* Timeline */
+  .timeline { padding: 8px 20px 4px; }
+  .tl-item { display: flex; gap: 14px; padding: 12px 0; position: relative; }
+  .tl-item:not(:last-child)::before {
+    content: ""; position: absolute; left: 15px; top: 34px; bottom: -12px; width: 2px; background: var(--line);
+  }
+  .tl-dot {
+    width: 32px; height: 32px; border-radius: 50%; flex: none; display: grid; place-items: center;
+    border: 1px solid var(--line); background: var(--surface); z-index: 1;
+  }
+  .tl-dot.green { background: var(--green-bg); border-color: var(--brand-tint-2); }
+  .tl-dot.blue  { background: var(--blue-bg);  border-color: #dbe6ff; }
+  .tl-dot.amber { background: var(--amber-bg); border-color: #f3e2bf; }
+  .tl-dot.red   { background: var(--red-bg);   border-color: #f6d6d3; }
+  .tl-dot .ic { width: 15px; height: 15px; }
+  .tl-body { padding-top: 4px; }
+  .tl-body .tl-main { font-size: 14px; }
+  .tl-body .tl-main b { font-weight: 650; }
+  .tl-body .tl-time { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+  .tl-quote {
+    margin-top: 8px; font-size: 13px; color: var(--ink-2); background: var(--hover);
+    border-left: 2px solid var(--line-strong); padding: 8px 12px; border-radius: 0 6px 6px 0;
+  }
+
+  .split { display: grid; grid-template-columns: 1.55fr 1fr; gap: 24px; align-items: start; }
+
+  .wa-btn { background: #25D366; color: #fff; }
+  .wa-btn:hover { background: #1eb955; }
+
+  @media (max-width: 1080px) {
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .proj-grid { grid-template-columns: 1fr; }
+    .split { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="gallery">
+
+  <div class="gallery-head">
+    <h1><span class="brand-logo" style="width:34px;height:34px;border-radius:9px;font-size:15px;">LBM</span> LBM Portal — UI Mockups</h1>
+    <p>Client portal &amp; internal dashboard built on ClickUp data. Four screens covering the CEO, account manager, and external client experiences.</p>
+  </div>
+
+  <!-- ============================ SCREEN 1 ============================ -->
+  <section data-screen-label="Screen 1 — CEO Dashboard">
+    <div class="screen-label">
+      <span class="screen-num">Screen 1</span>
+      <h2>Internal dashboard</h2>
+      <span class="who">CEO view</span>
+    </div>
+
+    <div class="frame">
+      <div class="appbar">
+        <div class="brand-mark">
+          <div class="brand-logo">LBM</div>
+          <div class="brand-name">LBM <span class="sub">Portal</span></div>
+        </div>
+        <nav class="nav">
+          <a href="#" class="active">Dashboard</a>
+          <a href="#">Projects</a>
+          <a href="#">Clients</a>
+          <a href="#">Team</a>
+        </nav>
+        <div class="appbar-right">
+          <div class="userchip">
+            <div class="meta">
+              <div class="name">Daniel Okafor</div>
+              <div class="role">CEO</div>
+            </div>
+            <div class="avatar">DO</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="body">
+        <!-- Metrics -->
+        <div class="metrics">
+          <div class="metric">
+            <div class="label"><span class="dot" style="background:var(--brand)"></span>Active projects</div>
+            <div class="value">14</div>
+            <div class="delta"><b>+2</b> vs. last week</div>
+          </div>
+          <div class="metric">
+            <div class="label"><span class="dot" style="background:var(--amber)"></span>Pending client approvals</div>
+            <div class="value">3</div>
+            <div class="delta">2 awaiting &gt; 24h</div>
+          </div>
+          <div class="metric">
+            <div class="label"><span class="dot" style="background:var(--blue)"></span>Tasks completed this week</div>
+            <div class="value">27</div>
+            <div class="delta"><b>+9</b> vs. last week</div>
+          </div>
+          <div class="metric">
+            <div class="label"><span class="dot" style="background:var(--brand)"></span>Avg. approval time</div>
+            <div class="value">1.8<span class="unit">days</span></div>
+            <div class="delta"><b>−0.4d</b> vs. last month</div>
+          </div>
+        </div>
+
+        <!-- Account managers -->
+        <div class="block">
+          <div class="block-head">
+            <h3>Account managers</h3>
+            <span class="hint">4 active</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th class="num">Active projects</th>
+                <th class="num">Tasks completed</th>
+                <th class="num">Pending approvals</th>
+                <th>Last activity</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><div class="cell-name"><span class="avatar sm slate">SM</span>Sofia Marín</div></td>
+                <td class="num">5</td>
+                <td class="num">11</td>
+                <td class="num">1</td>
+                <td class="muted">12 min ago</td>
+              </tr>
+              <tr>
+                <td><div class="cell-name"><span class="avatar sm blue">JR</span>James Reyes</div></td>
+                <td class="num">4</td>
+                <td class="num">8</td>
+                <td class="num">2</td>
+                <td class="muted">48 min ago</td>
+              </tr>
+              <tr>
+                <td><div class="cell-name"><span class="avatar sm amber">PT</span>Priya Tan</div></td>
+                <td class="num">3</td>
+                <td class="num">6</td>
+                <td class="num">0</td>
+                <td class="muted">2 hours ago</td>
+              </tr>
+              <tr>
+                <td><div class="cell-name"><span class="avatar sm">EK</span>Erik Lindqvist</div></td>
+                <td class="num">2</td>
+                <td class="num">2</td>
+                <td class="num">0</td>
+                <td class="muted">Yesterday</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Recent tasks -->
+        <div class="block">
+          <div class="block-head">
+            <h3>Recent ClickUp tasks</h3>
+            <span class="hint">Across all projects</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Task</th>
+                <th>Account manager</th>
+                <th>Status</th>
+                <th>Due date</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="cell-name" style="font-weight:600">Color grade — Acme launch film</div>
+                  <div class="cell-sub">Acme Corp · Brand Launch 2026</div>
+                </td>
+                <td class="muted">Sofia Marín</td>
+                <td><span class="badge blue"><span class="dot"></span>In Progress</span></td>
+                <td class="muted">Jun 11</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="cell-name" style="font-weight:600">Final cut v3 review</div>
+                  <div class="cell-sub">Nova Media · Spring Campaign</div>
+                </td>
+                <td class="muted">James Reyes</td>
+                <td><span class="badge amber"><span class="dot"></span>Review</span></td>
+                <td class="muted">Jun 10</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="cell-name" style="font-weight:600">Deliver 4K masters</div>
+                  <div class="cell-sub">Bright Films · Documentary Series</div>
+                </td>
+                <td class="muted">Priya Tan</td>
+                <td><span class="badge green"><span class="dot"></span>Done</span></td>
+                <td class="muted">Jun 8</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="cell-name" style="font-weight:600">Storyboard — Q3 product teaser</div>
+                  <div class="cell-sub">Acme Corp · Product Teaser</div>
+                </td>
+                <td class="muted">Sofia Marín</td>
+                <td><span class="badge blue"><span class="dot"></span>In Progress</span></td>
+                <td class="muted">Jun 14</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="cell-name" style="font-weight:600">Motion graphics pass</div>
+                  <div class="cell-sub">Nova Media · Recruitment Video</div>
+                </td>
+                <td class="muted">James Reyes</td>
+                <td><span class="badge amber"><span class="dot"></span>Review</span></td>
+                <td class="muted">Jun 12</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SCREEN 2 ============================ -->
+  <section data-screen-label="Screen 2 — Client Portal">
+    <div class="screen-label">
+      <span class="screen-num">Screen 2</span>
+      <h2>Client portal</h2>
+      <span class="who">External client view</span>
+    </div>
+
+    <div class="frame portal">
+      <div class="appbar">
+        <div class="brand-mark">
+          <div class="brand-logo">LBM</div>
+          <div class="brand-name">LBM <span class="sub">Portal</span></div>
+        </div>
+        <div class="appbar-right">
+          <div class="userchip">
+            <div class="meta">
+              <div class="name">Welcome, Acme Corp</div>
+              <div class="role">Client workspace</div>
+            </div>
+            <div class="avatar slate">AC</div>
+          </div>
+          <a href="#" class="logout">
+            <svg class="ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Log out
+          </a>
+        </div>
+      </div>
+
+      <div class="body">
+        <div class="portal-intro">
+          <h3>Your projects</h3>
+          <p>Track progress and approve deliverables for your active engagements with LBM.</p>
+        </div>
+
+        <div class="proj-grid">
+          <!-- Card 1: Awaiting Approval -->
+          <div class="proj-card">
+            <div class="pc-top">
+              <div>
+                <div class="pc-name">Brand Launch 2026</div>
+                <div class="pc-client">Hero film · 60s + cutdowns</div>
+              </div>
+              <span class="badge amber"><span class="dot"></span>Awaiting Approval</span>
+            </div>
+            <div class="progress">
+              <div class="pr-row"><span class="lab">Tasks completed</span><span class="pct">11 / 12 · 92%</span></div>
+              <div class="track"><span style="width:92%"></span></div>
+            </div>
+            <div class="pc-am">
+              <span class="avatar sm slate">SM</span>
+              <span class="lab">Account manager</span><span class="nm">Sofia Marín</span>
+            </div>
+            <div class="pc-actions">
+              <button class="btn outline">View details</button>
+              <button class="btn primary">Approve</button>
+            </div>
+          </div>
+
+          <!-- Card 2: In Review -->
+          <div class="proj-card">
+            <div class="pc-top">
+              <div>
+                <div class="pc-name">Product Teaser — Q3</div>
+                <div class="pc-client">Social cutdowns · 6 assets</div>
+              </div>
+              <span class="badge amber"><span class="dot"></span>In Review</span>
+            </div>
+            <div class="progress">
+              <div class="pr-row"><span class="lab">Tasks completed</span><span class="pct">6 / 10 · 60%</span></div>
+              <div class="track"><span style="width:60%"></span></div>
+            </div>
+            <div class="pc-am">
+              <span class="avatar sm slate">SM</span>
+              <span class="lab">Account manager</span><span class="nm">Sofia Marín</span>
+            </div>
+            <div class="pc-actions">
+              <button class="btn outline">View details</button>
+              <button class="btn disabled" disabled>Approve</button>
+            </div>
+          </div>
+
+          <!-- Card 3: Completed -->
+          <div class="proj-card">
+            <div class="pc-top">
+              <div>
+                <div class="pc-name">Recruitment Video</div>
+                <div class="pc-client">Careers page · 90s</div>
+              </div>
+              <span class="badge green"><span class="dot"></span>Completed</span>
+            </div>
+            <div class="progress">
+              <div class="pr-row"><span class="lab">Tasks completed</span><span class="pct">14 / 14 · 100%</span></div>
+              <div class="track"><span style="width:100%"></span></div>
+            </div>
+            <div class="pc-am">
+              <span class="avatar sm blue">JR</span>
+              <span class="lab">Account manager</span><span class="nm">James Reyes</span>
+            </div>
+            <div class="pc-actions">
+              <button class="btn outline">View details</button>
+              <button class="btn disabled" disabled>Approve</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SCREEN 3 ============================ -->
+  <section data-screen-label="Screen 3 — Project Detail (client)">
+    <div class="screen-label">
+      <span class="screen-num">Screen 3</span>
+      <h2>Project detail</h2>
+      <span class="who">Client view</span>
+    </div>
+
+    <div class="frame portal">
+      <div class="appbar">
+        <div class="brand-mark">
+          <div class="brand-logo">LBM</div>
+          <div class="brand-name">LBM <span class="sub">Portal</span></div>
+        </div>
+        <div class="appbar-right">
+          <div class="userchip">
+            <div class="meta">
+              <div class="name">Welcome, Acme Corp</div>
+              <div class="role">Client workspace</div>
+            </div>
+            <div class="avatar slate">AC</div>
+          </div>
+          <a href="#" class="logout">
+            <svg class="ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Log out
+          </a>
+        </div>
+      </div>
+
+      <div class="detail-head">
+        <div>
+          <div class="breadcrumb"><a href="#">Your projects</a><span>/</span><span>Brand Launch 2026</span></div>
+          <h3>Brand Launch 2026</h3>
+          <div class="detail-meta">
+            <span class="badge amber"><span class="dot"></span>Awaiting Approval</span>
+            <span class="am"><span class="avatar sm slate">SM</span><span>Account manager</span><span class="nm">Sofia Marín</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="body tight">
+        <div class="block">
+          <div class="block-head">
+            <h3>Tasks</h3>
+            <span class="hint">11 of 12 complete</span>
+          </div>
+          <table>
+            <thead>
+              <tr><th>Task</th><th>Status</th><th>Due date</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-weight:600">Creative brief &amp; concept</td>
+                <td><span class="badge green"><span class="dot"></span>Done</span></td>
+                <td class="muted">May 18</td>
+                <td class="notes">Approved direction: bold, kinetic typography.</td>
+              </tr>
+              <tr>
+                <td style="font-weight:600">Principal photography</td>
+                <td><span class="badge green"><span class="dot"></span>Done</span></td>
+                <td class="muted">May 27</td>
+                <td class="notes">Two-day shoot wrapped on schedule.</td>
+              </tr>
+              <tr>
+                <td style="font-weight:600">First edit — 60s hero</td>
+                <td><span class="badge green"><span class="dot"></span>Done</span></td>
+                <td class="muted">Jun 2</td>
+                <td class="notes">v1 delivered, feedback incorporated.</td>
+              </tr>
+              <tr>
+                <td style="font-weight:600">Color grade &amp; sound mix</td>
+                <td><span class="badge green"><span class="dot"></span>Done</span></td>
+                <td class="muted">Jun 6</td>
+                <td class="notes">Final grade locked.</td>
+              </tr>
+              <tr>
+                <td style="font-weight:600">Social cutdowns (15s / 30s)</td>
+                <td><span class="badge green"><span class="dot"></span>Done</span></td>
+                <td class="muted">Jun 7</td>
+                <td class="notes">6 versions exported for paid + organic.</td>
+              </tr>
+              <tr>
+                <td style="font-weight:600">Final delivery &amp; sign-off</td>
+                <td><span class="badge amber"><span class="dot"></span>Awaiting Approval</span></td>
+                <td class="muted">Jun 10</td>
+                <td class="notes">Pending your approval to release masters.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="approve-box">
+          <h4>Ready to approve this project?</h4>
+          <p>Approving releases the final 4K masters and closes the engagement. Add any comments for the team below.</p>
+          <textarea placeholder="Optional comments for the LBM team…"></textarea>
+          <div class="approve-actions">
+            <button class="btn outline">Request changes</button>
+            <button class="btn primary">Approve project</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SCREEN 4 ============================ -->
+  <section data-screen-label="Screen 4 — Admin Project View (AM)">
+    <div class="screen-label">
+      <span class="screen-num">Screen 4</span>
+      <h2>Admin project view</h2>
+      <span class="who">Account manager view</span>
+    </div>
+
+    <div class="frame">
+      <div class="appbar">
+        <div class="brand-mark">
+          <div class="brand-logo">LBM</div>
+          <div class="brand-name">LBM <span class="sub">Portal</span></div>
+        </div>
+        <nav class="nav">
+          <a href="#">Dashboard</a>
+          <a href="#" class="active">Projects</a>
+          <a href="#">Clients</a>
+          <a href="#">Team</a>
+        </nav>
+        <div class="appbar-right">
+          <div class="userchip">
+            <div class="meta">
+              <div class="name">Sofia Marín</div>
+              <div class="role">Account manager</div>
+            </div>
+            <div class="avatar slate">SM</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-head">
+        <div>
+          <div class="breadcrumb"><a href="#">Projects</a><span>/</span><span>Acme Corp</span><span>/</span><span>Brand Launch 2026</span></div>
+          <h3>Brand Launch 2026</h3>
+          <div class="detail-meta">
+            <span class="badge amber"><span class="dot"></span>Awaiting Approval</span>
+            <span class="am"><span>Client</span><span class="nm">Acme Corp</span></span>
+            <span class="am"><span class="avatar sm slate">SM</span><span class="nm">Sofia Marín</span></span>
+          </div>
+        </div>
+        <button class="btn wa-btn">
+          <svg class="ic" viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.16c-.24.68-1.42 1.31-1.95 1.36-.5.05-1.13.07-1.83-.11-.42-.13-.96-.31-1.66-.61-2.92-1.26-4.83-4.2-4.97-4.39-.15-.2-1.19-1.58-1.19-3.01s.75-2.13 1.02-2.42c.27-.29.58-.36.78-.36.2 0 .39 0 .56.01.18.01.42-.07.66.5.24.59.82 2.03.89 2.18.07.15.12.32.02.51-.09.2-.14.32-.27.49-.14.17-.29.38-.41.51-.14.14-.28.29-.12.57.16.27.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.21 1.37.27.14.43.12.59-.07.16-.2.68-.79.86-1.06.18-.27.36-.22.61-.13.25.09 1.59.75 1.86.89.27.14.45.2.52.31.07.12.07.66-.17 1.34z"/></svg>
+          Notify client via WhatsApp
+        </button>
+      </div>
+
+      <div class="body tight">
+        <div class="split">
+          <!-- Editable task list -->
+          <div class="block">
+            <div class="block-head">
+              <h3>Tasks</h3>
+              <button class="btn ghost sm">+ Add task</button>
+            </div>
+            <table>
+              <thead>
+                <tr><th>Task</th><th>Status</th><th>Due date</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="font-weight:600">Creative brief &amp; concept</td>
+                  <td><span class="status-select green"><span class="dot"></span>Done<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></td>
+                  <td class="muted">May 18</td>
+                </tr>
+                <tr>
+                  <td style="font-weight:600">Principal photography</td>
+                  <td><span class="status-select green"><span class="dot"></span>Done<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></td>
+                  <td class="muted">May 27</td>
+                </tr>
+                <tr>
+                  <td style="font-weight:600">First edit — 60s hero</td>
+                  <td><span class="status-select green"><span class="dot"></span>Done<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></td>
+                  <td class="muted">Jun 2</td>
+                </tr>
+                <tr>
+                  <td style="font-weight:600">Color grade &amp; sound mix</td>
+                  <td><span class="status-select blue"><span class="dot"></span>In Progress<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></td>
+                  <td class="muted">Jun 6</td>
+                </tr>
+                <tr>
+                  <td style="font-weight:600">Social cutdowns (15s / 30s)</td>
+                  <td><span class="status-select amber"><span class="dot"></span>Review<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></td>
+                  <td class="muted">Jun 7</td>
+                </tr>
+                <tr>
+                  <td style="font-weight:600">Final delivery &amp; sign-off</td>
+                  <td><span class="status-select slate"><span class="dot"></span>To Do<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></td>
+                  <td class="muted">Jun 10</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Client activity timeline -->
+          <div class="block">
+            <div class="block-head">
+              <h3>Client activity</h3>
+            </div>
+            <div class="timeline">
+              <div class="tl-item">
+                <div class="tl-dot amber">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13a4.5 4.5 0 0 0 0-9H9"/></svg>
+                </div>
+                <div class="tl-body">
+                  <div class="tl-main"><b>Acme Corp</b> requested changes on <b>First edit — 60s hero</b></div>
+                  <div class="tl-time">May 31 · 4:12 PM</div>
+                  <div class="tl-quote">"Love the energy — can we trim the intro by ~2s and swap the logo sting?"</div>
+                </div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-dot blue">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                </div>
+                <div class="tl-body">
+                  <div class="tl-main"><b>Acme Corp</b> viewed the project</div>
+                  <div class="tl-time">Jun 3 · 9:40 AM</div>
+                </div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-dot blue">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </div>
+                <div class="tl-body">
+                  <div class="tl-main"><b>Acme Corp</b> left a comment on <b>Color grade &amp; sound mix</b></div>
+                  <div class="tl-time">Jun 6 · 2:25 PM</div>
+                  <div class="tl-quote">"Grade looks fantastic. Standing by for the cutdowns."</div>
+                </div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-dot blue">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                </div>
+                <div class="tl-body">
+                  <div class="tl-main"><b>Acme Corp</b> viewed the project</div>
+                  <div class="tl-time">Today · 8:05 AM</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

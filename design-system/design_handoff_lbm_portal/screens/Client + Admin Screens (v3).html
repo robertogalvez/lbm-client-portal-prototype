@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LBM Portal — UI Mockups v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* Brand — Legacy Building Media orange (green kept as success only) */
+    --brand: #FF6000;
+    --brand-dark: #DB5200;
+    --brand-darker: #B23E00;
+    --brand-tint: #fff1e8;
+    --brand-tint-2: #ffdfcb;
+
+    /* Desktop / cool system (admin) */
+    --page: #eceef1;
+    --surface: #ffffff;
+    --ink: #111c28;
+    --ink-2: #54616f;
+    --ink-3: #8b97a4;
+    --line: #e7ebef;
+    --line-strong: #d4dbe2;
+    --hover: #f5f7f9;
+    --sidebar: #101a26;
+    --sidebar-2: #1a2735;
+    --sidebar-ink: #aeb9c6;
+    --sidebar-ink-2: #6b7888;
+
+    /* Warm / consumer system (mobile client) */
+    --m-bg: #faf6f0;
+    --m-surface: #ffffff;
+    --m-surface-2: #f7f2ea;
+    --m-ink: #221e18;
+    --m-ink-2: #6c6357;
+    --m-ink-3: #9d9488;
+    --m-line: #ece4d8;
+    --m-line-2: #f1ebe1;
+    --warm-accent: #FF6000;
+    --warm-accent-tint: #fff1e8;
+
+    /* Semantic */
+    --blue: #2563eb;        --blue-bg: #eaf0ff;
+    --amber: #b06f06;       --amber-bg: #fdf3e1;
+    --green: #14805f;       --green-bg: #e6f4ee;
+    --red: #cf3f36;         --red-bg: #fdedeb;
+    --slate: #54616f;       --slate-bg: #eef1f4;
+    /* warm semantic tints for mobile */
+    --m-amber-bg: #fbeecf;
+    --m-green-bg: #e4f3ec;
+    --m-red-bg: #fbe7e2;
+    --m-blue-bg: #e8eefc;
+
+    --ui: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --t-fast: 130ms; --t-base: 200ms;
+    --ease: cubic-bezier(.2,.7,.3,1);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--page); font-family: var(--ui); color: var(--ink); -webkit-font-smoothing: antialiased; line-height: 1.45; font-size: 14px; }
+  button { font-family: inherit; cursor: pointer; }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  :focus-visible { outline: 2.5px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+  .gallery { max-width: 1340px; margin: 0 auto; padding: 52px 32px 120px; }
+  .gallery-head h1 { font-size: 25px; font-weight: 800; letter-spacing: -.02em; margin: 0; display: flex; align-items: center; gap: 13px; }
+  .gallery-head p { margin: 10px 0 0; color: var(--ink-2); font-size: 15px; max-width: 74ch; }
+  .ds-strip { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .ds-chip { font-size: 12px; font-weight: 600; color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); padding: 6px 11px; border-radius: 100px; display: inline-flex; align-items: center; gap: 7px; }
+  .ds-chip .k { color: var(--ink-3); font-weight: 500; }
+  .ds-chip .sw { width: 11px; height: 11px; border-radius: 3px; }
+
+  .section-band { display: flex; align-items: center; gap: 14px; margin: 56px 0 26px; }
+  .section-band .lab { font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); white-space: nowrap; }
+  .section-band .desc { font-size: 13px; color: var(--ink-3); font-weight: 500; }
+  .section-band .ln { flex: 1; height: 1px; background: var(--line-strong); }
+
+  .phones { display: flex; flex-wrap: wrap; gap: 40px 36px; align-items: flex-start; }
+  .screen-cap { display: flex; flex-direction: column; gap: 12px; }
+  .screen-cap .cap { display: flex; align-items: baseline; gap: 9px; padding-left: 6px; max-width: 392px; }
+  .screen-cap .cap .n { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--brand-dark); background: var(--brand-tint); padding: 4px 8px; border-radius: 6px; }
+  .screen-cap .cap h3 { font-size: 14px; font-weight: 700; margin: 0; }
+  .screen-cap .cap .who { font-size: 12.5px; color: var(--ink-3); font-weight: 500; }
+
+  /* ============ PHONE FRAME ============ */
+  .phone { width: 392px; background: #0c0e11; border-radius: 54px; padding: 11px; box-shadow: 0 2px 4px rgba(12,14,17,.3), 0 22px 50px rgba(17,28,40,.20); flex: none; }
+  .phone-screen { position: relative; width: 100%; min-height: 832px; background: var(--m-bg); border-radius: 44px; overflow: hidden; display: flex; flex-direction: column; font-size: 15px; color: var(--m-ink); }
+  .statusbar { height: 50px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; position: relative; z-index: 5; }
+  .statusbar.on-dark { color: #fff; }
+  .statusbar .time { font-weight: 700; font-size: 15px; letter-spacing: .02em; }
+  .island { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 112px; height: 30px; background: #0c0e11; border-radius: 100px; z-index: 6; }
+  .statusbar .sb-right { display: flex; align-items: center; gap: 7px; }
+  .statusbar .sb-right svg { display: block; }
+
+  .m-scroll { flex: 1; overflow: visible; display: flex; flex-direction: column; }
+  .m-pad { padding: 4px 20px 20px; display: flex; flex-direction: column; gap: 16px; flex: 1; }
+
+  /* mobile app header */
+  .m-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 20px 10px; }
+  .m-brand { display: flex; align-items: center; gap: 10px; }
+  .m-logo { width: 34px; height: 34px; border-radius: 10px; background: var(--brand); display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 12px; letter-spacing: -.02em; }
+  .m-greet .hi { font-size: 12px; color: var(--m-ink-3); font-weight: 600; }
+  .m-greet .nm { font-size: 16px; font-weight: 800; letter-spacing: -.01em; line-height: 1.1; }
+  .m-iconbtn { width: 40px; height: 40px; border-radius: 12px; background: var(--m-surface); border: 1px solid var(--m-line); display: grid; place-items: center; color: var(--m-ink-2); position: relative; }
+  .m-iconbtn .ping { position: absolute; top: 8px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: var(--red); border: 1.5px solid var(--m-surface); }
+  .m-iconbtn svg { width: 19px; height: 19px; }
+
+  /* package banner */
+  .pkg-banner { background: var(--m-ink); color: #fff; border-radius: 20px; padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .pkg-banner .pb-l .t { font-size: 12px; color: rgba(255,255,255,.6); font-weight: 600; letter-spacing: .02em; }
+  .pkg-banner .pb-l .v { font-size: 17px; font-weight: 700; margin-top: 2px; letter-spacing: -.01em; }
+  .pkg-ring { display: flex; align-items: center; gap: 10px; }
+  .pkg-ring .rcount { text-align: right; }
+  .pkg-ring .rcount .big { font-size: 22px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .pkg-ring .rcount .sm { font-size: 11px; color: rgba(255,255,255,.6); font-weight: 600; }
+  .ring { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--brand) calc(var(--p,0)*1%), rgba(255,255,255,.16) 0); }
+  .ring::after { content: ""; width: 36px; height: 36px; border-radius: 50%; background: var(--m-ink); }
+  .ring .lbl { position: absolute; font-size: 11px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+  .ring-wrap { position: relative; display: grid; place-items: center; }
+
+  /* section title in mobile */
+  .m-sectitle { display: flex; align-items: center; justify-content: space-between; padding: 2px 2px 0; }
+  .m-sectitle .l { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; letter-spacing: -.01em; }
+  .m-sectitle .l .count { font-size: 12px; font-weight: 700; color: var(--amber); background: var(--m-amber-bg); padding: 2px 9px; border-radius: 100px; font-variant-numeric: tabular-nums; }
+  .m-sectitle .more { font-size: 13px; font-weight: 600; color: var(--brand-dark); }
+
+  /* video card (mobile) */
+  .vcard { background: var(--m-surface); border: 1px solid var(--m-line); border-radius: 22px; overflow: hidden; }
+  .vthumb { position: relative; aspect-ratio: 16/10; background: linear-gradient(135deg, #2c3540, #4a5562); display: flex; align-items: center; justify-content: center; }
+  .vthumb.v2 { background: linear-gradient(135deg, #3a4a3f, #5e6f56); }
+  .vthumb.v3 { background: linear-gradient(135deg, #43373a, #6a5550); }
+  .vthumb.v4 { background: linear-gradient(135deg, #353f4a, #586573); }
+  .vthumb.v5 { background: linear-gradient(135deg, #2f3b42, #51636b); }
+  .vthumb .play { width: 52px; height: 52px; border-radius: 50%; background: rgba(255,255,255,.92); display: grid; place-items: center; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+  .vthumb .play svg { width: 20px; height: 20px; color: var(--m-ink); margin-left: 2px; }
+  .vthumb .dur { position: absolute; bottom: 10px; right: 10px; background: rgba(12,14,17,.78); color: #fff; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 7px; font-family: var(--mono); }
+  .vthumb .plat { position: absolute; top: 10px; left: 10px; background: rgba(12,14,17,.62); backdrop-filter: blur(4px); color: #fff; font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 8px; display: inline-flex; align-items: center; gap: 5px; }
+  .vthumb .plat svg { width: 12px; height: 12px; }
+  .vthumb .fio { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,.14); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,.25); color: #fff; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 7px; letter-spacing: .02em; }
+
+  .vbody { padding: 13px 15px 15px; display: flex; flex-direction: column; gap: 11px; }
+  .vbody .vtitle { font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; line-height: 1.25; }
+  .vbody .vmeta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--m-ink-3); font-weight: 500; }
+  .vbody .vmeta .am { display: flex; align-items: center; gap: 6px; }
+  .vbody .vmeta .dotsep { width: 3px; height: 3px; border-radius: 50%; background: var(--m-ink-3); }
+
+  .m-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 9px; line-height: 1.2; white-space: nowrap; }
+  .m-badge .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .m-badge.amber { color: var(--amber); background: var(--m-amber-bg); } .m-badge.amber .dot { background: var(--amber); }
+  .m-badge.green { color: var(--green); background: var(--m-green-bg); } .m-badge.green .dot { background: var(--green); }
+  .m-badge.red   { color: var(--red);   background: var(--m-red-bg); }   .m-badge.red .dot   { background: var(--red); }
+  .m-badge.blue  { color: var(--blue);  background: var(--m-blue-bg); }  .m-badge.blue .dot  { background: var(--blue); }
+  .m-badge.slate { color: var(--slate); background: var(--slate-bg); }   .m-badge.slate .dot { background: var(--slate); }
+
+  .av { border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; flex: none; font-size: 11px; }
+  .av.s { width: 22px; height: 22px; font-size: 9.5px; }
+  .av.m { width: 28px; height: 28px; font-size: 11px; }
+  .av.brand { background: var(--brand); } .av.slate { background: #5e6b7a; } .av.blue { background: #5172c4; } .av.amber { background: #b58236; } .av.violet { background: #7c66c4; }
+
+  .vbtn-row { display: flex; gap: 9px; }
+  .mbtn { flex: 1; font-size: 14px; font-weight: 700; border-radius: 13px; padding: 12px 14px; border: 1px solid transparent; display: inline-flex; align-items: center; justify-content: center; gap: 7px; line-height: 1; transition: filter var(--t-fast) var(--ease), transform var(--t-fast) var(--ease); }
+  .mbtn:active { transform: scale(.975); }
+  .mbtn svg { width: 16px; height: 16px; }
+  .mbtn.primary { background: var(--brand); color: #fff; }
+  .mbtn.primary:active { filter: brightness(.95); }
+  .mbtn.soft { background: var(--m-surface-2); color: var(--m-ink); border-color: var(--m-line); }
+  .mbtn.full { flex: none; width: 100%; }
+  .mbtn.lg { padding: 15px; font-size: 15px; border-radius: 15px; }
+
+  /* compact reviewed row */
+  .rev-row { display: flex; align-items: center; gap: 12px; background: var(--m-surface); border: 1px solid var(--m-line); border-radius: 16px; padding: 10px 12px; }
+  .rev-row .rt { width: 50px; height: 50px; border-radius: 11px; flex: none; display: grid; place-items: center; color: #fff; }
+  .rev-row .rt svg { width: 17px; height: 17px; opacity: .9; }
+  .rev-row .ri { flex: 1; min-width: 0; }
+  .rev-row .ri .t { font-size: 13.5px; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rev-row .ri .s { font-size: 11.5px; color: var(--m-ink-3); font-weight: 500; margin-top: 3px; }
+
+  /* tab bar */
+  .tabbar { flex: none; height: 76px; background: var(--m-surface); border-top: 1px solid var(--m-line); display: flex; align-items: flex-start; justify-content: space-around; padding: 11px 12px 0; }
+  .tab { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; color: var(--m-ink-3); position: relative; padding: 2px 14px; }
+  .tab svg { width: 22px; height: 22px; }
+  .tab.active { color: var(--brand-dark); }
+  .tab .tbadge { position: absolute; top: -2px; right: 6px; min-width: 16px; height: 16px; background: var(--red); color: #fff; font-size: 10px; font-weight: 800; border-radius: 100px; display: grid; place-items: center; padding: 0 4px; border: 1.5px solid var(--m-surface); }
+
+  /* detail header (mobile pushed view) */
+  .m-navbar { display: flex; align-items: center; justify-content: space-between; padding: 4px 16px 10px; }
+  .m-back { width: 40px; height: 40px; border-radius: 12px; background: var(--m-surface); border: 1px solid var(--m-line); display: grid; place-items: center; color: var(--m-ink); }
+  .m-back svg { width: 19px; height: 19px; }
+  .m-navttl { font-size: 14px; font-weight: 700; }
+
+  /* frame.io player */
+  .fio-player { position: relative; border-radius: 18px; overflow: hidden; background: #14171b; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; }
+  .fio-player .bg { position: absolute; inset: 0; background: linear-gradient(135deg, #2c3540, #4a5562); }
+  .fio-player .bigplay { position: relative; width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,.95); display: grid; place-items: center; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
+  .fio-player .bigplay svg { width: 24px; height: 24px; color: #14171b; margin-left: 3px; }
+  .fio-bar { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 12px 11px; background: linear-gradient(0deg, rgba(0,0,0,.6), transparent); }
+  .fio-scrub { height: 4px; border-radius: 100px; background: rgba(255,255,255,.28); position: relative; }
+  .fio-scrub > span { position: absolute; left: 0; top: 0; bottom: 0; width: 38%; background: var(--brand); border-radius: 100px; }
+  .fio-scrub .knob { position: absolute; left: 38%; top: 50%; transform: translate(-50%,-50%); width: 11px; height: 11px; border-radius: 50%; background: #fff; }
+  .fio-time { display: flex; align-items: center; justify-content: space-between; margin-top: 7px; color: #fff; font-size: 11px; font-family: var(--mono); }
+  .fio-tag { position: absolute; top: 10px; left: 11px; background: rgba(12,14,17,.55); backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,.2); color: #fff; font-size: 10.5px; font-weight: 700; padding: 4px 9px; border-radius: 8px; display: inline-flex; align-items: center; gap: 5px; z-index: 2; }
+  .fio-tag .d { width: 6px; height: 6px; border-radius: 2px; background: #5b9dff; }
+
+  /* synced comments */
+  .cmt-head { display: flex; align-items: center; justify-content: space-between; }
+  .cmt-head .l { font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  .cmt-head .src { font-size: 10.5px; font-weight: 700; color: var(--m-ink-3); background: var(--m-surface-2); border: 1px solid var(--m-line); padding: 3px 8px; border-radius: 7px; display: inline-flex; align-items: center; gap: 5px; }
+  .cmt-head .src .d { width: 6px; height: 6px; border-radius: 2px; background: #5b9dff; }
+  .cmt { display: flex; gap: 10px; padding: 11px 0; border-top: 1px solid var(--m-line-2); }
+  .cmt:first-of-type { border-top: none; }
+  .cmt .cm { flex: 1; }
+  .cmt .cm .top { display: flex; align-items: center; gap: 7px; }
+  .cmt .cm .top .who { font-size: 13px; font-weight: 700; }
+  .cmt .cm .top .ts { font-size: 11px; color: var(--m-ink-3); font-family: var(--mono); }
+  .cmt .cm .top .tc { font-size: 10.5px; color: var(--brand-dark); font-weight: 700; background: var(--brand-tint); padding: 1px 6px; border-radius: 6px; font-family: var(--mono); }
+  .cmt .cm .txt { font-size: 13.5px; color: var(--m-ink-2); margin-top: 4px; line-height: 1.45; }
+
+  /* approve dock */
+  .approve-dock { background: var(--m-surface); border-top: 1px solid var(--m-line); padding: 13px 18px calc(13px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; flex: none; }
+  .approve-dock .hint { text-align: center; font-size: 12px; color: var(--m-ink-3); font-weight: 600; }
+  .approve-dock .row { display: flex; gap: 10px; }
+
+  /* one-time hero */
+  .ot-hero { display: flex; flex-direction: column; gap: 4px; padding: 2px 2px 4px; }
+  .ot-hero .kick { font-size: 12px; font-weight: 700; color: var(--warm-accent); letter-spacing: .04em; text-transform: uppercase; }
+  .ot-hero h2 { font-size: 22px; font-weight: 800; letter-spacing: -.02em; margin: 2px 0 0; line-height: 1.15; }
+  .ot-hero .sub { font-size: 13.5px; color: var(--m-ink-2); font-weight: 500; }
+  .ot-steps { display: flex; flex-direction: column; gap: 0; background: var(--m-surface); border: 1px solid var(--m-line); border-radius: 18px; padding: 4px 16px; }
+  .ot-step { display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--m-line-2); }
+  .ot-step:last-child { border-bottom: none; }
+  .ot-step .sdot { width: 30px; height: 30px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 12px; font-weight: 800; }
+  .ot-step.done .sdot { background: var(--brand); color: #fff; }
+  .ot-step.now .sdot { background: var(--m-amber-bg); color: var(--amber); border: 1.5px solid var(--amber); }
+  .ot-step.todo .sdot { background: var(--m-surface-2); color: var(--m-ink-3); border: 1px solid var(--m-line); }
+  .ot-step .si { flex: 1; }
+  .ot-step .si .t { font-size: 13.5px; font-weight: 700; }
+  .ot-step .si .s { font-size: 11.5px; color: var(--m-ink-3); margin-top: 2px; font-weight: 500; }
+  .ot-step .si .t.muted { color: var(--m-ink-3); font-weight: 600; }
+
+  /* calendar */
+  .cal-card { background: var(--m-surface); border: 1px solid var(--m-line); border-radius: 20px; padding: 16px; }
+  .cal-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .cal-top .mn { font-size: 16px; font-weight: 800; letter-spacing: -.01em; }
+  .cal-nav { display: flex; gap: 6px; }
+  .cal-nav .cb { width: 30px; height: 30px; border-radius: 9px; background: var(--m-surface-2); border: 1px solid var(--m-line); display: grid; place-items: center; color: var(--m-ink-2); }
+  .cal-nav .cb svg { width: 15px; height: 15px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
+  .cal-grid .dow { text-align: center; font-size: 10px; font-weight: 700; color: var(--m-ink-3); padding-bottom: 5px; text-transform: uppercase; }
+  .cal-cell { aspect-ratio: 1; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 12.5px; font-weight: 600; color: var(--m-ink); position: relative; }
+  .cal-cell.muted { color: var(--m-ink-3); opacity: .5; }
+  .cal-cell.today { background: var(--m-ink); color: #fff; font-weight: 800; }
+  .cal-cell.has { background: var(--m-surface-2); }
+  .cal-cell .cdots { display: flex; gap: 2px; height: 5px; }
+  .cal-cell .cdots i { width: 5px; height: 5px; border-radius: 50%; }
+  .cal-cell .cdots i.g { background: var(--brand); } .cal-cell .cdots i.a { background: var(--amber); } .cal-cell .cdots i.b { background: var(--blue); }
+
+  .agenda { display: flex; flex-direction: column; gap: 10px; }
+  .ag-item { display: flex; gap: 12px; background: var(--m-surface); border: 1px solid var(--m-line); border-radius: 16px; padding: 12px 13px; align-items: center; }
+  .ag-date { width: 46px; flex: none; text-align: center; border-right: 1px solid var(--m-line-2); padding-right: 11px; }
+  .ag-date .d { font-size: 18px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .ag-date .mo { font-size: 10px; font-weight: 700; color: var(--m-ink-3); text-transform: uppercase; margin-top: 2px; }
+  .ag-body { flex: 1; min-width: 0; }
+  .ag-body .t { font-size: 13.5px; font-weight: 700; line-height: 1.2; }
+  .ag-body .m { display: flex; align-items: center; gap: 7px; margin-top: 5px; font-size: 11.5px; color: var(--m-ink-3); font-weight: 600; }
+  .cal-legend { display: flex; gap: 14px; justify-content: center; padding-top: 2px; }
+  .cal-legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--m-ink-2); }
+  .cal-legend i { width: 7px; height: 7px; border-radius: 50%; }
+
+  /* ====================== DESKTOP (admin) ====================== */
+  .frame { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 16px; overflow: hidden; box-shadow: 0 10px 34px rgba(17,28,40,.07); }
+  .dt-cap { display: flex; align-items: baseline; gap: 11px; margin-bottom: 14px; }
+  .dt-cap .n { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--brand-dark); background: var(--brand-tint); padding: 5px 9px; border-radius: 7px; }
+  .dt-cap h3 { font-size: 16px; font-weight: 700; margin: 0; }
+  .dt-cap .who { font-size: 13px; color: var(--ink-3); font-weight: 500; }
+  .stack-d { display: flex; flex-direction: column; gap: 40px; }
+
+  .shell { display: grid; grid-template-columns: 230px 1fr; min-height: 600px; }
+  .rail { background: var(--sidebar); color: var(--sidebar-ink); padding: 20px 16px; display: flex; flex-direction: column; gap: 24px; }
+  .rail-brand { display: flex; align-items: center; gap: 11px; padding: 4px 8px; }
+  .rail-logo { width: 34px; height: 34px; border-radius: 9px; background: var(--brand); display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 12px; }
+  .rail-name { font-weight: 700; font-size: 14px; color: #fff; line-height: 1.1; }
+  .rail-name .sub { color: var(--sidebar-ink-2); font-weight: 500; font-size: 11px; }
+  .rail-group-label { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; color: var(--sidebar-ink-2); text-transform: uppercase; padding: 0 10px 8px; }
+  .rail-nav { display: flex; flex-direction: column; gap: 3px; }
+  .rail-nav a { display: flex; align-items: center; gap: 11px; padding: 9px 11px; border-radius: 9px; font-size: 13.5px; font-weight: 500; color: var(--sidebar-ink); transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+  .rail-nav a:hover { background: var(--sidebar-2); color: #fff; }
+  .rail-nav a.active { background: var(--brand); color: #fff; font-weight: 600; }
+  .rail-nav a svg { width: 17px; height: 17px; flex: none; }
+  .rail-nav a .bm { margin-left: auto; font-family: var(--mono); font-size: 11px; background: rgba(255,255,255,.12); color: #fff; padding: 1px 7px; border-radius: 100px; font-weight: 600; }
+  .rail-nav a.active .bm { background: rgba(255,255,255,.22); }
+  .rail-spacer { flex: 1; }
+  .rail-user { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; background: var(--sidebar-2); }
+  .rail-user .meta .name { font-size: 13px; font-weight: 600; color: #fff; line-height: 1.2; }
+  .rail-user .meta .role { font-size: 11.5px; color: var(--sidebar-ink-2); }
+
+  .main { display: flex; flex-direction: column; min-width: 0; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 26px; border-bottom: 1px solid var(--line); }
+  .topbar .title { font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+  .topbar .sub { font-size: 13px; color: var(--ink-3); margin-top: 1px; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .search { display: flex; align-items: center; gap: 8px; background: var(--hover); border: 1px solid var(--line); padding: 8px 12px; border-radius: 9px; color: var(--ink-3); font-size: 13px; min-width: 230px; }
+  .search svg { width: 15px; height: 15px; }
+  .seg { display: inline-flex; background: var(--hover); border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 2px; }
+  .seg button { font-size: 12.5px; font-weight: 600; color: var(--ink-2); background: transparent; border: none; padding: 6px 12px; border-radius: 7px; }
+  .seg button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(17,28,40,.08); }
+
+  .body-d { padding: 24px 26px 28px; }
+  .metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 24px; }
+  .metric { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .metric .label { font-size: 12.5px; color: var(--ink-2); font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .metric .label .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .metric .value { font-size: 30px; font-weight: 600; letter-spacing: -.02em; margin-top: 10px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .metric .value .unit { font-size: 14px; font-weight: 500; color: var(--ink-3); margin-left: 3px; }
+  .metric .delta { font-size: 12px; margin-top: 8px; color: var(--ink-3); font-weight: 500; }
+  .metric .delta b { color: var(--green); } .metric .delta.warn b { color: var(--amber); }
+
+  .block { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
+  .block + .block { margin-top: 22px; }
+  .block-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .block-head h4 { font-size: 14.5px; font-weight: 700; margin: 0; }
+  .block-head .hint { font-size: 12.5px; color: var(--ink-3); font-weight: 500; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  thead th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); padding: 11px 18px; background: var(--hover); border-bottom: 1px solid var(--line); white-space: nowrap; }
+  tbody td { padding: 12px 18px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr.rowlink { cursor: pointer; transition: background var(--t-fast) var(--ease); }
+  tbody tr.rowlink:hover { background: var(--hover); }
+  .vcell { display: flex; align-items: center; gap: 11px; }
+  .vcell .vt { width: 56px; height: 36px; border-radius: 7px; flex: none; display: grid; place-items: center; color: #fff; position: relative; overflow: hidden; }
+  .vcell .vt svg { width: 14px; height: 14px; opacity: .85; }
+  .vcell .vt .pd { position: absolute; bottom: 2px; right: 3px; font-size: 8px; font-family: var(--mono); color: #fff; background: rgba(0,0,0,.5); padding: 0 3px; border-radius: 3px; }
+  .vcell .vn { font-weight: 600; line-height: 1.2; }
+  .vcell .vsub { font-size: 12px; color: var(--ink-3); font-weight: 500; margin-top: 2px; }
+  .muted { color: var(--ink-2); }
+  .mono-cell { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--ink-2); }
+
+  .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 7px; line-height: 1.35; white-space: nowrap; }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .badge.blue  { color: var(--blue);  background: var(--blue-bg); }  .badge.blue .dot  { background: var(--blue); }
+  .badge.amber { color: var(--amber); background: var(--amber-bg); } .badge.amber .dot { background: var(--amber); }
+  .badge.green { color: var(--green); background: var(--green-bg); } .badge.green .dot { background: var(--green); }
+  .badge.red   { color: var(--red);   background: var(--red-bg); }   .badge.red .dot   { background: var(--red); }
+  .badge.slate { color: var(--slate); background: var(--slate-bg); } .badge.slate .dot { background: var(--slate); }
+
+  .typchip { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
+  .typchip.ret { color: var(--brand-dark); background: var(--brand-tint); }
+  .typchip.one { color: var(--warm-accent); background: var(--warm-accent-tint); }
+
+  .btn { font-family: var(--ui); font-size: 13.5px; font-weight: 600; border-radius: 8px; padding: 9px 15px; border: 1px solid transparent; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; line-height: 1; transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease); }
+  .btn:active:not(:disabled) { transform: scale(.97); }
+  .btn.primary { background: var(--brand); color: #fff; } .btn.primary:hover { background: var(--brand-dark); }
+  .btn.outline { background: var(--surface); color: var(--ink); border-color: var(--line-strong); } .btn.outline:hover { background: var(--hover); }
+  .btn.ghost { background: transparent; color: var(--ink-2); } .btn.ghost:hover { background: var(--hover); }
+  .btn.sm { padding: 7px 12px; font-size: 13px; }
+  .btn svg { width: 15px; height: 15px; }
+  .wa-btn { background: #1FA855; color: #fff; } .wa-btn:hover { background: #1a8f48; }
+
+  /* admin detail */
+  .detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 20px 26px; border-bottom: 1px solid var(--line); }
+  .breadcrumb { font-size: 12.5px; color: var(--ink-3); margin-bottom: 9px; display: flex; gap: 7px; align-items: center; }
+  .detail-head h3 { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -.015em; }
+  .detail-meta { display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); }
+  .detail-meta .am { display: flex; align-items: center; gap: 7px; } .detail-meta .am .nm { font-weight: 600; color: var(--ink); }
+  .detail-meta .sep { color: var(--line-strong); }
+  .notify-wrap { display: flex; flex-direction: column; gap: 7px; align-items: flex-end; }
+  .notify-pref { font-size: 11.5px; color: var(--ink-3); font-weight: 600; display: flex; align-items: center; gap: 6px; }
+
+  .dsplit { display: grid; grid-template-columns: 1.5fr 1fr; gap: 22px; align-items: start; padding: 22px 26px 26px; }
+  .panel { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
+  .panel + .panel { margin-top: 18px; }
+  .panel-head { padding: 13px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
+  .panel-head h4 { font-size: 13.5px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px; }
+  .panel-body { padding: 16px; }
+
+  .d-fio { position: relative; aspect-ratio: 16/9; border-radius: 10px; overflow: hidden; background: linear-gradient(135deg, #2c3540, #4a5562); display: grid; place-items: center; }
+  .d-fio .bigplay { width: 58px; height: 58px; border-radius: 50%; background: rgba(255,255,255,.95); display: grid; place-items: center; box-shadow: 0 6px 20px rgba(0,0,0,.3); z-index: 2; }
+  .d-fio .bigplay svg { width: 22px; height: 22px; color: #14171b; margin-left: 3px; }
+
+  .sync-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .sync-row:last-child { border-bottom: none; }
+  .sync-ic { width: 38px; height: 38px; border-radius: 9px; flex: none; display: grid; place-items: center; font-size: 10px; font-weight: 800; color: #fff; letter-spacing: -.02em; }
+  .sync-ic.cu { background: #7B68EE; } .sync-ic.fio { background: #5b6bff; } .sync-ic.wa { background: #1FA855; }
+  .sync-info { flex: 1; min-width: 0; }
+  .sync-info .t { font-size: 13px; font-weight: 700; }
+  .sync-info .s { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; font-family: var(--mono); }
+  .sync-link { font-size: 12px; font-weight: 600; color: var(--brand-dark); display: inline-flex; align-items: center; gap: 4px; }
+  .sync-link svg { width: 13px; height: 13px; }
+  .sync-state { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
+  .sync-state.ok { color: var(--green); background: var(--green-bg); }
+  .sync-state.pend { color: var(--amber); background: var(--amber-bg); }
+
+  .flow { display: flex; align-items: center; gap: 8px; padding: 6px 0 2px; }
+  .flow .node { flex: 1; text-align: center; border: 1px solid var(--line); border-radius: 9px; padding: 9px 6px; background: var(--hover); }
+  .flow .node .nl { font-size: 11px; font-weight: 700; }
+  .flow .node .ns { font-size: 10px; color: var(--ink-3); margin-top: 1px; font-family: var(--mono); }
+  .flow .arr { color: var(--ink-3); flex: none; } .flow .arr svg { width: 15px; height: 15px; display: block; }
+
+  .timeline { display: flex; flex-direction: column; }
+  .tl-item { display: flex; gap: 12px; padding: 10px 0; position: relative; }
+  .tl-item:not(:last-child)::before { content: ""; position: absolute; left: 15px; top: 34px; bottom: -10px; width: 2px; background: var(--line); }
+  .tl-dot { width: 32px; height: 32px; border-radius: 50%; flex: none; display: grid; place-items: center; border: 1px solid var(--line); background: var(--surface); z-index: 1; }
+  .tl-dot svg { width: 15px; height: 15px; }
+  .tl-dot.green { background: var(--green-bg); border-color: var(--brand-tint-2); }
+  .tl-dot.blue { background: var(--blue-bg); border-color: #d3e0ff; }
+  .tl-dot.amber { background: var(--amber-bg); border-color: #f1ddb6; }
+  .tl-dot.slate { background: var(--slate-bg); border-color: #dbe1e7; }
+  .tl-body .tl-main { font-size: 13px; } .tl-body .tl-main b { font-weight: 700; }
+  .tl-body .tl-time { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; font-family: var(--mono); }
+  .tl-body .tl-quote { margin-top: 7px; font-size: 12.5px; color: var(--ink-2); background: var(--hover); border-left: 2px solid var(--line-strong); padding: 7px 11px; border-radius: 0 6px 6px 0; }
+
+  @media (max-width: 980px) {
+    .metrics { grid-template-columns: repeat(2,1fr); }
+    .dsplit { grid-template-columns: 1fr; }
+    .shell { grid-template-columns: 1fr; }
+    .rail { flex-direction: row; align-items: center; }
+    .rail-nav, .rail-group-label, .rail-spacer, .rail-user { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="gallery">
+
+  <div class="gallery-head">
+    <h1><span class="rail-logo" style="width:36px;height:36px;border-radius:10px;font-size:13px;">LBM</span> LBM Portal — UI Mockups <span style="font-size:14px;font-weight:600;color:var(--ink-3);">v3 · review &amp; approval workflow</span></h1>
+    <p>The review-and-approval surface at the tail of your ClickUp pipeline. Finished videos land here for client sign-off via embedded Frame.io — clients on mobile, the team on desktop. Approvals and feedback sync back to the ClickUp task.</p>
+    <div class="ds-strip">
+      <span class="ds-chip"><span class="k">Client</span> Mobile-first · warm / consumer</span>
+      <span class="ds-chip"><span class="k">Admin</span> Desktop · data-dense</span>
+      <span class="ds-chip"><span class="k">Type</span> Plus Jakarta Sans + IBM Plex Mono</span>
+      <span class="ds-chip"><span class="sw" style="background:#FF6000"></span><span class="sw" style="background:#221e18"></span><span class="sw" style="background:#b06f06"></span><span class="sw" style="background:#cf3f36"></span> Brand + semantic</span>
+    </div>
+  </div>
+
+  <!-- ===================== CLIENT · MOBILE ===================== -->
+  <div class="section-band">
+    <span class="lab">Client · Mobile</span>
+    <span class="desc">On-the-go review. Magic-link login, WhatsApp / email alerts, Frame.io playback.</span>
+    <span class="ln"></span>
+  </div>
+
+  <div class="phones">
+
+    <!-- ===== Mobile 1 — Retainer review feed ===== -->
+    <div class="screen-cap">
+      <div class="cap"><span class="n">M1</span><h3>Review feed</h3><span class="who">Retainer client</span></div>
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="island"></div>
+          <div class="statusbar">
+            <span class="time">9:41</span>
+            <span class="sb-right">
+              <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 4.5C3 2.5 5.3 1.5 8 1.5s5 1 7 3"/><path d="M3.2 7C4.5 5.8 6.1 5.2 8 5.2s3.5.6 4.8 1.8"/><path d="M5.6 9.4C6.3 8.8 7.1 8.5 8 8.5s1.7.3 2.4.9"/></svg>
+              <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="2.5" stroke="currentColor" stroke-width="1.3" opacity=".5"/><rect x="3" y="3" width="14" height="6" rx="1" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx=".75" fill="currentColor" opacity=".5"/></svg>
+            </span>
+          </div>
+
+          <div class="m-head">
+            <div class="m-brand">
+              <div class="m-logo">LBM</div>
+              <div class="m-greet"><div class="hi">Welcome back</div><div class="nm">Marlowe Homes</div></div>
+            </div>
+            <button class="m-iconbtn" aria-label="Notifications"><span class="ping"></span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            </button>
+          </div>
+
+          <div class="m-scroll">
+            <div class="m-pad">
+              <div class="pkg-banner">
+                <div class="pb-l">
+                  <div class="t">JUNE SOCIAL PACKAGE</div>
+                  <div class="v">8 videos this month</div>
+                </div>
+                <div class="pkg-ring">
+                  <div class="rcount"><div class="big">3</div><div class="sm">to review</div></div>
+                  <div class="ring-wrap"><div class="ring" style="--p:62"></div><span class="lbl">5/8</span></div>
+                </div>
+              </div>
+
+              <div class="m-sectitle">
+                <div class="l">Needs your review <span class="count">3</span></div>
+              </div>
+
+              <!-- Primary review card -->
+              <div class="vcard">
+                <div class="vthumb">
+                  <span class="plat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/></svg>Reel</span>
+                  <span class="fio">Frame.io</span>
+                  <div class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+                  <span class="dur">0:41</span>
+                </div>
+                <div class="vbody">
+                  <div class="vtitle">Model home tour — Birchwood plan</div>
+                  <div class="vmeta">
+                    <span class="am"><span class="av s slate">SM</span>Sofia M.</span>
+                    <span class="dotsep"></span><span>Submitted 2h ago</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <span class="m-badge amber"><span class="dot"></span>Awaiting your review</span>
+                  </div>
+                  <button class="mbtn primary full lg">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Watch &amp; review
+                  </button>
+                </div>
+              </div>
+
+              <!-- Second review card (condensed) -->
+              <div class="vcard">
+                <div class="vthumb v2">
+                  <span class="plat"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 3 3 5 6 5v3c-2.2 0-4.2-.7-6-2v6.5A5.5 5.5 0 1 1 9 9.2v3.2A2.4 2.4 0 1 0 12 14.5V2Z"/></svg>TikTok</span>
+                  <span class="fio">Frame.io</span>
+                  <div class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+                  <span class="dur">0:24</span>
+                </div>
+                <div class="vbody">
+                  <div class="vtitle">Foundation → framing timelapse, Lot 14</div>
+                  <div class="vmeta"><span class="am"><span class="av s blue">JR</span>James R.</span><span class="dotsep"></span><span>Yesterday</span></div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <span class="m-badge amber"><span class="dot"></span>Awaiting your review</span>
+                  </div>
+                  <button class="mbtn primary full lg">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Watch &amp; review
+                  </button>
+                </div>
+              </div>
+
+              <div class="m-sectitle" style="margin-top:4px"><div class="l" style="font-size:14px">Recently reviewed</div></div>
+              <div class="rev-row">
+                <div class="rt" style="background:linear-gradient(135deg,#3a4a3f,#5e6f56)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg></div>
+                <div class="ri"><div class="t">Kitchen design spotlight</div><div class="s">Instagram Reel · approved Jun 5</div></div>
+                <span class="m-badge green"><span class="dot"></span>Approved</span>
+              </div>
+              <div class="rev-row">
+                <div class="rt" style="background:linear-gradient(135deg,#43373a,#6a5550)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg></div>
+                <div class="ri"><div class="t">Drone flythrough — Maple Ridge</div><div class="s">YouTube Short · changes sent Jun 3</div></div>
+                <span class="m-badge red"><span class="dot"></span>Changes</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="tabbar">
+            <div class="tab active">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+              <span class="tbadge">3</span>Reviews
+            </div>
+            <div class="tab">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              Calendar
+            </div>
+            <div class="tab">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg>
+              Account
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Mobile 2 — Publishing calendar ===== -->
+    <div class="screen-cap">
+      <div class="cap"><span class="n">M2</span><h3>Publishing calendar</h3><span class="who">Retainer client</span></div>
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="island"></div>
+          <div class="statusbar">
+            <span class="time">9:41</span>
+            <span class="sb-right">
+              <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 4.5C3 2.5 5.3 1.5 8 1.5s5 1 7 3"/><path d="M3.2 7C4.5 5.8 6.1 5.2 8 5.2s3.5.6 4.8 1.8"/><path d="M5.6 9.4C6.3 8.8 7.1 8.5 8 8.5s1.7.3 2.4.9"/></svg>
+              <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="2.5" stroke="currentColor" stroke-width="1.3" opacity=".5"/><rect x="3" y="3" width="14" height="6" rx="1" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx=".75" fill="currentColor" opacity=".5"/></svg>
+            </span>
+          </div>
+
+          <div class="m-head">
+            <div class="m-greet"><div class="hi" style="font-size:13px">Marlowe Homes</div><div class="nm" style="font-size:20px">Publishing calendar</div></div>
+            <button class="m-iconbtn" aria-label="Notifications"><span class="ping"></span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            </button>
+          </div>
+
+          <div class="m-scroll">
+            <div class="m-pad">
+              <div class="cal-card">
+                <div class="cal-top">
+                  <div class="mn">June 2026</div>
+                  <div class="cal-nav">
+                    <div class="cb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div>
+                    <div class="cb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+                  </div>
+                </div>
+                <div class="cal-grid">
+                  <div class="dow">S</div><div class="dow">M</div><div class="dow">T</div><div class="dow">W</div><div class="dow">T</div><div class="dow">F</div><div class="dow">S</div>
+                  <div class="cal-cell muted">31</div>
+                  <div class="cal-cell">1</div><div class="cal-cell">2</div>
+                  <div class="cal-cell has">3<div class="cdots"><i class="g"></i></div></div>
+                  <div class="cal-cell">4</div>
+                  <div class="cal-cell has">5<div class="cdots"><i class="g"></i></div></div>
+                  <div class="cal-cell">6</div>
+                  <div class="cal-cell">7</div><div class="cal-cell">8</div>
+                  <div class="cal-cell today">9</div>
+                  <div class="cal-cell has">10<div class="cdots"><i class="b"></i></div></div>
+                  <div class="cal-cell">11</div>
+                  <div class="cal-cell has">12<div class="cdots"><i class="a"></i></div></div>
+                  <div class="cal-cell">13</div>
+                  <div class="cal-cell has">14<div class="cdots"><i class="a"></i><i class="b"></i></div></div>
+                  <div class="cal-cell">15</div><div class="cal-cell">16</div>
+                  <div class="cal-cell has">17<div class="cdots"><i class="b"></i></div></div>
+                  <div class="cal-cell">18</div>
+                  <div class="cal-cell has">19<div class="cdots"><i class="a"></i></div></div>
+                  <div class="cal-cell">20</div><div class="cal-cell">21</div>
+                  <div class="cal-cell">22</div><div class="cal-cell">23</div>
+                  <div class="cal-cell has">24<div class="cdots"><i class="b"></i></div></div>
+                  <div class="cal-cell">25</div><div class="cal-cell">26</div>
+                  <div class="cal-cell has">27<div class="cdots"><i class="b"></i></div></div>
+                  <div class="cal-cell">28</div>
+                  <div class="cal-cell">29</div><div class="cal-cell">30</div>
+                  <div class="cal-cell muted">1</div><div class="cal-cell muted">2</div><div class="cal-cell muted">3</div><div class="cal-cell muted">4</div>
+                </div>
+              </div>
+              <div class="cal-legend">
+                <span><i style="background:var(--brand)"></i>Published</span>
+                <span><i style="background:var(--amber)"></i>Awaiting you</span>
+                <span><i style="background:var(--blue)"></i>Scheduled</span>
+              </div>
+
+              <div class="m-sectitle" style="margin-top:2px"><div class="l" style="font-size:15px">Upcoming</div></div>
+              <div class="agenda">
+                <div class="ag-item">
+                  <div class="ag-date"><div class="d">10</div><div class="mo">Jun</div></div>
+                  <div class="ag-body">
+                    <div class="t">Model home tour — Birchwood</div>
+                    <div class="m"><span class="m-badge blue" style="padding:3px 8px"><span class="dot"></span>Scheduled</span><span>Instagram Reel</span></div>
+                  </div>
+                </div>
+                <div class="ag-item">
+                  <div class="ag-date"><div class="d">12</div><div class="mo">Jun</div></div>
+                  <div class="ag-body">
+                    <div class="t">Framing timelapse — Lot 14</div>
+                    <div class="m"><span class="m-badge amber" style="padding:3px 8px"><span class="dot"></span>Awaiting you</span><span>YouTube Short</span></div>
+                  </div>
+                </div>
+                <div class="ag-item">
+                  <div class="ag-date"><div class="d">14</div><div class="mo">Jun</div></div>
+                  <div class="ag-body">
+                    <div class="t">Homeowner handover — Delgados</div>
+                    <div class="m"><span class="m-badge amber" style="padding:3px 8px"><span class="dot"></span>Awaiting you</span><span>TikTok · Reel</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tabbar">
+            <div class="tab">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+              <span class="tbadge">3</span>Reviews
+            </div>
+            <div class="tab active">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              Calendar
+            </div>
+            <div class="tab">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg>
+              Account
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Mobile 3 — Video review detail ===== -->
+    <div class="screen-cap">
+      <div class="cap"><span class="n">M3</span><h3>Video review</h3><span class="who">Frame.io + approve</span></div>
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="island"></div>
+          <div class="statusbar">
+            <span class="time">9:41</span>
+            <span class="sb-right">
+              <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 4.5C3 2.5 5.3 1.5 8 1.5s5 1 7 3"/><path d="M3.2 7C4.5 5.8 6.1 5.2 8 5.2s3.5.6 4.8 1.8"/><path d="M5.6 9.4C6.3 8.8 7.1 8.5 8 8.5s1.7.3 2.4.9"/></svg>
+              <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="2.5" stroke="currentColor" stroke-width="1.3" opacity=".5"/><rect x="3" y="3" width="14" height="6" rx="1" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx=".75" fill="currentColor" opacity=".5"/></svg>
+            </span>
+          </div>
+
+          <div class="m-navbar">
+            <div class="m-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div>
+            <div class="m-navttl">Review video</div>
+            <div class="m-back" style="border:none;background:transparent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></div>
+          </div>
+
+          <div class="m-scroll">
+            <div class="m-pad" style="gap:14px">
+              <div class="fio-player">
+                <div class="bg"></div>
+                <span class="fio-tag"><span class="d"></span>Frame.io · v3</span>
+                <div class="bigplay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+                <div class="fio-bar">
+                  <div class="fio-scrub"><span></span><span class="knob"></span></div>
+                  <div class="fio-time"><span>0:15</span><span>0:41</span></div>
+                </div>
+              </div>
+
+              <div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px">
+                  <span class="m-badge amber"><span class="dot"></span>Awaiting your review</span>
+                  <span class="m-badge slate" style="background:var(--m-surface-2)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Instagram Reel</span>
+                </div>
+                <div style="font-size:18px;font-weight:800;letter-spacing:-.01em;line-height:1.2">Model home tour — Birchwood plan</div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12.5px;color:var(--m-ink-2);font-weight:500">
+                  <span class="av s slate">SM</span>Sofia Marín<span class="dotsep" style="background:var(--m-ink-3)"></span><span class="mono" style="color:var(--m-ink-3)">0:41</span><span class="dotsep" style="background:var(--m-ink-3)"></span>Submitted 2h ago
+                </div>
+              </div>
+
+              <!-- synced comments -->
+              <div>
+                <div class="cmt-head" style="margin-bottom:4px">
+                  <div class="l">Comments</div>
+                  <span class="src"><span class="d"></span>Synced from Frame.io</span>
+                </div>
+                <div class="cmt">
+                  <span class="av m slate">SM</span>
+                  <div class="cm">
+                    <div class="top"><span class="who">Sofia Marín</span><span class="tc">0:12</span><span class="ts">2h ago</span></div>
+                    <div class="txt">Hi! Here's the final cut of the Birchwood tour. Let me know if the pacing works for you 🙌</div>
+                  </div>
+                </div>
+                <div class="cmt">
+                  <span class="av m brand">MH</span>
+                  <div class="cm">
+                    <div class="top"><span class="who">You</span><span class="tc">0:28</span><span class="ts">just now</span></div>
+                    <div class="txt">Looks great — can we hold on the kitchen shot a beat longer?</div>
+                  </div>
+                </div>
+                <button class="mbtn soft full" style="margin-top:6px">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  Add a timestamped comment in Frame.io
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="approve-dock">
+            <div class="hint">Your decision updates the ClickUp task automatically</div>
+            <div class="row">
+              <button class="mbtn soft" style="color:var(--red);border-color:var(--m-red-bg);background:var(--m-red-bg)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                Request changes
+              </button>
+              <button class="mbtn primary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                Approve
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Mobile 4 — One-time client home ===== -->
+    <div class="screen-cap">
+      <div class="cap"><span class="n">M4</span><h3>Project home</h3><span class="who">One-time client</span></div>
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="island"></div>
+          <div class="statusbar">
+            <span class="time">9:41</span>
+            <span class="sb-right">
+              <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 4.5C3 2.5 5.3 1.5 8 1.5s5 1 7 3"/><path d="M3.2 7C4.5 5.8 6.1 5.2 8 5.2s3.5.6 4.8 1.8"/><path d="M5.6 9.4C6.3 8.8 7.1 8.5 8 8.5s1.7.3 2.4.9"/></svg>
+              <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="2.5" stroke="currentColor" stroke-width="1.3" opacity=".5"/><rect x="3" y="3" width="14" height="6" rx="1" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx=".75" fill="currentColor" opacity=".5"/></svg>
+            </span>
+          </div>
+
+          <div class="m-head">
+            <div class="m-brand">
+              <div class="m-logo">LBM</div>
+              <div class="m-greet"><div class="hi">Welcome</div><div class="nm">Ridgeline Construction</div></div>
+            </div>
+            <button class="m-iconbtn" aria-label="Account">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg>
+            </button>
+          </div>
+
+          <div class="m-scroll">
+            <div class="m-pad">
+              <div class="ot-hero">
+                <div class="kick">Your video</div>
+                <h2>Ridgeline HQ — project reveal film</h2>
+                <div class="sub">One-time production · delivered by Legacy Building Media</div>
+              </div>
+
+              <div class="vcard">
+                <div class="vthumb v4" style="aspect-ratio:16/9">
+                  <span class="plat"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M23 7.5a3 3 0 0 0-2.1-2.1C19 5 12 5 12 5s-7 0-8.9.4A3 3 0 0 0 1 7.5 31 31 0 0 0 .6 12 31 31 0 0 0 1 16.5a3 3 0 0 0 2.1 2.1C5 19 12 19 12 19s7 0 8.9-.4a3 3 0 0 0 2.1-2.1A31 31 0 0 0 23.4 12 31 31 0 0 0 23 7.5ZM9.8 15.3V8.7l5.7 3.3-5.7 3.3Z"/></svg>YouTube</span>
+                  <span class="fio">Frame.io</span>
+                  <div class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+                  <span class="dur">2:10</span>
+                </div>
+                <div class="vbody">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <span class="m-badge amber"><span class="dot"></span>Awaiting your review</span>
+                    <span class="vmeta" style="margin:0">Final cut · v2</span>
+                  </div>
+                  <div class="vmeta"><span class="am"><span class="av s blue">JR</span>James R.</span><span class="dotsep"></span><span>Submitted today, 8:40 AM</span></div>
+                  <button class="mbtn primary full lg">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Watch &amp; review
+                  </button>
+                </div>
+              </div>
+
+              <div class="m-sectitle"><div class="l" style="font-size:14px">Project progress</div></div>
+              <div class="ot-steps">
+                <div class="ot-step done">
+                  <div class="sdot"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                  <div class="si"><div class="t">Filming &amp; production</div><div class="s">Completed May 28</div></div>
+                </div>
+                <div class="ot-step done">
+                  <div class="sdot"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                  <div class="si"><div class="t">Editing &amp; color</div><div class="s">Completed Jun 8</div></div>
+                </div>
+                <div class="ot-step now">
+                  <div class="sdot">3</div>
+                  <div class="si"><div class="t">Your review</div><div class="s">Ready now — watch &amp; approve above</div></div>
+                </div>
+                <div class="ot-step todo">
+                  <div class="sdot">4</div>
+                  <div class="si"><div class="t muted">Final delivery</div><div class="s">4K masters + social cutdowns</div></div>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:9px;justify-content:center;font-size:11.5px;color:var(--m-ink-3);font-weight:600;padding-top:2px">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
+                We'll WhatsApp you the moment it's ready
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===================== INTERNAL · DESKTOP ===================== -->
+  <div class="section-band">
+    <span class="lab">Internal · Desktop</span>
+    <span class="desc">The team's view. Review queue across all clients, plus per-video ClickUp / Frame.io sync and client activity.</span>
+    <span class="ln"></span>
+  </div>
+
+  <div class="stack-d">
+
+    <!-- ===== Desktop 5 — Admin review queue ===== -->
+    <div>
+      <div class="dt-cap"><span class="n">D5</span><h3>Review queue</h3><span class="who">Admin · all clients</span></div>
+      <div class="frame">
+        <div class="shell">
+          <aside class="rail">
+            <div class="rail-brand"><div class="rail-logo">LBM</div><div class="rail-name">LBM <span class="sub">Portal</span><br><span class="sub">Legacy Building Media</span></div></div>
+            <div>
+              <div class="rail-group-label">Workspace</div>
+              <nav class="rail-nav">
+                <a class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>Review queue<span class="bm">7</span></a>
+                <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>Clients</a>
+                <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Calendar</a>
+                <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l2-3h14l2 3"/><path d="M3 7h18v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>Projects</a>
+              </nav>
+            </div>
+            <div style="margin-top:6px">
+              <div class="rail-group-label">Integrations</div>
+              <nav class="rail-nav">
+                <a><span class="sync-ic cu" style="width:18px;height:18px;border-radius:5px;font-size:7px">CU</span>ClickUp<span class="bm" style="background:rgba(123,104,238,.25)">live</span></a>
+                <a><span class="sync-ic fio" style="width:18px;height:18px;border-radius:5px;font-size:6px">F</span>Frame.io<span class="bm" style="background:rgba(91,107,255,.25)">live</span></a>
+              </nav>
+            </div>
+            <div class="rail-spacer"></div>
+            <div class="rail-user"><span class="av m slate">DO</span><div class="meta"><div class="name">Daniel Okafor</div><div class="role">CEO</div></div></div>
+          </aside>
+
+          <div class="main">
+            <div class="topbar">
+              <div><div class="title">Review queue</div><div class="sub">Videos submitted for client sign-off · synced from ClickUp</div></div>
+              <div class="topbar-right">
+                <div class="seg"><button class="on">All</button><button>Retainer</button><button>One-time</button></div>
+                <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Search videos, clients…</div>
+              </div>
+            </div>
+
+            <div class="body-d">
+              <div class="metrics">
+                <div class="metric"><div class="label"><span class="dot" style="background:var(--amber)"></span>Awaiting client review</div><div class="value">7</div><div class="delta warn"><b>2</b> waiting &gt; 24h</div></div>
+                <div class="metric"><div class="label"><span class="dot" style="background:var(--green)"></span>Approved today</div><div class="value">4</div><div class="delta"><b>+2</b> vs. yesterday</div></div>
+                <div class="metric"><div class="label"><span class="dot" style="background:var(--red)"></span>Changes requested</div><div class="value">2</div><div class="delta">Synced to ClickUp</div></div>
+                <div class="metric"><div class="label"><span class="dot" style="background:var(--brand)"></span>Avg. review time</div><div class="value">6.4<span class="unit">hrs</span></div><div class="delta"><b>−1.2h</b> vs. last month</div></div>
+              </div>
+
+              <div class="block">
+                <div class="block-head"><h4>Awaiting client review</h4><span class="hint">7 videos · across 5 clients</span></div>
+                <table>
+                  <thead>
+                    <tr><th>Video</th><th>Client</th><th>Type</th><th>AM</th><th>Submitted</th><th>Client status</th><th>ClickUp</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr class="rowlink">
+                      <td><div class="vcell"><div class="vt" style="background:linear-gradient(135deg,#2c3540,#4a5562)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg><span class="pd">0:41</span></div><div><div class="vn">Model home tour — Birchwood plan</div><div class="vsub">Instagram Reel</div></div></div></td>
+                      <td class="muted">Marlowe Homes</td>
+                      <td><span class="typchip ret">Retainer</span></td>
+                      <td class="muted">Sofia Marín</td>
+                      <td class="mono-cell">2h ago</td>
+                      <td><span class="badge blue"><span class="dot"></span>Viewed</span></td>
+                      <td><span class="mono-cell">#LBM-1042</span></td>
+                    </tr>
+                    <tr class="rowlink">
+                      <td><div class="vcell"><div class="vt" style="background:linear-gradient(135deg,#3a4a3f,#5e6f56)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg><span class="pd">0:24</span></div><div><div class="vn">Foundation → framing timelapse</div><div class="vsub">YouTube Short · Lot 14</div></div></div></td>
+                      <td class="muted">Marlowe Homes</td>
+                      <td><span class="typchip ret">Retainer</span></td>
+                      <td class="muted">James Reyes</td>
+                      <td class="mono-cell">1d ago</td>
+                      <td><span class="badge amber"><span class="dot"></span>Not opened</span></td>
+                      <td><span class="mono-cell">#LBM-1039</span></td>
+                    </tr>
+                    <tr class="rowlink">
+                      <td><div class="vcell"><div class="vt" style="background:linear-gradient(135deg,#353f4a,#586573)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg><span class="pd">2:10</span></div><div><div class="vn">Ridgeline HQ — project reveal film</div><div class="vsub">YouTube · final cut v2</div></div></div></td>
+                      <td class="muted">Ridgeline Construction</td>
+                      <td><span class="typchip one">One-time</span></td>
+                      <td class="muted">James Reyes</td>
+                      <td class="mono-cell">5h ago</td>
+                      <td><span class="badge blue"><span class="dot"></span>Viewed</span></td>
+                      <td><span class="mono-cell">#LBM-1051</span></td>
+                    </tr>
+                    <tr class="rowlink">
+                      <td><div class="vcell"><div class="vt" style="background:linear-gradient(135deg,#43373a,#6a5550)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg><span class="pd">0:38</span></div><div><div class="vn">Coastal — twilight exterior reveal</div><div class="vsub">Instagram Reel</div></div></div></td>
+                      <td class="muted">Coastal Custom Homes</td>
+                      <td><span class="typchip ret">Retainer</span></td>
+                      <td class="muted">Priya Tan</td>
+                      <td class="mono-cell">1d ago</td>
+                      <td><span class="badge red"><span class="dot"></span>Changes</span></td>
+                      <td><span class="mono-cell">#LBM-1033</span></td>
+                    </tr>
+                    <tr class="rowlink">
+                      <td><div class="vcell"><div class="vt" style="background:linear-gradient(135deg,#2f3b42,#51636b)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg><span class="pd">0:52</span></div><div><div class="vn">Atlas — groundbreaking ceremony recap</div><div class="vsub">LinkedIn · landscape</div></div></div></td>
+                      <td class="muted">Atlas Developments</td>
+                      <td><span class="typchip one">One-time</span></td>
+                      <td class="muted">Sofia Marín</td>
+                      <td class="mono-cell">3h ago</td>
+                      <td><span class="badge amber"><span class="dot"></span>Not opened</span></td>
+                      <td><span class="mono-cell">#LBM-1048</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Desktop 6 — Admin video detail ===== -->
+    <div>
+      <div class="dt-cap"><span class="n">D6</span><h3>Video detail</h3><span class="who">Admin · sync &amp; activity</span></div>
+      <div class="frame">
+        <div class="shell">
+          <aside class="rail">
+            <div class="rail-brand"><div class="rail-logo">LBM</div><div class="rail-name">LBM <span class="sub">Portal</span><br><span class="sub">Legacy Building Media</span></div></div>
+            <div>
+              <div class="rail-group-label">Workspace</div>
+              <nav class="rail-nav">
+                <a class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>Review queue<span class="bm">7</span></a>
+                <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>Clients</a>
+                <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Calendar</a>
+                <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l2-3h14l2 3"/><path d="M3 7h18v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>Projects</a>
+              </nav>
+            </div>
+            <div class="rail-spacer"></div>
+            <div class="rail-user"><span class="av m slate">SM</span><div class="meta"><div class="name">Sofia Marín</div><div class="role">Account manager</div></div></div>
+          </aside>
+
+          <div class="main">
+            <div class="detail-head">
+              <div>
+                <div class="breadcrumb"><a>Review queue</a><span>/</span><a>Marlowe Homes</a><span>/</span><span>Birchwood tour</span></div>
+                <h3>Model home tour — Birchwood plan</h3>
+                <div class="detail-meta">
+                  <span class="badge amber"><span class="dot"></span>Awaiting client review</span>
+                  <span class="sep">·</span>
+                  <span class="typchip ret">Retainer</span>
+                  <span class="am"><span class="av s slate">SM</span><span class="nm">Sofia Marín</span></span>
+                  <span class="sep">·</span>
+                  <span>Instagram Reel · <span class="mono">0:41</span></span>
+                </div>
+              </div>
+              <div class="notify-wrap">
+                <button class="btn wa-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.16c-.24.68-1.42 1.31-1.95 1.36-.5.05-1.13.07-1.83-.11-.42-.13-.96-.31-1.66-.61-2.92-1.26-4.83-4.2-4.97-4.39-.15-.2-1.19-1.58-1.19-3.01s.75-2.13 1.02-2.42c.27-.29.58-.36.78-.36.2 0 .39 0 .56.01.18.01.42-.07.66.5.24.59.82 2.03.89 2.18.07.15.12.32.02.51-.09.2-.14.32-.27.49-.14.17-.29.38-.41.51-.14.14-.28.29-.12.57.16.27.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.21 1.37.27.14.43.12.59-.07.16-.2.68-.79.86-1.06.18-.27.36-.22.61-.13.25.09 1.59.75 1.86.89.27.14.45.2.52.31.07.12.07.66-.17 1.34z"/></svg>Notify client via WhatsApp</button>
+                <span class="notify-pref"><span class="dot" style="width:6px;height:6px;border-radius:50%;background:var(--green)"></span>Client prefers WhatsApp · last sent 2h ago</span>
+              </div>
+            </div>
+
+            <div class="dsplit">
+              <!-- left: player + Frame.io comments -->
+              <div>
+                <div class="panel">
+                  <div class="panel-head"><h4><span class="sync-ic fio" style="width:18px;height:18px;border-radius:5px;font-size:6px">F</span>Frame.io review</h4><a class="sync-link">Open in Frame.io<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg></a></div>
+                  <div class="panel-body">
+                    <div class="d-fio">
+                      <div class="bigplay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="panel">
+                  <div class="panel-head"><h4>Comments <span style="font-weight:600;color:var(--ink-3);font-size:12px">· synced both ways</span></h4><span class="sync-state ok">Frame.io ⇄ ClickUp</span></div>
+                  <div class="panel-body" style="padding-top:6px">
+                    <div class="timeline">
+                      <div class="tl-item">
+                        <div class="tl-dot slate"><span class="av s slate" style="width:24px;height:24px;font-size:9px">SM</span></div>
+                        <div class="tl-body"><div class="tl-main"><b>Sofia Marín</b> <span class="mono" style="font-size:11px;color:var(--brand-dark);background:var(--brand-tint);padding:1px 6px;border-radius:5px">0:12</span></div><div class="tl-time">2h ago · Frame.io</div><div class="tl-quote">Final cut of the Birchwood tour — let me know if the pacing works.</div></div>
+                      </div>
+                      <div class="tl-item">
+                        <div class="tl-dot blue"><span class="av s brand" style="width:24px;height:24px;font-size:9px">MH</span></div>
+                        <div class="tl-body"><div class="tl-main"><b>Marlowe Homes</b> (client) <span class="mono" style="font-size:11px;color:var(--brand-dark);background:var(--brand-tint);padding:1px 6px;border-radius:5px">0:28</span></div><div class="tl-time">just now · Frame.io → mirrored to #LBM-1042</div><div class="tl-quote">Looks great — can we hold on the kitchen shot a beat longer?</div></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- right: sync + activity + notifications -->
+              <div>
+                <div class="panel">
+                  <div class="panel-head"><h4>Linked records</h4></div>
+                  <div class="panel-body" style="padding-top:6px;padding-bottom:8px">
+                    <div class="sync-row">
+                      <div class="sync-ic cu">CU</div>
+                      <div class="sync-info"><div class="t">ClickUp task</div><div class="s">#LBM-1042 · In review</div></div>
+                      <span class="sync-state pend">Updates on approval</span>
+                    </div>
+                    <div class="sync-row">
+                      <div class="sync-ic fio">F</div>
+                      <div class="sync-info"><div class="t">Frame.io asset</div><div class="s">birchwood_tour_v3.mp4</div></div>
+                      <a class="sync-link">Open<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg></a>
+                    </div>
+                    <div class="sync-row">
+                      <div class="sync-ic wa">WA</div>
+                      <div class="sync-info"><div class="t">Client notified</div><div class="s">WhatsApp · 2h ago · delivered</div></div>
+                      <span class="sync-state ok">Sent</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="panel">
+                  <div class="panel-head"><h4>On approval</h4></div>
+                  <div class="panel-body" style="padding-top:12px">
+                    <div class="flow">
+                      <div class="node"><div class="nl">Portal</div><div class="ns">Approved</div></div>
+                      <div class="arr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+                      <div class="node"><div class="nl">ClickUp</div><div class="ns">→ Approved</div></div>
+                      <div class="arr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+                      <div class="node"><div class="nl">Schedule</div><div class="ns">Publish</div></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="panel">
+                  <div class="panel-head"><h4>Client activity</h4></div>
+                  <div class="panel-body" style="padding-top:8px">
+                    <div class="timeline">
+                      <div class="tl-item"><div class="tl-dot blue"><svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="tl-body"><div class="tl-main"><b>Left a comment</b> at 0:28</div><div class="tl-time">just now</div></div></div>
+                      <div class="tl-item"><div class="tl-dot blue"><svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></div><div class="tl-body"><div class="tl-main"><b>Watched the video</b> · 100%</div><div class="tl-time">12 min ago</div></div></div>
+                      <div class="tl-item"><div class="tl-dot green"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg></div><div class="tl-body"><div class="tl-main"><b>Logged in</b> via magic link</div><div class="tl-time">14 min ago</div></div></div>
+                      <div class="tl-item"><div class="tl-dot amber"><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/></svg></div><div class="tl-body"><div class="tl-main"><b>Invite sent</b> via WhatsApp</div><div class="tl-time">2h ago</div></div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</body>
+</html>

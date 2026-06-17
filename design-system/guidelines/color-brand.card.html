@@ -1,0 +1,19 @@
+<!-- @dsCard group="Colors" viewport="700x160" subtitle="Brand orange — CTAs, active states, accents (+ logo gradient)" name="Brand" -->
+<!DOCTYPE html><html><head><meta charset="UTF-8"><link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;font-family:var(--font-ui);background:var(--surface);padding:18px}
+  .row{display:flex;gap:10px}
+  .sw{flex:1;border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:18px;min-height:78px;border:1px solid var(--line)}
+  .sw .nm{font-size:12px;font-weight:700}
+  .sw .hex{font-family:var(--font-mono);font-size:11px;opacity:.8}
+  .on-dark{color:#fff;border-color:transparent}
+</style></head>
+<body>
+  <div class="row">
+    <div class="sw on-dark" style="background:var(--brand)"><span class="nm">brand</span><span class="hex">#FF6000</span></div>
+    <div class="sw on-dark" style="background:var(--brand-dark)"><span class="nm">brand-dark</span><span class="hex">#DB5200</span></div>
+    <div class="sw on-dark" style="background:var(--brand-darker)"><span class="nm">brand-darker · text</span><span class="hex">#B23E00</span></div>
+    <div class="sw" style="background:var(--brand-tint);color:var(--brand-darker)"><span class="nm">brand-tint</span><span class="hex">#fff1e8</span></div>
+    <div class="sw on-dark" style="background:var(--brand-gradient)"><span class="nm">brand-gradient</span><span class="hex">logo · use sparingly</span></div>
+  </div>
+</body></html>

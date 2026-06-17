@@ -1,0 +1,20 @@
+<!-- @dsCard group="Spacing" viewport="700x170" subtitle="Corner radii — admin (crisp) vs client (soft)" name="Radii" -->
+<!DOCTYPE html><html><head><meta charset="UTF-8"><link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;font-family:var(--font-ui);background:var(--surface);padding:20px}
+  .row{display:flex;gap:16px;align-items:flex-end}
+  .item{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .box{width:74px;height:54px;background:var(--brand-tint);border:1.5px solid var(--brand);}
+  .nm{font-size:11px;font-weight:700;color:var(--ink-2)}
+  .vl{font-family:var(--font-mono);font-size:10px;color:var(--ink-3)}
+</style></head>
+<body>
+  <div class="row">
+    <div class="item"><div class="box" style="border-radius:var(--radius-xs)"></div><span class="nm">xs</span><span class="vl">6px</span></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-sm)"></div><span class="nm">sm</span><span class="vl">8px</span></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius)"></div><span class="nm">base</span><span class="vl">12px</span></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-lg)"></div><span class="nm">lg</span><span class="vl">16px</span></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-m-tile);background:var(--warm-accent-tint);border-color:var(--warm-accent)"></div><span class="nm">m-tile</span><span class="vl">16px</span></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-m-card);background:var(--warm-accent-tint);border-color:var(--warm-accent)"></div><span class="nm">m-card</span><span class="vl">22px</span></div>
+  </div>
+</body></html>
