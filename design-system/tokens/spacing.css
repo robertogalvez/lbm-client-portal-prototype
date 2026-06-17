@@ -1,0 +1,45 @@
+/* ============================================================
+   LBM Portal — Spacing, radii, shadows, layout
+   Flat & modern: no gradients on chrome, restrained soft shadows.
+   ============================================================ */
+:root {
+  /* Spacing scale (4px base) */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-6:  24px;
+  --sp-7:  28px;
+  --sp-8:  32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  /* Radii — desktop/admin */
+  --radius-xs:  6px;   /* badges, chips, small tags */
+  --radius-sm:  8px;   /* buttons, inputs */
+  --radius:     12px;  /* cards, blocks */
+  --radius-lg:  16px;  /* outer frames */
+
+  /* Radii — mobile/client (softer, more consumer) */
+  --radius-m-btn:   13px;
+  --radius-m-card:  22px;
+  --radius-m-tile:  16px;
+  --radius-phone:   44px;
+
+  /* Borders */
+  --border-width: 1px;
+
+  /* Shadows — soft, low, never heavy */
+  --shadow-xs:    0 1px 2px rgba(17,28,40,.05), 0 1px 1px rgba(17,28,40,.04);
+  --shadow-card:  0 4px 14px rgba(17,28,40,.05);
+  --shadow-frame: 0 10px 34px rgba(17,28,40,.07);
+  --shadow-pop:   0 8px 22px rgba(17,28,40,.07);
+  --shadow-phone: 0 2px 4px rgba(12,14,17,.30), 0 22px 50px rgba(17,28,40,.20);
+
+  /* Layout */
+  --rail-w:        230px;   /* admin sidebar width */
+  --content-max:   1280px;  /* admin content max-width */
+  --phone-w:       392px;   /* client device width */
+  --tap-min:       44px;    /* minimum mobile hit target */
+}

@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LBM Portal — Editing Operations Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --brand: #FF6000; --brand-dark: #DB5200; --brand-darker: #B23E00;
+    --brand-tint: #fff1e8; --brand-tint-2: #ffdfcb;
+    --page: #eceef1; --surface: #ffffff;
+    --ink: #111c28; --ink-2: #54616f; --ink-3: #8b97a4;
+    --line: #e7ebef; --line-strong: #d4dbe2; --hover: #f5f7f9;
+    --sidebar: #101a26; --sidebar-2: #1a2735; --sidebar-ink: #aeb9c6; --sidebar-ink-2: #6b7888;
+    --blue: #2563eb; --blue-bg: #eaf0ff;
+    --amber: #b06f06; --amber-bg: #fdf3e1;
+    --green: #14805f; --green-bg: #e6f4ee;
+    --red: #cf3f36; --red-bg: #fdedeb;
+    --slate: #54616f; --slate-bg: #eef1f4;
+    --violet: #7c66c4; --violet-bg: #efeafa;
+    --warm: #c2703c; --warm-bg: #f8ece1;
+    --ui: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --t-fast: 130ms; --t-base: 200ms; --ease: cubic-bezier(.2,.7,.3,1);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--page); font-family: var(--ui); color: var(--ink); -webkit-font-smoothing: antialiased; line-height: 1.45; font-size: 14px; }
+  button { font-family: inherit; cursor: pointer; }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  :focus-visible { outline: 2.5px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 40px 28px 80px; }
+  .cap { display: flex; align-items: baseline; gap: 11px; margin-bottom: 14px; }
+  .cap .n { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--brand-dark); background: var(--brand-tint); padding: 5px 9px; border-radius: 7px; }
+  .cap h1 { font-size: 17px; font-weight: 700; margin: 0; }
+  .cap .who { font-size: 13px; color: var(--ink-3); font-weight: 500; }
+
+  .frame { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 16px; overflow: hidden; box-shadow: 0 10px 34px rgba(17,28,40,.07); }
+  .shell { display: grid; grid-template-columns: 230px 1fr; min-height: 900px; }
+
+  /* sidebar */
+  .rail { background: var(--sidebar); color: var(--sidebar-ink); padding: 20px 16px; display: flex; flex-direction: column; gap: 24px; }
+  .rail-brand { display: flex; align-items: center; gap: 11px; padding: 4px 8px; }
+  .rail-logo { width: 34px; height: 34px; border-radius: 9px; background: var(--brand); display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 12px; }
+  .rail-name { font-weight: 700; font-size: 14px; color: #fff; line-height: 1.15; }
+  .rail-name .sub { color: var(--sidebar-ink-2); font-weight: 500; font-size: 11px; }
+  .rail-group-label { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; color: var(--sidebar-ink-2); text-transform: uppercase; padding: 0 10px 8px; }
+  .rail-nav { display: flex; flex-direction: column; gap: 3px; }
+  .rail-nav a { display: flex; align-items: center; gap: 11px; padding: 9px 11px; border-radius: 9px; font-size: 13.5px; font-weight: 500; color: var(--sidebar-ink); transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+  .rail-nav a:hover { background: var(--sidebar-2); color: #fff; }
+  .rail-nav a.active { background: var(--brand); color: #fff; font-weight: 600; }
+  .rail-nav a svg { width: 17px; height: 17px; flex: none; }
+  .rail-nav a .bm { margin-left: auto; font-family: var(--mono); font-size: 11px; background: rgba(255,255,255,.12); color: #fff; padding: 1px 7px; border-radius: 100px; font-weight: 600; }
+  .rail-nav a.active .bm { background: rgba(255,255,255,.22); }
+  .rail-spacer { flex: 1; }
+  .rail-user { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; background: var(--sidebar-2); }
+  .rail-user .av { width: 28px; height: 28px; border-radius: 50%; background: #5e6b7a; color: #fff; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+  .rail-user .meta .name { font-size: 13px; font-weight: 600; color: #fff; line-height: 1.2; }
+  .rail-user .meta .role { font-size: 11.5px; color: var(--sidebar-ink-2); }
+
+  .main { display: flex; flex-direction: column; min-width: 0; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 26px; border-bottom: 1px solid var(--line); }
+  .topbar .title { font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+  .topbar .sub { font-size: 13px; color: var(--ink-3); margin-top: 1px; display: flex; align-items: center; gap: 7px; }
+  .topbar .sub .live { display: inline-flex; align-items: center; gap: 5px; color: var(--green); font-weight: 600; }
+  .topbar .sub .live .d { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .seg { display: inline-flex; background: var(--hover); border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 2px; }
+  .seg button { font-size: 12.5px; font-weight: 600; color: var(--ink-2); background: transparent; border: none; padding: 6px 11px; border-radius: 7px; }
+  .seg button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(17,28,40,.08); }
+  .btn { font-family: var(--ui); font-size: 13px; font-weight: 600; border-radius: 8px; padding: 8px 13px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); display: inline-flex; align-items: center; gap: 7px; }
+  .btn:hover { background: var(--hover); } .btn svg { width: 15px; height: 15px; }
+
+  .body { padding: 22px 26px 28px; display: flex; flex-direction: column; gap: 18px; }
+
+  /* KPI cards */
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .kpi { border: 1px solid var(--line); border-radius: 13px; padding: 16px 17px; display: flex; flex-direction: column; gap: 10px; transition: border-color var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease); }
+  .kpi:hover { border-color: var(--line-strong); box-shadow: 0 4px 14px rgba(17,28,40,.05); }
+  .kpi .kl { font-size: 12.5px; color: var(--ink-2); font-weight: 600; display: flex; align-items: center; gap: 7px; }
+  .kpi .kl .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .kpi .krow { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+  .kpi .kv { font-size: 28px; font-weight: 600; letter-spacing: -.02em; line-height: 1; font-family: var(--mono); }
+  .kpi .kv .u { font-size: 14px; font-weight: 500; color: var(--ink-3); margin-left: 2px; font-family: var(--ui); }
+  .kpi .spark { flex: none; }
+  .kpi .kd { font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+  .kpi .kd.up { color: var(--green); } .kpi .kd.down-good { color: var(--green); } .kpi .kd.warn { color: var(--amber); }
+  .kpi .kd .cmp { color: var(--ink-3); font-weight: 500; }
+  .kpi .kd svg { width: 13px; height: 13px; }
+
+  /* card grid */
+  .grid { display: grid; gap: 18px; }
+  .grid.c2 { grid-template-columns: 1.55fr 1fr; }
+  .grid.c2b { grid-template-columns: 1.5fr 1fr; }
+  .card { border: 1px solid var(--line); border-radius: 13px; background: var(--surface); overflow: hidden; display: flex; flex-direction: column; }
+  .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 15px 18px; border-bottom: 1px solid var(--line); }
+  .card-head h3 { font-size: 14.5px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+  .card-head .sub { font-size: 12px; color: var(--ink-3); font-weight: 500; margin-top: 2px; }
+  .card-head .src { font-size: 10.5px; font-weight: 700; color: var(--ink-3); background: var(--hover); border: 1px solid var(--line); padding: 3px 8px; border-radius: 7px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .card-head .src .d { width: 6px; height: 6px; border-radius: 2px; }
+  .card-body { padding: 16px 18px 18px; flex: 1; }
+
+  /* pipeline funnel */
+  .stage { display: flex; align-items: center; gap: 14px; padding: 9px 0; }
+  .stage .sinfo { width: 150px; flex: none; }
+  .stage .sinfo .t { font-size: 13px; font-weight: 600; }
+  .stage .sinfo .d { font-size: 11px; color: var(--ink-3); margin-top: 2px; font-family: var(--mono); }
+  .stage .strack { flex: 1; height: 30px; background: var(--hover); border-radius: 7px; position: relative; overflow: hidden; }
+  .stage .sbar { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 7px; display: flex; align-items: center; padding-left: 11px; color: #fff; font-size: 13px; font-weight: 700; font-family: var(--mono); transition: width var(--t-base) var(--ease); }
+  .stage.flag .strack { box-shadow: inset 0 0 0 1.5px var(--amber); }
+  .stage .sflag { font-size: 10.5px; font-weight: 700; color: var(--amber); background: var(--amber-bg); padding: 3px 8px; border-radius: 6px; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
+  .pipe-foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding-top: 13px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--ink-2); }
+  .pipe-foot b { color: var(--green); font-weight: 700; }
+  .pipe-foot .av { width: 26px; height: 26px; border-radius: 7px; background: var(--green-bg); display: grid; place-items: center; flex: none; }
+  .pipe-foot .av svg { width: 14px; height: 14px; color: var(--green); }
+
+  /* horizontal reason bars */
+  .hbars { display: flex; flex-direction: column; gap: 13px; }
+  .hbar .hb-top { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; margin-bottom: 6px; }
+  .hbar .hb-top .l { font-weight: 600; }
+  .hbar .hb-top .v { font-weight: 700; font-family: var(--mono); color: var(--ink-2); }
+  .hbar .hb-track { height: 9px; background: var(--hover); border-radius: 100px; overflow: hidden; }
+  .hbar .hb-fill { height: 100%; border-radius: 100px; }
+
+  /* scatter */
+  .scatter-wrap { display: flex; gap: 16px; align-items: stretch; }
+  .scatter { flex: 1; }
+  .legend { width: 150px; flex: none; border-left: 1px solid var(--line); padding-left: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .legend .lt { font-size: 11px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; }
+  .legend .li { display: flex; align-items: center; gap: 9px; font-size: 12px; }
+  .legend .li .bub { width: 18px; height: 18px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; font-size: 8px; font-weight: 800; }
+  .legend .li .lx .nm { font-weight: 600; line-height: 1.1; }
+  .legend .li .lx .mt { font-size: 10.5px; color: var(--ink-3); font-family: var(--mono); }
+  .legend .note { font-size: 11px; color: var(--ink-3); line-height: 1.4; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line); }
+
+  text { font-family: var(--mono); }
+  .axis-label { font-family: var(--ui); font-size: 10px; font-weight: 600; fill: var(--ink-3); }
+  .grid-line { stroke: var(--line); stroke-width: 1; }
+  .grid-tick { font-size: 9px; fill: var(--ink-3); }
+
+  /* channel rows */
+  .chan { display: flex; flex-direction: column; gap: 14px; }
+  .chan .crow .ct { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+  .chan .crow .ct .l { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+  .chan .crow .ct .l .ic { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; }
+  .chan .crow .ct .l .ic svg { width: 13px; height: 13px; color: #fff; }
+  .chan .crow .ct .v { font-family: var(--mono); font-weight: 700; font-size: 13px; }
+  .chan .crow .ctrack { height: 9px; background: var(--hover); border-radius: 100px; overflow: hidden; }
+  .chan .crow .cfill { height: 100%; border-radius: 100px; }
+  .chan .crow .csub { font-size: 11px; color: var(--ink-3); margin-top: 5px; font-weight: 500; }
+  .donut-wrap { display: flex; align-items: center; gap: 14px; margin-top: 16px; padding-top: 15px; border-top: 1px solid var(--line); }
+  .donut-wrap .dx .dv { font-size: 22px; font-weight: 700; font-family: var(--mono); line-height: 1; }
+  .donut-wrap .dx .dl { font-size: 12px; color: var(--ink-2); font-weight: 600; margin-top: 4px; }
+  .donut-wrap .dx .ds { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+
+  /* trend */
+  .trend-foot { display: flex; gap: 22px; margin-top: 12px; padding-top: 13px; border-top: 1px solid var(--line); }
+  .trend-foot .tf { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); font-weight: 500; }
+  .trend-foot .tf .sw { width: 16px; height: 3px; border-radius: 2px; }
+  .trend-foot .tf .sw.dash { background: repeating-linear-gradient(90deg, var(--ink-3) 0 4px, transparent 4px 7px); }
+
+  /* leaderboard */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); padding: 11px 16px; background: var(--hover); border-bottom: 1px solid var(--line); white-space: nowrap; }
+  thead th.num { text-align: right; }
+  tbody td { padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tbody td.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr.rowlink { cursor: pointer; transition: background var(--t-fast) var(--ease); }
+  tbody tr.rowlink:hover { background: var(--hover); }
+  .ed { display: flex; align-items: center; gap: 11px; }
+  .ed .av { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 700; flex: none; }
+  .ed .en { font-weight: 600; line-height: 1.15; }
+  .ed .es { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+  .av.green { background: var(--brand); } .av.blue { background: #5172c4; } .av.amber { background: #b58236; } .av.slate { background: #5e6b7a; } .av.red { background: #cf5b53; } .av.violet { background: #7c66c4; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 100px; font-family: var(--mono); }
+  .pill.green { color: var(--green); background: var(--green-bg); } .pill.amber { color: var(--amber); background: var(--amber-bg); } .pill.red { color: var(--red); background: var(--red-bg); }
+  .rate { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-family: var(--mono); }
+  .rate svg { width: 13px; height: 13px; color: #e0a82e; }
+  .util { display: flex; align-items: center; gap: 9px; justify-content: flex-end; }
+  .util .ut { width: 56px; height: 7px; background: var(--hover); border-radius: 100px; overflow: hidden; }
+  .util .uf { height: 100%; border-radius: 100px; }
+  .util .un { font-family: var(--mono); font-size: 12px; font-weight: 600; width: 34px; text-align: right; }
+
+  @media (max-width: 980px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .grid.c2, .grid.c2b { grid-template-columns: 1fr; }
+    .shell { grid-template-columns: 1fr; }
+    .rail { flex-direction: row; align-items: center; }
+    .rail-nav, .rail-group-label, .rail-spacer, .rail-user { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="cap"><span class="n">D7</span><h1>Editing operations &amp; editor marketplace</h1><span class="who">Admin · insights ClickUp can't compute</span></div>
+
+  <div class="frame">
+    <div class="shell">
+      <!-- Sidebar -->
+      <aside class="rail">
+        <div class="rail-brand"><div class="rail-logo">LBM</div><div class="rail-name">LBM <span class="sub">Portal</span><br><span class="sub">Legacy Building Media</span></div></div>
+        <div>
+          <div class="rail-group-label">Workspace</div>
+          <nav class="rail-nav">
+            <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>Review queue<span class="bm">7</span></a>
+            <a class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>Insights</a>
+            <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>Clients</a>
+            <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Calendar</a>
+          </nav>
+        </div>
+        <div>
+          <div class="rail-group-label">Marketplace</div>
+          <nav class="rail-nav">
+            <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg>Editors<span class="bm">12</span></a>
+            <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Payouts</a>
+          </nav>
+        </div>
+        <div class="rail-spacer"></div>
+        <div class="rail-user"><span class="av">DO</span><div class="meta"><div class="name">Daniel Okafor</div><div class="role">CEO</div></div></div>
+      </aside>
+
+      <!-- Main -->
+      <div class="main">
+        <div class="topbar">
+          <div>
+            <div class="title">Editing operations</div>
+            <div class="sub"><span class="live"><span class="d"></span>Live</span> · enriched from ClickUp · Frame.io · payouts</div>
+          </div>
+          <div class="topbar-right">
+            <div class="seg"><button>7d</button><button class="on">30d</button><button>QTD</button><button>YTD</button></div>
+            <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Export</button>
+          </div>
+        </div>
+
+        <div class="body">
+          <!-- KPI ROW -->
+          <div class="kpis">
+            <div class="kpi">
+              <div class="kl"><span class="dot" style="background:var(--brand)"></span>First-pass approval</div>
+              <div class="krow">
+                <div class="kv">73<span class="u">%</span></div>
+                <svg class="spark" width="116" height="34" viewBox="0 0 116 34" fill="none"><polyline points="2,26 21,24 40,22 59,18 78,15 97,10 114,6" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="114" cy="6" r="2.6" fill="var(--brand)"/></svg>
+              </div>
+              <div class="kd up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"/></svg>+6 pts <span class="cmp">vs last 30d</span></div>
+            </div>
+            <div class="kpi">
+              <div class="kl"><span class="dot" style="background:var(--blue)"></span>Edit → approval cycle</div>
+              <div class="krow">
+                <div class="kv">3.2<span class="u">days</span></div>
+                <svg class="spark" width="116" height="34" viewBox="0 0 116 34" fill="none"><polyline points="2,8 21,11 40,10 59,15 78,18 97,22 114,25" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="114" cy="25" r="2.6" fill="var(--blue)"/></svg>
+              </div>
+              <div class="kd down-good"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>−0.5d <span class="cmp">faster</span></div>
+            </div>
+            <div class="kpi">
+              <div class="kl"><span class="dot" style="background:var(--warm)"></span>Cost / finished min</div>
+              <div class="krow">
+                <div class="kv">$48</div>
+                <svg class="spark" width="116" height="34" viewBox="0 0 116 34" fill="none"><polyline points="2,9 21,12 40,11 59,16 78,18 97,21 114,24" stroke="var(--warm)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="114" cy="24" r="2.6" fill="var(--warm)"/></svg>
+              </div>
+              <div class="kd down-good"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>−$4 <span class="cmp">vs last 30d</span></div>
+            </div>
+            <div class="kpi">
+              <div class="kl"><span class="dot" style="background:var(--amber)"></span>Marketplace utilization</div>
+              <div class="krow">
+                <div class="kv">81<span class="u">%</span></div>
+                <svg class="spark" width="116" height="34" viewBox="0 0 116 34" fill="none"><polyline points="2,20 21,18 40,19 59,15 78,16 97,12 114,11" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="114" cy="11" r="2.6" fill="var(--amber)"/></svg>
+              </div>
+              <div class="kd warn">6 of 12 editors near capacity</div>
+            </div>
+          </div>
+
+          <!-- PIPELINE + REASONS -->
+          <div class="grid c2">
+            <div class="card">
+              <div class="card-head">
+                <div><h3>Editing pipeline — live WIP</h3><div class="sub">116 videos in flight · where they're sitting right now</div></div>
+                <span class="src"><span class="d" style="background:#7B68EE"></span>ClickUp timestamps</span>
+              </div>
+              <div class="card-body">
+                <div class="stage flag">
+                  <div class="sinfo"><div class="t">Ready to edit</div><div class="d">unassigned · avg wait 1.9d</div></div>
+                  <div class="strack"><div class="sbar" style="width:100%;background:#8b97a4">78</div></div>
+                  <span class="sflag"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>Bottleneck</span>
+                </div>
+                <div class="stage">
+                  <div class="sinfo"><div class="t">In edit</div><div class="d">assigned · avg 2.4d</div></div>
+                  <div class="strack"><div class="sbar" style="width:28.2%;background:var(--blue)">22</div></div>
+                </div>
+                <div class="stage">
+                  <div class="sinfo"><div class="t">Internal QC</div><div class="d">LBM review · avg 0.8d</div></div>
+                  <div class="strack"><div class="sbar" style="width:11.5%;background:var(--violet)">9</div></div>
+                </div>
+                <div class="stage">
+                  <div class="sinfo"><div class="t">Client review</div><div class="d">in portal · avg 1.1d</div></div>
+                  <div class="strack"><div class="sbar" style="width:9%;background:var(--amber)">7</div></div>
+                </div>
+                <div class="pipe-foot">
+                  <span class="av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                  <span><b>64 approved</b> &amp; delivered this month · the queue at <b style="color:var(--ink)">Ready to edit</b> signals you need ~2 more marketplace editors.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div><h3>Why clients request changes</h3><div class="sub">Revision drivers · last 30d</div></div>
+                <span class="src"><span class="d" style="background:#5b6bff"></span>Frame.io tags</span>
+              </div>
+              <div class="card-body">
+                <div class="hbars">
+                  <div class="hbar"><div class="hb-top"><span class="l">Pacing / timing</span><span class="v">34%</span></div><div class="hb-track"><div class="hb-fill" style="width:34%;background:var(--brand)"></div></div></div>
+                  <div class="hbar"><div class="hb-top"><span class="l">Music / audio</span><span class="v">22%</span></div><div class="hb-track"><div class="hb-fill" style="width:22%;background:var(--blue)"></div></div></div>
+                  <div class="hbar"><div class="hb-top"><span class="l">Color / grade</span><span class="v">18%</span></div><div class="hb-track"><div class="hb-fill" style="width:18%;background:var(--violet)"></div></div></div>
+                  <div class="hbar"><div class="hb-top"><span class="l">Copy / captions</span><span class="v">14%</span></div><div class="hb-track"><div class="hb-fill" style="width:14%;background:var(--amber)"></div></div></div>
+                  <div class="hbar"><div class="hb-top"><span class="l">B-roll / shots</span><span class="v">12%</span></div><div class="hb-track"><div class="hb-fill" style="width:12%;background:var(--slate)"></div></div></div>
+                </div>
+                <div class="pipe-foot" style="margin-top:16px"><span style="color:var(--ink-2)">Pacing notes drive a third of revisions — a tighter first-cut brief could lift first-pass approval.</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SCATTER + CHANNELS -->
+          <div class="grid c2b">
+            <div class="card">
+              <div class="card-head">
+                <div><h3>Editor quality vs. speed</h3><div class="sub">Bubble size = videos this month · find your stars &amp; your risks</div></div>
+                <span class="src"><span class="d" style="background:var(--brand)"></span>Portal-computed</span>
+              </div>
+              <div class="card-body">
+                <div class="scatter-wrap">
+                  <svg class="scatter" viewBox="0 0 560 312" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- quadrant tints -->
+                    <rect x="48" y="24" width="248" height="142" fill="var(--brand)" opacity="0.05"/>
+                    <rect x="296" y="166" width="248" height="114" fill="var(--red)" opacity="0.05"/>
+                    <text x="56" y="40" class="axis-label" fill="var(--brand-dark)" font-weight="700">Fast &amp; high quality</text>
+                    <text x="536" y="274" text-anchor="end" class="axis-label" fill="var(--red)" font-weight="700">Slow &amp; needs review</text>
+                    <!-- gridlines y -->
+                    <line class="grid-line" x1="48" y1="223" x2="544" y2="223"/>
+                    <line class="grid-line" x1="48" y1="166" x2="544" y2="166"/>
+                    <line class="grid-line" x1="48" y1="109" x2="544" y2="109"/>
+                    <line class="grid-line" x1="48" y1="52" x2="544" y2="52"/>
+                    <text class="grid-tick" x="42" y="226" text-anchor="end">60</text>
+                    <text class="grid-tick" x="42" y="169" text-anchor="end">70</text>
+                    <text class="grid-tick" x="42" y="112" text-anchor="end">80</text>
+                    <text class="grid-tick" x="42" y="55" text-anchor="end">90</text>
+                    <!-- gridlines x -->
+                    <line class="grid-line" x1="131" y1="24" x2="131" y2="280" opacity="0.6"/>
+                    <line class="grid-line" x1="296" y1="24" x2="296" y2="280" opacity="0.6"/>
+                    <line class="grid-line" x1="461" y1="24" x2="461" y2="280" opacity="0.6"/>
+                    <text class="grid-tick" x="131" y="294" text-anchor="middle">2d</text>
+                    <text class="grid-tick" x="296" y="294" text-anchor="middle">3d</text>
+                    <text class="grid-tick" x="461" y="294" text-anchor="middle">4d</text>
+                    <!-- axis labels -->
+                    <text x="296" y="308" text-anchor="middle" class="axis-label">← faster · avg turnaround · slower →</text>
+                    <text x="14" y="152" text-anchor="middle" class="axis-label" transform="rotate(-90 14 152)">first-pass approval →</text>
+                    <!-- bubbles -->
+                    <g>
+                      <circle cx="114" cy="52" r="10" fill="var(--brand)" opacity="0.9"/><text x="114" y="55" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">LF</text>
+                      <circle cx="147" cy="64" r="14" fill="var(--brand)" opacity="0.9"/><text x="147" y="68" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">MR</text>
+                      <circle cx="197" cy="115" r="8" fill="#5e6b7a" opacity="0.9"/><text x="197" y="118" text-anchor="middle" fill="#fff" font-size="8" font-weight="700">AN</text>
+                      <circle cx="263" cy="104" r="12" fill="#5172c4" opacity="0.9"/><text x="263" y="108" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">HK</text>
+                      <circle cx="395" cy="200" r="11" fill="var(--amber)" opacity="0.9"/><text x="395" y="204" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">TB</text>
+                      <circle cx="494" cy="234" r="9" fill="var(--red)" opacity="0.9"/><text x="494" y="237" text-anchor="middle" fill="#fff" font-size="8" font-weight="700">DC</text>
+                    </g>
+                  </svg>
+                  <div class="legend">
+                    <div class="lt">Top performers</div>
+                    <div class="li"><span class="bub" style="background:var(--brand)">LF</span><div class="lx"><div class="nm">Lucía Ferraro</div><div class="mt">1.9d · 90%</div></div></div>
+                    <div class="li"><span class="bub" style="background:var(--brand)">MR</span><div class="lx"><div class="nm">Mateo Ríos</div><div class="mt">2.1d · 88%</div></div></div>
+                    <div class="lt" style="margin-top:4px">Watch</div>
+                    <div class="li"><span class="bub" style="background:var(--amber)">TB</span><div class="lx"><div class="nm">Tomas Berg</div><div class="mt">3.6d · 64%</div></div></div>
+                    <div class="li"><span class="bub" style="background:var(--red)">DC</span><div class="lx"><div class="nm">Devon Clarke</div><div class="mt">4.2d · 58%</div></div></div>
+                    <div class="note">DC is your cheapest editor but heaviest on revisions — true cost is higher than rate.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div><h3>Client response time</h3><div class="sub">From notify → decision · by channel</div></div>
+                <span class="src"><span class="d" style="background:var(--green)"></span>Portal</span>
+              </div>
+              <div class="card-body">
+                <div class="chan">
+                  <div class="crow">
+                    <div class="ct"><span class="l"><span class="ic" style="background:#1FA855"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2z"/></svg></span>WhatsApp</span><span class="v">4.2h</span></div>
+                    <div class="ctrack"><div class="cfill" style="width:36%;background:#1FA855"></div></div>
+                    <div class="csub">94% respond within 24h · 71% of clients</div>
+                  </div>
+                  <div class="crow">
+                    <div class="ct"><span class="l"><span class="ic" style="background:var(--slate)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg></span>Email</span><span class="v">11.6h</span></div>
+                    <div class="ctrack"><div class="cfill" style="width:97%;background:var(--slate)"></div></div>
+                    <div class="csub">76% respond within 24h · 29% of clients</div>
+                  </div>
+                </div>
+                <div class="donut-wrap">
+                  <svg width="88" height="88" viewBox="0 0 88 88">
+                    <circle cx="44" cy="44" r="34" fill="none" stroke="var(--hover)" stroke-width="10"/>
+                    <circle cx="44" cy="44" r="34" fill="none" stroke="var(--brand)" stroke-width="10" stroke-linecap="round" stroke-dasharray="185.8 213.6" transform="rotate(-90 44 44)"/>
+                    <text x="44" y="48" text-anchor="middle" font-size="17" font-weight="700" fill="var(--ink)">87%</text>
+                  </svg>
+                  <div class="dx">
+                    <div class="dl">Watched in full before deciding</div>
+                    <div class="ds">Clients who finish the video approve 2.3× faster.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CYCLE TIME TREND -->
+          <div class="card">
+            <div class="card-head">
+              <div><h3>Edit → approval cycle time</h3><div class="sub">Weekly average · last 12 weeks vs 3.0-day target</div></div>
+              <span class="src"><span class="d" style="background:var(--brand)"></span>Portal-computed</span>
+            </div>
+            <div class="card-body">
+              <svg width="100%" viewBox="0 0 720 220" fill="none" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <defs><linearGradient id="ct" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--brand)" stop-opacity="0.16"/><stop offset="1" stop-color="var(--brand)" stop-opacity="0"/></linearGradient></defs>
+                <!-- y gridlines (3.0,3.5,4.0,4.5) -->
+                <line class="grid-line" x1="36" y1="171" x2="712" y2="171"/>
+                <line class="grid-line" x1="36" y1="120" x2="712" y2="120"/>
+                <line class="grid-line" x1="36" y1="68" x2="712" y2="68"/>
+                <line class="grid-line" x1="36" y1="16" x2="712" y2="16"/>
+                <text class="grid-tick" x="30" y="174" text-anchor="end">3.0</text>
+                <text class="grid-tick" x="30" y="123" text-anchor="end">3.5</text>
+                <text class="grid-tick" x="30" y="71" text-anchor="end">4.0</text>
+                <text class="grid-tick" x="30" y="19" text-anchor="end">4.5</text>
+                <!-- target line at 3.0 (y=171) -->
+                <line x1="36" y1="171" x2="712" y2="171" stroke="var(--ink-3)" stroke-width="1.4" stroke-dasharray="5 5"/>
+                <!-- area + line -->
+                <path d="M36,37 97,57 158,47 219,78 281,99 342,89 403,120 464,130 525,140 586,151 648,161 709,151 L709,192 L36,192 Z" fill="url(#ct)"/>
+                <polyline points="36,37 97,57 158,47 219,78 281,99 342,89 403,120 464,130 525,140 586,151 648,161 709,151" stroke="var(--brand)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                <g fill="var(--brand)">
+                  <circle cx="36" cy="37" r="3"/><circle cx="158" cy="47" r="3"/><circle cx="281" cy="99" r="3"/><circle cx="403" cy="120" r="3"/><circle cx="525" cy="140" r="3"/><circle cx="709" cy="151" r="3.4" stroke="#fff" stroke-width="1.5"/>
+                </g>
+                <!-- x labels -->
+                <text class="grid-tick" x="36" y="210" text-anchor="middle">W1</text>
+                <text class="grid-tick" x="219" y="210" text-anchor="middle">W4</text>
+                <text class="grid-tick" x="403" y="210" text-anchor="middle">W7</text>
+                <text class="grid-tick" x="586" y="210" text-anchor="middle">W10</text>
+                <text class="grid-tick" x="709" y="210" text-anchor="middle">W12</text>
+              </svg>
+              <div class="trend-foot">
+                <div class="tf"><span class="sw" style="background:var(--brand)"></span>Avg cycle time</div>
+                <div class="tf"><span class="sw dash"></span>3.0-day target</div>
+                <div class="tf" style="margin-left:auto;color:var(--green);font-weight:600">Trending down — onboarding faster editors is working.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- EDITOR LEADERBOARD -->
+          <div class="card">
+            <div class="card-head">
+              <div><h3>Editor marketplace leaderboard</h3><div class="sub">12 editors · ranked by first-pass approval · last 30d</div></div>
+              <span class="src"><span class="d" style="background:var(--warm)"></span>Payouts + ratings + portal</span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Editor</th>
+                  <th class="num">Videos</th>
+                  <th class="num">Turnaround</th>
+                  <th class="num">First-pass</th>
+                  <th class="num">Revisions</th>
+                  <th class="num">On-time</th>
+                  <th class="num">$/video</th>
+                  <th class="num">Rating</th>
+                  <th class="num">Utilization</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="rowlink">
+                  <td><div class="ed"><span class="av green">LF</span><div><div class="en">Lucía Ferraro</div><div class="es">Senior · color specialist</div></div></div></td>
+                  <td class="num">9</td><td class="num">1.9d</td>
+                  <td class="num"><span class="pill green">90%</span></td>
+                  <td class="num">1.1</td><td class="num">98%</td><td class="num">$55</td>
+                  <td class="num"><span class="rate"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3 6.9 7.5.6-5.7 4.9 1.8 7.3L12 17.8 5.1 21.7l1.8-7.3L1.2 9.5l7.5-.6z"/></svg>4.9</span></td>
+                  <td class="num"><div class="util"><div class="ut"><div class="uf" style="width:67%;background:var(--brand)"></div></div><span class="un">67%</span></div></td>
+                </tr>
+                <tr class="rowlink">
+                  <td><div class="ed"><span class="av green">MR</span><div><div class="en">Mateo Ríos</div><div class="es">Senior · short-form</div></div></div></td>
+                  <td class="num">18</td><td class="num">2.1d</td>
+                  <td class="num"><span class="pill green">88%</span></td>
+                  <td class="num">1.2</td><td class="num">96%</td><td class="num">$42</td>
+                  <td class="num"><span class="rate"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3 6.9 7.5.6-5.7 4.9 1.8 7.3L12 17.8 5.1 21.7l1.8-7.3L1.2 9.5l7.5-.6z"/></svg>4.9</span></td>
+                  <td class="num"><div class="util"><div class="ut"><div class="uf" style="width:92%;background:var(--amber)"></div></div><span class="un">92%</span></div></td>
+                </tr>
+                <tr class="rowlink">
+                  <td><div class="ed"><span class="av blue">HK</span><div><div class="en">Hana Kim</div><div class="es">Mid · motion graphics</div></div></div></td>
+                  <td class="num">14</td><td class="num">2.8d</td>
+                  <td class="num"><span class="pill green">81%</span></td>
+                  <td class="num">1.5</td><td class="num">92%</td><td class="num">$48</td>
+                  <td class="num"><span class="rate"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3 6.9 7.5.6-5.7 4.9 1.8 7.3L12 17.8 5.1 21.7l1.8-7.3L1.2 9.5l7.5-.6z"/></svg>4.7</span></td>
+                  <td class="num"><div class="util"><div class="ut"><div class="uf" style="width:84%;background:var(--brand)"></div></div><span class="un">84%</span></div></td>
+                </tr>
+                <tr class="rowlink">
+                  <td><div class="ed"><span class="av slate">AN</span><div><div class="en">Aisha Nwosu</div><div class="es">Mid · documentary</div></div></div></td>
+                  <td class="num">6</td><td class="num">2.4d</td>
+                  <td class="num"><span class="pill amber">79%</span></td>
+                  <td class="num">1.6</td><td class="num">90%</td><td class="num">$46</td>
+                  <td class="num"><span class="rate"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3 6.9 7.5.6-5.7 4.9 1.8 7.3L12 17.8 5.1 21.7l1.8-7.3L1.2 9.5l7.5-.6z"/></svg>4.6</span></td>
+                  <td class="num"><div class="util"><div class="ut"><div class="uf" style="width:60%;background:var(--brand)"></div></div><span class="un">60%</span></div></td>
+                </tr>
+                <tr class="rowlink">
+                  <td><div class="ed"><span class="av amber">TB</span><div><div class="en">Tomas Berg</div><div class="es">Mid · short-form</div></div></div></td>
+                  <td class="num">11</td><td class="num">3.6d</td>
+                  <td class="num"><span class="pill amber">64%</span></td>
+                  <td class="num">2.3</td><td class="num">78%</td><td class="num">$39</td>
+                  <td class="num"><span class="rate"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3 6.9 7.5.6-5.7 4.9 1.8 7.3L12 17.8 5.1 21.7l1.8-7.3L1.2 9.5l7.5-.6z"/></svg>4.2</span></td>
+                  <td class="num"><div class="util"><div class="ut"><div class="uf" style="width:71%;background:var(--brand)"></div></div><span class="un">71%</span></div></td>
+                </tr>
+                <tr class="rowlink">
+                  <td><div class="ed"><span class="av red">DC</span><div><div class="en">Devon Clarke</div><div class="es">Junior · short-form</div></div></div></td>
+                  <td class="num">7</td><td class="num">4.2d</td>
+                  <td class="num"><span class="pill red">58%</span></td>
+                  <td class="num">2.6</td><td class="num">70%</td><td class="num">$35</td>
+                  <td class="num"><span class="rate"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3 6.9 7.5.6-5.7 4.9 1.8 7.3L12 17.8 5.1 21.7l1.8-7.3L1.2 9.5l7.5-.6z"/></svg>4.0</span></td>
+                  <td class="num"><div class="util"><div class="ut"><div class="uf" style="width:88%;background:var(--amber)"></div></div><span class="un">88%</span></div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

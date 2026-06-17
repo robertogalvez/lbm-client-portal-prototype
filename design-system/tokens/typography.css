@@ -1,0 +1,47 @@
+/* ============================================================
+   LBM Portal — Typography tokens
+   UI: Plus Jakarta Sans. Data/figures/dates/IDs: IBM Plex Mono.
+   Numbers always use tabular figures so columns align.
+   ============================================================ */
+:root {
+  --font-ui:   "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Weights */
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+  --fw-extra:    800;
+
+  /* Type scale (px) — desktop-leaning; mobile bumps body to 15 */
+  --fs-display:  30px;  /* metric values, hero numbers */
+  --fs-h1:       25px;
+  --fs-h2:       21px;
+  --fs-h3:       17px;
+  --fs-title:    15px;  /* card / section titles */
+  --fs-body:     14px;
+  --fs-body-sm:  13px;
+  --fs-label:    12.5px;
+  --fs-caption:  12px;
+  --fs-micro:    11px;  /* uppercase eyebrows, table headers */
+
+  /* Line heights */
+  --lh-tight: 1.15;
+  --lh-snug:  1.25;
+  --lh-base:  1.45;
+
+  /* Letter spacing */
+  --ls-tight:  -0.02em;  /* large headings / numbers */
+  --ls-snug:   -0.01em;  /* titles */
+  --ls-normal: 0;
+  --ls-eyebrow: 0.08em;  /* uppercase labels */
+  --ls-caps:    0.05em;  /* table headers */
+}
+
+/* Utility: tabular monospace figures for any numeric content */
+.lbm-mono,
+.lbm-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}

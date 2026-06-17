@@ -1,0 +1,22 @@
+<!-- @dsCard group="Brand" viewport="700x230" subtitle="Legacy Media wordmark — on light & on dark" name="Logo" -->
+<!DOCTYPE html><html><head><meta charset="UTF-8"><link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;font-family:var(--font-ui);background:var(--surface)}
+  .grid{display:flex;flex-direction:column}
+  .cell{display:flex;align-items:center;gap:20px;padding:22px 26px}
+  .cell.light{background:var(--surface);border-bottom:1px solid var(--line)}
+  .cell.dark{background:var(--sidebar)}
+  .cell img{height:34px;width:auto;display:block}
+  .meta .t{font-size:12px;font-weight:700}
+  .light .meta .t{color:var(--ink)} .dark .meta .t{color:#fff}
+  .meta .s{font-family:var(--font-mono);font-size:10.5px;margin-top:3px}
+  .light .meta .s{color:var(--ink-3)} .dark .meta .s{color:var(--sidebar-ink-2)}
+  .gradbar{height:8px;background:var(--brand-gradient)}
+</style></head>
+<body>
+  <div class="grid">
+    <div class="cell light"><img src="../assets/legacy-media-logo.png" alt="Legacy Building Media"><div class="meta"><div class="t">On light surfaces</div><div class="s">orange → red gradient · 484×2048 PNG</div></div></div>
+    <div class="cell dark"><img src="../assets/legacy-media-logo.png" alt="Legacy Building Media"><div class="meta"><div class="t">On dark surfaces (sidebar / header)</div><div class="s">transparent bg · clears space ≥ cap-height</div></div></div>
+  </div>
+  <div class="gradbar"></div>
+</body></html>

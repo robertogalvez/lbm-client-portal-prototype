@@ -1,0 +1,23 @@
+/* ============================================================
+   LBM Portal — Motion tokens
+   Quick, functional micro-interactions. Always reduced-motion safe.
+   ============================================================ */
+:root {
+  --t-fast: 130ms;  /* hover, press, color shifts */
+  --t-base: 200ms;  /* card lift, bar fills, transitions */
+  --ease:   cubic-bezier(.2, .7, .3, 1);
+
+  /* Common composed transitions */
+  --tr-hover: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+  --tr-lift:  border-color var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease), transform var(--t-base) var(--ease);
+
+  /* Press feedback */
+  --press-scale: 0.97;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

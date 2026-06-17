@@ -1,0 +1,109 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+/* ============================================================
+   LBM Portal — Design tokens
+   Brand: Legacy Building Media — vivid orange (#FF6000 → red gradient)
+   Two surfaces: cool/admin (desktop) + warm/client (mobile)
+   ============================================================ */
+
+@theme inline {
+  /* Brand */
+  --color-brand:         #FF6000;
+  --color-brand-dark:    #DB5200;
+  --color-brand-darker:  #B23E00;
+  --color-brand-tint:    #fff1e8;
+  --color-brand-tint-2:  #ffdfcb;
+
+  /* Admin — cool neutrals */
+  --color-page:          #eceef1;
+  --color-surface:       #ffffff;
+  --color-ink:           #111c28;
+  --color-ink-2:         #54616f;
+  --color-ink-3:         #8b97a4;
+  --color-line:          #e7ebef;
+  --color-line-strong:   #d4dbe2;
+  --color-hover:         #f5f7f9;
+
+  /* Sidebar */
+  --color-sidebar:       #101a26;
+  --color-sidebar-2:     #1a2735;
+  --color-sidebar-ink:   #aeb9c6;
+  --color-sidebar-ink-2: #6b7888;
+
+  /* Client — warm surfaces */
+  --color-m-bg:          #faf6f0;
+  --color-m-surface:     #ffffff;
+  --color-m-surface-2:   #f7f1ea;
+  --color-m-ink:         #221e18;
+  --color-m-ink-2:       #6c6357;
+  --color-m-ink-3:       #9d9488;
+  --color-m-line:        #ece4d8;
+
+  /* Semantic status */
+  --color-blue:          #2563eb;
+  --color-blue-bg:       #eaf0ff;
+  --color-amber:         #a86a00;
+  --color-amber-bg:      #fbf1dc;
+  --color-green:         #14805f;
+  --color-green-bg:      #e6f4ee;
+  --color-red:           #cf3f36;
+  --color-red-bg:        #fdedeb;
+  --color-slate:         #54616f;
+  --color-slate-bg:      #eef1f4;
+  --color-violet:        #7c66c4;
+  --color-violet-bg:     #efeafa;
+
+  /* Integration colors */
+  --color-clickup:       #7B68EE;
+  --color-frameio:       #5b6bff;
+  --color-whatsapp:      #1FA855;
+
+  /* Typography */
+  --font-ui:   "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+  --font-weight-extra:    800;
+
+  /* Motion */
+  --ease-lbm: cubic-bezier(.2,.7,.3,1);
+  --duration-fast: 130ms;
+  --duration-base: 200ms;
+}
+
+body {
+  background-color: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Mono/tabular figures for numeric content */
+.lbm-mono, .lbm-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Brand gradient — logo/hero only */
+.brand-gradient {
+  background: linear-gradient(100deg, #FF6000 0%, #FF3D14 55%, #F5232B 100%);
+}
+.brand-gradient-text {
+  background: linear-gradient(100deg, #FF6000 0%, #FF3D14 55%, #F5232B 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

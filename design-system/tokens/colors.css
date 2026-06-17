@@ -1,0 +1,79 @@
+/* ============================================================
+   LBM Portal — Color tokens
+   Brand: Legacy Building Media — vivid orange (#FF6000 → red gradient).
+   Two surface systems share one brand + one semantic palette:
+   • Cool/neutral  → internal ADMIN (desktop, data-dense)
+   • Warm          → external CLIENT (mobile, consumer)
+   Orange = brand / primary / CTA / active.  Green = success/approved only.
+   ============================================================ */
+:root {
+  /* ---- Brand (Legacy Building Media orange) ---- */
+  --brand:        #FF6000;  /* fills, active states, accents, focus */
+  --brand-dark:   #DB5200;  /* primary button / nav hover */
+  --brand-darker: #B23E00;  /* orange TEXT on light surfaces (AA ~5.9:1) */
+  --brand-tint:   #fff1e8;  /* light orange wash — active nav bg, eyebrows */
+  --brand-tint-2: #ffdfcb;  /* slightly deeper tint — borders on tinted chips */
+  /* Logo gradient — use sparingly (logo lockup, login, hero only) */
+  --brand-gradient: linear-gradient(100deg, #FF6000 0%, #FF3D14 55%, #F5232B 100%);
+
+  /* ---- Cool neutrals (ADMIN / desktop) ---- */
+  --page:        #eceef1;
+  --surface:     #ffffff;
+  --ink:         #111c28;  /* near-navy primary text — orange pops against it */
+  --ink-2:       #54616f;  /* secondary text */
+  --ink-3:       #8b97a4;  /* tertiary / muted */
+  --line:        #e7ebef;  /* hairline dividers */
+  --line-strong: #d4dbe2;  /* stronger borders */
+  --hover:       #f5f7f9;  /* row / surface hover */
+
+  /* ---- Sidebar (deep navy rail; orange active items) ---- */
+  --sidebar:        #101a26;
+  --sidebar-2:      #1a2735;
+  --sidebar-ink:    #aeb9c6;
+  --sidebar-ink-2:  #6b7888;
+
+  /* ---- Warm surfaces (CLIENT / mobile) ---- */
+  --m-bg:        #faf6f0;
+  --m-surface:   #ffffff;
+  --m-surface-2: #f7f1ea;
+  --m-ink:       #221e18;
+  --m-ink-2:     #6c6357;
+  --m-ink-3:     #9d9488;
+  --m-line:      #ece4d8;
+  --m-line-2:    #f1ebe1;
+  --warm-accent:      #FF6000;  /* unified with brand orange */
+  --warm-accent-tint: #fff1e8;
+
+  /* ---- Semantic status (text + cool bg) ---- */
+  /* amber kept gold/brown so it reads distinct from brand orange */
+  --blue:   #2563eb;  --blue-bg:   #eaf0ff;
+  --amber:  #a86a00;  --amber-bg:  #fbf1dc;
+  --green:  #14805f;  --green-bg:  #e6f4ee;
+  --red:    #cf3f36;  --red-bg:    #fdedeb;
+  --slate:  #54616f;  --slate-bg:  #eef1f4;
+  --violet: #7c66c4;  --violet-bg: #efeafa;
+
+  /* ---- Semantic warm backgrounds (mobile badge tints) ---- */
+  --m-amber-bg: #f8e9c8;
+  --m-green-bg: #e4f3ec;
+  --m-red-bg:   #fbe7e2;
+  --m-blue-bg:  #e8eefc;
+
+  /* ---- Integration brand colors ---- */
+  --clickup: #7B68EE;
+  --frameio: #5b6bff;
+  --whatsapp: #1FA855;
+
+  /* ---- Semantic aliases (use these in app code) ---- */
+  --text-primary:   var(--ink);
+  --text-secondary: var(--ink-2);
+  --text-muted:     var(--ink-3);
+  --surface-page:   var(--page);
+  --surface-card:   var(--surface);
+  --border-subtle:  var(--line);
+  --border-strong:  var(--line-strong);
+  --accent:         var(--brand);
+  --accent-hover:   var(--brand-dark);
+  --accent-text:    var(--brand-darker);  /* orange text on light */
+  --success:        var(--green);          /* approved / done */
+}
