@@ -4,7 +4,11 @@
   publish = ".next"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION        = "22"
+  CLICKUP_FOLDER_ID   = ""
+  CLICKUP_LIST_ID     = ""
+  CLICKUP_API_TOKEN   = ""
+  DATABASE_URL        = ""
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

@@ -1,3 +1,5 @@
+'use client';
+
 import { MappedTask } from '@/lib/clickup';
 import { StatusBadge, statusTone } from '@/components/ui/StatusBadge';
 
