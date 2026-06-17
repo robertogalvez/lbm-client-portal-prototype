@@ -10,15 +10,15 @@ export async function POST(req: Request) {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return NextResponse.json({ error: 'DATABASE_URL not set' }, { status: 500 });
 
-  // Use non-pooler URL for DDL — strip -pooler from hostname
   const directUrl = dbUrl.replace('-pooler', '');
   const host = directUrl.replace(/:([^@]+)@/, ':***@').split('?')[0];
 
   try {
     const sql = neon(directUrl);
 
-    const statements = [
-      `CREATE TABLE IF NOT EXISTS "auth_user" (
+    // Run all DDL in a single pipeline call so they commit together
+    await sql.transaction([
+      sql`CREATE TABLE IF NOT EXISTS "auth_user" (
         "id"             text PRIMARY KEY NOT NULL,
         "name"           text NOT NULL,
         "email"          text NOT NULL UNIQUE,
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
         "updated_at"     timestamp NOT NULL DEFAULT now(),
         "role"           varchar(30) NOT NULL DEFAULT 'account_manager'
       )`,
-      `CREATE TABLE IF NOT EXISTS "auth_session" (
+      sql`CREATE TABLE IF NOT EXISTS "auth_session" (
         "id"          text PRIMARY KEY NOT NULL,
         "expires_at"  timestamp NOT NULL,
         "token"       text NOT NULL UNIQUE,
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
         "user_agent"  text,
         "user_id"     text NOT NULL REFERENCES "auth_user"("id") ON DELETE CASCADE
       )`,
-      `CREATE TABLE IF NOT EXISTS "auth_account" (
+      sql`CREATE TABLE IF NOT EXISTS "auth_account" (
         "id"                       text PRIMARY KEY NOT NULL,
         "account_id"               text NOT NULL,
         "provider_id"              text NOT NULL,
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
         "created_at"               timestamp NOT NULL DEFAULT now(),
         "updated_at"               timestamp NOT NULL DEFAULT now()
       )`,
-      `CREATE TABLE IF NOT EXISTS "auth_verification" (
+      sql`CREATE TABLE IF NOT EXISTS "auth_verification" (
         "id"         text PRIMARY KEY NOT NULL,
         "identifier" text NOT NULL,
         "value"      text NOT NULL,
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
         "created_at" timestamp DEFAULT now(),
         "updated_at" timestamp DEFAULT now()
       )`,
-      `CREATE TABLE IF NOT EXISTS "clients" (
+      sql`CREATE TABLE IF NOT EXISTS "clients" (
         "id"                 uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
         "name"               varchar(255) NOT NULL,
         "clickup_option_id"  varchar(100) NOT NULL UNIQUE,
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
         "branding_config"    jsonb,
         "created_at"         timestamp DEFAULT now()
       )`,
-      `CREATE TABLE IF NOT EXISTS "video_cache" (
+      sql`CREATE TABLE IF NOT EXISTS "video_cache" (
         "clickup_task_id"     varchar(50) PRIMARY KEY NOT NULL,
         "client_id"           varchar(100),
         "editor_id"           varchar(100),
@@ -89,11 +89,7 @@ export async function POST(req: Request) {
         "last_synced_at"      timestamp DEFAULT now(),
         "dirty"               boolean DEFAULT false
       )`,
-    ];
-
-    for (const stmt of statements) {
-      await sql.unsafe(stmt);
-    }
+    ]);
 
     const rows = await sql`
       SELECT table_name FROM information_schema.tables
