@@ -1,7 +1,6 @@
 import { pgTable, varchar, text, timestamp, boolean, uuid, integer, jsonb } from 'drizzle-orm/pg-core';
 
-// ─── BetterAuth tables ────────────────────────────────────────────────────────
-// These are required by BetterAuth — do not rename columns.
+// ── BetterAuth tables ────────────────────────────────────────────────────────
 
 export const authUsers = pgTable('auth_user', {
   id:            text('id').primaryKey(),
@@ -11,35 +10,34 @@ export const authUsers = pgTable('auth_user', {
   image:         text('image'),
   createdAt:     timestamp('created_at').notNull().defaultNow(),
   updatedAt:     timestamp('updated_at').notNull().defaultNow(),
-  // LBM-specific: role attached to the auth user
   role:          varchar('role', { length: 30 }).notNull().default('account_manager'),
 });
 
 export const authSessions = pgTable('auth_session', {
-  id:        text('id').primaryKey(),
-  expiresAt: timestamp('expires_at').notNull(),
-  token:     text('token').notNull().unique(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-  ipAddress: text('ip_address'),
-  userAgent: text('user_agent'),
-  userId:    text('user_id').notNull().references(() => authUsers.id, { onDelete: 'cascade' }),
+  id:          text('id').primaryKey(),
+  expiresAt:   timestamp('expires_at').notNull(),
+  token:       text('token').notNull().unique(),
+  createdAt:   timestamp('created_at').notNull().defaultNow(),
+  updatedAt:   timestamp('updated_at').notNull().defaultNow(),
+  ipAddress:   text('ip_address'),
+  userAgent:   text('user_agent'),
+  userId:      text('user_id').notNull().references(() => authUsers.id, { onDelete: 'cascade' }),
 });
 
 export const authAccounts = pgTable('auth_account', {
-  id:                   text('id').primaryKey(),
-  accountId:            text('account_id').notNull(),
-  providerId:           text('provider_id').notNull(),
-  userId:               text('user_id').notNull().references(() => authUsers.id, { onDelete: 'cascade' }),
-  accessToken:          text('access_token'),
-  refreshToken:         text('refresh_token'),
-  idToken:              text('id_token'),
-  accessTokenExpiresAt: timestamp('access_token_expires_at'),
-  refreshTokenExpiresAt: timestamp('refresh_token_expires_at'),
-  scope:                text('scope'),
-  password:             text('password'),
-  createdAt:            timestamp('created_at').notNull().defaultNow(),
-  updatedAt:            timestamp('updated_at').notNull().defaultNow(),
+  id:                     text('id').primaryKey(),
+  accountId:              text('account_id').notNull(),
+  providerId:             text('provider_id').notNull(),
+  userId:                 text('user_id').notNull().references(() => authUsers.id, { onDelete: 'cascade' }),
+  accessToken:            text('access_token'),
+  refreshToken:           text('refresh_token'),
+  idToken:                text('id_token'),
+  accessTokenExpiresAt:   timestamp('access_token_expires_at'),
+  refreshTokenExpiresAt:  timestamp('refresh_token_expires_at'),
+  scope:                  text('scope'),
+  password:               text('password'),
+  createdAt:              timestamp('created_at').notNull().defaultNow(),
+  updatedAt:              timestamp('updated_at').notNull().defaultNow(),
 });
 
 export const authVerifications = pgTable('auth_verification', {
@@ -51,20 +49,19 @@ export const authVerifications = pgTable('auth_verification', {
   updatedAt:  timestamp('updated_at').defaultNow(),
 });
 
-// ─── LBM domain tables ────────────────────────────────────────────────────────
+// ── LBM tables ───────────────────────────────────────────────────────────────
 
 export const clients = pgTable('clients', {
-  id:               uuid('id').defaultRandom().primaryKey(),
-  name:             varchar('name', { length: 255 }).notNull(),
-  // UUID of the option in ClickUp "Client Name (AM)" dropdown — NEVER match by text
-  clickupOptionId:  varchar('clickup_option_id', { length: 100 }).unique().notNull(),
-  type:             varchar('type', { length: 20 }).notNull(), // 'retainer' | 'one_time'
-  showCalendar:     boolean('show_calendar').default(false),
-  monthlyQuota:     integer('monthly_quota'),
-  frameioProjectId: varchar('frameio_project_id', { length: 100 }),
-  whatsappNumber:   varchar('whatsapp_number', { length: 30 }),
-  brandingConfig:   jsonb('branding_config'),
-  createdAt:        timestamp('created_at').defaultNow(),
+  id:                uuid('id').defaultRandom().primaryKey(),
+  name:              varchar('name', { length: 255 }).notNull(),
+  clickupOptionId:   varchar('clickup_option_id', { length: 100 }).unique().notNull(),
+  type:              varchar('type', { length: 20 }).notNull(),
+  showCalendar:      boolean('show_calendar').default(false),
+  monthlyQuota:      integer('monthly_quota'),
+  frameioProjectId:  varchar('frameio_project_id', { length: 100 }),
+  whatsappNumber:    varchar('whatsapp_number', { length: 30 }),
+  brandingConfig:    jsonb('branding_config'),
+  createdAt:         timestamp('created_at').defaultNow(),
 });
 
 export const videoCache = pgTable('video_cache', {
@@ -81,10 +78,9 @@ export const videoCache = pgTable('video_cache', {
   frameioAssetId:    varchar('frameio_asset_id', { length: 100 }),
   vistasocialPostId: varchar('vistasocial_post_id', { length: 100 }),
   lastSyncedAt:      timestamp('last_synced_at').defaultNow(),
-  // Prevents cron from overwriting a pending local write
   dirty:             boolean('dirty').default(false),
 });
 
-export type AuthUser = typeof authUsers.$inferSelect;
-export type Client = typeof clients.$inferSelect;
-export type VideoCache = typeof videoCache.$inferSelect;
+export type AuthUser    = typeof authUsers.$inferSelect;
+export type Client      = typeof clients.$inferSelect;
+export type VideoCache  = typeof videoCache.$inferSelect;
