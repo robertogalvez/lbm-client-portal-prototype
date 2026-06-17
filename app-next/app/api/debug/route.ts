@@ -9,7 +9,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Missing env vars', token: !!token, listId: !!listId });
   }
 
-  const url = `https://api.clickup.com/api/v2/list/${listId}/task?subtasks=true&include_closed=false&page=0`;
+  const url = `https://api.clickup.com/api/v2/list/${listId}/task?subtasks=true&include_closed=true&page=0`;
 
   try {
     const res = await fetch(url, {

@@ -94,7 +94,7 @@ export function mapTask(task: ClickUpTask): MappedTask {
 export async function getActiveTasks(listId: string): Promise<MappedTask[]> {
   // Exclude terminal statuses to keep the result focused on active work
   const TERMINAL = ['Posted in Socials', 'Archived', 'Not Posted — Discarded'];
-  const data = await get(`/list/${listId}/task?subtasks=true&include_closed=false&page=0`);
+  const data = await get(`/list/${listId}/task?subtasks=true&include_closed=true&page=0`);
   const tasks: ClickUpTask[] = data.tasks ?? [];
   return tasks
     .filter(t => !TERMINAL.includes(t.status.status))
