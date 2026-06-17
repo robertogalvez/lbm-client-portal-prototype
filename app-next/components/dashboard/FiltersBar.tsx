@@ -49,7 +49,7 @@ export function FiltersBar({ members, clients }: Props) {
       </select>
 
       <select style={selectStyle} value={member} onChange={e => set('member', e.target.value)}>
-        <option value="">All members</option>
+        <option value="">All editors</option>
         {members.map(m => <option key={m} value={m}>{m}</option>)}
       </select>
 
