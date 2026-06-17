@@ -8,30 +8,32 @@ import { Suspense } from 'react';
 
 export const dynamic = 'force-dynamic';
 
-// Normalized (lowercase) pipeline stage names in order
+// Normalized (lowercase) pipeline stage names — must match exact ClickUp status strings
 const PIPELINE_ORDER = [
-  'backlog / not ready',
+  'not ready',           // ClickUp: "not ready"  (was "backlog / not ready")
+  'backlog',             // ClickUp: "backlog"
   'not assigned',
   'in progress (editor)',
   'in progress (corrections)',
-  'quality control – tc / qc',
-  'qc final – am',
+  'tc - qc (somu)',      // ClickUp: "tc - qc (somu)"  (was "quality control – tc / qc")
+  'qc final - am',       // ClickUp: "qc final - am"   (hyphen, not en dash)
   'for client review',
   'ready to be posted',
   'posted in socials',
 ];
 
-// Display labels for each normalized stage key
+// Display labels for pipeline stages
 const PIPELINE_LABELS: Record<string, string> = {
-  'backlog / not ready':        'Backlog / Not Ready',
-  'not assigned':               'Not Assigned',
-  'in progress (editor)':       'In Progress (Editor)',
-  'in progress (corrections)':  'In Progress (Corrections)',
-  'quality control – tc / qc':  'Quality Control – TC / QC',
-  'qc final – am':              'QC Final – AM',
-  'for client review':          'For Client Review',
-  'ready to be posted':         'Ready to be Posted',
-  'posted in socials':          'Posted in Socials',
+  'not ready':              'Not Ready',
+  'backlog':                'Backlog',
+  'not assigned':           'Not Assigned',
+  'in progress (editor)':   'In Progress (Editor)',
+  'in progress (corrections)': 'In Progress (Corrections)',
+  'tc - qc (somu)':         'TC / QC (Somu)',
+  'qc final - am':          'QC Final – AM',
+  'for client review':      'For Client Review',
+  'ready to be posted':     'Ready to be Posted',
+  'posted in socials':      'Posted in Socials',
 };
 
 function norm(s: string) {
@@ -217,9 +219,9 @@ export default async function DashboardPage({
           <DonutChart
             total={tasks.length}
             segments={[
-              { label: 'To Do',          color: '#8d8d8d', count: (stats['backlog / not ready'] ?? 0) + (stats['not assigned'] ?? 0) },
+              { label: 'To Do',          color: '#8d8d8d', count: (stats['not ready'] ?? 0) + (stats['backlog'] ?? 0) + (stats['not assigned'] ?? 0) },
               { label: 'In Progress',    color: '#1090e0', count: (stats['in progress (editor)'] ?? 0) + (stats['in progress (corrections)'] ?? 0) },
-              { label: 'Quality Check',  color: '#7C4DFF', count: (stats['quality control – tc / qc'] ?? 0) + (stats['qc final – am'] ?? 0) },
+              { label: 'Quality Check',  color: '#7C4DFF', count: (stats['tc - qc (somu)'] ?? 0) + (stats['qc final - am'] ?? 0) },
               { label: 'Client Review',  color: '#ffc53d', count: stats['for client review'] ?? 0 },
               { label: 'Ready to Post',  color: '#20c997', count: stats['ready to be posted'] ?? 0 },
               { label: 'Posted',         color: '#30a46c', count: stats['posted in socials'] ?? 0 },

@@ -108,7 +108,8 @@ export function mapTask(task: ClickUpTask): MappedTask {
   };
 }
 
-const TERMINAL = ['posted in socials', 'archived', 'not posted — discarded'];
+// Use normalized form (lowercase, trimmed) — matched against t.status.status.toLowerCase()
+const TERMINAL = ['posted in socials', 'archived', 'not posted - discarded'];
 
 export async function getTasksFromList(listId: string, includeArchived = false): Promise<MappedTask[]> {
   const all: ClickUpTask[] = [];
