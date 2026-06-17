@@ -10,11 +10,12 @@ export async function POST(req: Request) {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return NextResponse.json({ error: 'DATABASE_URL not set' }, { status: 500 });
 
-  // Show which host we're connecting to (hide password)
-  const host = dbUrl.replace(/:([^@]+)@/, ':***@').split('?')[0];
+  // Use non-pooler URL for DDL — strip -pooler from hostname
+  const directUrl = dbUrl.replace('-pooler', '');
+  const host = directUrl.replace(/:([^@]+)@/, ':***@').split('?')[0];
 
   try {
-    const sql = neon(dbUrl);
+    const sql = neon(directUrl);
 
     const statements = [
       `CREATE TABLE IF NOT EXISTS "auth_user" (
@@ -94,13 +95,12 @@ export async function POST(req: Request) {
       await sql.unsafe(stmt);
     }
 
-    // Verify tables actually exist
     const rows = await sql`
-      SELECT tablename FROM pg_tables
-      WHERE schemaname = 'public'
-      ORDER BY tablename
+      SELECT table_name FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+      ORDER BY table_name
     `;
-    const tables = rows.map((r: any) => r.tablename);
+    const tables = rows.map((r: any) => r.table_name);
 
     return NextResponse.json({ ok: true, host, tables });
   } catch (e) {
