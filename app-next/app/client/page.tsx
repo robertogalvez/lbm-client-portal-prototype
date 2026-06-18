@@ -11,6 +11,23 @@ import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
+async function getFrameioThumbnail(shareUrl: string): Promise<string | null> {
+  try {
+    const res = await fetch(shareUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; LBMPortal/1.0)' },
+      redirect: 'follow',
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const match = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+                ?? html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function norm(s: string) {
   return s.toLowerCase().replace(/\s+/g, ' ').trim();
 }
@@ -76,6 +93,12 @@ export default async function ClientPortalPage() {
   const postedThisMonth = postedTasks.filter(t => new Date(t.dateUpdated).getTime() >= monthStart).length;
   const displayName = (name ?? clientName).split(' ')[0];
   const pct = clientTasks.length > 0 ? Math.round((postedTasks.length / clientTasks.length) * 100) : 0;
+
+  // Fetch Frame.io thumbnails for review cards in parallel
+  const thumbnails: Record<string, string | null> = {};
+  await Promise.all(reviewTasks.map(async t => {
+    if (t.frameLink) thumbnails[t.clickupTaskId] = await getFrameioThumbnail(t.frameLink);
+  }));
 
   return (
     <main style={{
@@ -165,7 +188,7 @@ export default async function ClientPortalPage() {
               </span>
             </div>
             {reviewTasks.map(t => (
-              <VideoReviewCard key={t.clickupTaskId} task={t} />
+              <VideoReviewCard key={t.clickupTaskId} task={t} thumbnail={thumbnails[t.clickupTaskId] ?? null} />
             ))}
           </div>
         )}
@@ -245,7 +268,7 @@ export default async function ClientPortalPage() {
   );
 }
 
-function VideoReviewCard({ task }: { task: MappedTask }) {
+function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: string | null }) {
   const ts = Number(task.dateUpdated);
   const updatedDate = isNaN(ts) ? new Date(task.dateUpdated) : new Date(ts);
   const waiting = Math.floor((Date.now() - updatedDate.getTime()) / 86_400_000);
@@ -254,7 +277,9 @@ function VideoReviewCard({ task }: { task: MappedTask }) {
       {/* Thumbnail */}
       <div style={{
         position: 'relative', aspectRatio: '16/10' as const,
-        background: 'linear-gradient(135deg, #2c3540, #4a5562)',
+        background: thumbnail
+          ? `url(${JSON.stringify(thumbnail)}) center/cover no-repeat`
+          : 'linear-gradient(135deg, #2c3540, #4a5562)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         {task.videoLevel && (
