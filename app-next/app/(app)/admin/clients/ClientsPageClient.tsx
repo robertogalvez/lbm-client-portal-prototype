@@ -64,6 +64,10 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
   const [fVistaSocial, setFVistaSocial] = useState('');
   const [fCalendar, setFCalendar] = useState(false);
 
+  // Primary contact (create only)
+  const [fContactName, setFContactName] = useState('');
+  const [fContactEmail, setFContactEmail] = useState('');
+
   // Invite sub-form
   const [inviteOpen, setInviteOpen] = useState(false);
   const [invEmail, setInvEmail] = useState('');
@@ -75,6 +79,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
     setSelected(null);
     setFName(''); setFType('retainer'); setFQuota(''); setFClickup('');
     setFFrameio(''); setFWhatsapp(''); setFVistaSocial(''); setFCalendar(false);
+    setFContactName(''); setFContactEmail('');
     setMsg(''); setInviteOpen(false);
     setDrawerOpen(true);
   }
@@ -116,9 +121,22 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
         const res = await fetch('/api/admin/clients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? 'Failed');
-        setClients(prev => [{ ...data.client, portalUsers: [] }, ...prev]);
-        setMsg('Client created.');
-        setSelected(data.client);
+        let portalUsers: PortalUser[] = [];
+        if (fContactEmail && fContactName) {
+          const invRes = await fetch('/api/admin/create-client', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: fContactEmail, name: fContactName, clientName: fName }),
+          });
+          const invData = await invRes.json();
+          if (invRes.ok) {
+            portalUsers = [{ id: invData.id ?? fContactEmail, name: fContactName, email: fContactEmail, clientName: fName, emailVerified: false }];
+          }
+        }
+        const newClient = { ...data.client, brandingConfig: data.client.brandingConfig as Record<string, unknown> | null, portalUsers };
+        setClients(prev => [newClient, ...prev]);
+        setMsg(fContactEmail ? 'Client created and invite sent.' : 'Client created.');
+        setSelected(newClient);
       }
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Error');
@@ -321,6 +339,20 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                   <div style={{ position: 'absolute', top: 3, left: fCalendar ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
                 </div>
               </div>
+
+              {/* Primary contact (create only) */}
+              {!selected && (
+                <>
+                  <div style={{ borderTop: '1px solid #e7ebef', margin: '4px 0' }} />
+                  <div>
+                    <span style={label}>Primary contact <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional — sends magic link invite)</span></span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <input value={fContactName} onChange={e => setFContactName(e.target.value)} placeholder="Full name" style={inp} />
+                      <input type="email" value={fContactEmail} onChange={e => setFContactEmail(e.target.value)} placeholder="client@example.com" style={inp} />
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Divider */}
               {selected && <div style={{ borderTop: '1px solid #e7ebef', margin: '4px 0' }} />}
