@@ -4,6 +4,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { TeamPerformance, EditorStat } from '@/components/dashboard/TeamPerformance';
 import { FiltersBar } from '@/components/dashboard/FiltersBar';
 import { DonutChart } from '@/components/dashboard/DonutChart';
+import { RefreshButton } from '@/components/dashboard/RefreshButton';
 import { Suspense } from 'react';
 
 export const dynamic = 'force-dynamic';
@@ -187,9 +188,12 @@ export default async function DashboardPage({
     <main style={{ padding: '28px 32px', maxWidth: 1400 }}>
 
       {/* Header */}
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111c28', margin: 0 }}>Production Overview</h1>
-        <p style={{ fontSize: 13, color: '#8b97a4', margin: '4px 0 0' }}>Live from ClickUp · refreshes every 5 min</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111c28', margin: 0 }}>Production Overview</h1>
+          <p style={{ fontSize: 13, color: '#8b97a4', margin: '4px 0 0' }}>Live from ClickUp · refreshes every 5 min</p>
+        </div>
+        <RefreshButton />
       </div>
 
       {/* Filters */}
