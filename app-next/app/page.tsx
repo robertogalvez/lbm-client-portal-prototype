@@ -9,6 +9,9 @@ export default async function Home() {
   if (!session) redirect('/login');
 
   const role = (session.user as { role?: string }).role ?? 'account_manager';
+
   if (role === 'client') redirect('/client');
+
+  // ceo, account_manager, editor all land on the internal dashboard
   redirect('/dashboard');
 }
