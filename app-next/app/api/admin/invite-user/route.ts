@@ -56,9 +56,14 @@ export async function POST(req: Request) {
     action = 'created';
   }
 
-  // Send magic link so they can log in
+  // Send magic link via BetterAuth's sign-in endpoint
   try {
-    await auth.api.sendMagicLink({ body: { email, callbackURL: '/dashboard' } });
+    const baseUrl = process.env.BETTER_AUTH_URL ?? 'http://localhost:3000';
+    await fetch(`${baseUrl}/api/auth/sign-in/magic-link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, callbackURL: '/dashboard' }),
+    });
   } catch (e) {
     console.error('[invite-user] magic link error:', e);
     // Don't fail the request — user was created, link is best-effort
