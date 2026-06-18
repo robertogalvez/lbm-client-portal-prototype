@@ -21,7 +21,7 @@ export const auth = betterAuth({
           const { Resend } = await import('resend');
           const resend = new Resend(process.env.RESEND_API_KEY);
           const result = await resend.emails.send({
-            from: 'LBM Portal <onboarding@resend.dev>',
+            from: 'LBM Portal <noreply@ecollect.do>',
             to: email,
             subject: 'Your LBM Portal login link',
             html: `
