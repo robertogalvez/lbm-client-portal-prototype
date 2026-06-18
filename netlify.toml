@@ -10,6 +10,7 @@
   CLICKUP_API_TOKEN   = ""
   DATABASE_URL        = ""
   POSTMARK_API_KEY    = ""
+  FRAMEIO_API_TOKEN   = ""
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

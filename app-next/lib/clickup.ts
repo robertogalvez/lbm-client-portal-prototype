@@ -52,6 +52,7 @@ export interface MappedTask {
   publishingStatus: string | null;
   qualityCheck: string | null;
   caption: string | null;
+  frameLink: string | null;
   assignedAmName: string | null;
   editorName: string | null;
   dateUpdated: string;
@@ -68,6 +69,7 @@ export function mapTask(task: ClickUpTask): MappedTask {
   const approvalField = findField(task, 'CLIENT APPROVAL');
   const pubField      = findField(task, 'Publishing Status');
   const captionField  = findField(task, 'Captions');
+  const frameLinkField = findField(task, 'Updated Frame Link (Editor)');
   const amField       = findField(task, 'Account Manager (AM)');
   const qcField       = findField(task, 'QUALITY CHECK (Somu)');
 
@@ -98,6 +100,7 @@ export function mapTask(task: ClickUpTask): MappedTask {
     publishingStatus: pubField && pubIdx !== null ? resolveOptionName(pubField, pubIdx) : null,
     qualityCheck:     qcField && qcIdx !== null ? resolveOptionName(qcField, qcIdx) : null,
     caption:          typeof captionField?.value === 'string' ? captionField.value : null,
+    frameLink:        typeof frameLinkField?.value === 'string' ? frameLinkField.value : null,
     assignedAmName:   amName,
     editorName,
     dateUpdated:      task.date_updated,
