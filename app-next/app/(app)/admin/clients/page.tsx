@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { authUsers } from '@/lib/db/schema';
+import { authUsers, clients } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { ClientsPageClient } from './ClientsPageClient';
 
@@ -12,25 +12,20 @@ export default async function AdminClientsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect('/login');
 
-  const rows = await db
-    .select({ role: authUsers.role })
-    .from(authUsers)
-    .where(eq(authUsers.id, session.user.id))
-    .limit(1);
+  const [caller] = await db.select({ role: authUsers.role }).from(authUsers).where(eq(authUsers.id, session.user.id)).limit(1);
+  if (!caller || caller.role === 'client') redirect('/client');
 
-  if (rows[0]?.role === 'client') redirect('/client');
+  const allClients = await db.select().from(clients).orderBy(clients.createdAt);
 
-  const clients = await db
-    .select({
-      id: authUsers.id,
-      name: authUsers.name,
-      email: authUsers.email,
-      clientName: authUsers.clientName,
-      emailVerified: authUsers.emailVerified,
-      createdAt: authUsers.createdAt,
-    })
+  const portalUsers = await db
+    .select({ id: authUsers.id, name: authUsers.name, email: authUsers.email, clientName: authUsers.clientName, emailVerified: authUsers.emailVerified })
     .from(authUsers)
     .where(eq(authUsers.role, 'client'));
 
-  return <ClientsPageClient clients={clients} />;
+  const clientsWithUsers = allClients.map(c => ({
+    ...c,
+    portalUsers: portalUsers.filter(u => u.clientName === c.name),
+  }));
+
+  return <ClientsPageClient clients={clientsWithUsers} />;
 }

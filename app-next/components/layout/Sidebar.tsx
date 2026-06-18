@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 const NAV = [
   { label: 'Dashboard', href: '/dashboard', icon: '▦' },
-  { label: 'Clients', href: '#', icon: '◎', disabled: true },
+  { label: 'Clients', href: '/admin/clients', icon: '◎' },
   { label: 'Publishing', href: '#', icon: '⬆', disabled: true },
   { label: 'Settings', href: '/settings', icon: '⚙' },
 ];
