@@ -9,19 +9,30 @@ const COOL: Record<Tone, [string, string]> = {
   violet: ['#7c66c4', '#efeafa'],
 };
 
+// Warm variant: softer tint backgrounds for client mobile surfaces
+const WARM: Record<Tone, [string, string]> = {
+  blue:   ['#2563eb', '#e8eefc'],
+  amber:  ['#a86a00', '#f8e9c8'],
+  green:  ['#14805f', '#e4f3ec'],
+  red:    ['#cf3f36', '#fbe7e2'],
+  slate:  ['#54616f', '#eef1f4'],
+  violet: ['#7c66c4', '#efeafa'],
+};
+
 interface StatusBadgeProps {
   children: React.ReactNode;
   tone?: Tone;
   dot?: boolean;
+  warm?: boolean;
 }
 
-export function StatusBadge({ children, tone = 'slate', dot = true }: StatusBadgeProps) {
-  const [fg, bg] = COOL[tone];
+export function StatusBadge({ children, tone = 'slate', dot = true, warm = false }: StatusBadgeProps) {
+  const [fg, bg] = (warm ? WARM : COOL)[tone];
   return (
     <span
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
-        fontSize: 12, fontWeight: 600, lineHeight: 1.35,
+        fontSize: 12, fontWeight: warm ? 700 : 600, lineHeight: 1.35,
         padding: '4px 10px', borderRadius: 6,
         color: fg, background: bg, whiteSpace: 'nowrap',
       }}

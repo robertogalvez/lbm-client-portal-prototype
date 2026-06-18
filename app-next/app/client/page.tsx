@@ -137,7 +137,7 @@ export default async function ClientPortalPage() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums' as const }}>{reviewTasks.length}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' as const }}>{reviewTasks.length}</div>
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', fontWeight: 600 }}>to review</div>
               </div>
               <div style={{ width: 46, height: 46, borderRadius: '50%', background: `conic-gradient(#FF6000 ${pct}%, rgba(255,255,255,.16) 0)`, display: 'grid', placeItems: 'center' }}>
@@ -156,7 +156,7 @@ export default async function ClientPortalPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>
                 Needs your review
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#b06f06', background: '#fbeecf', padding: '2px 9px', borderRadius: 100 }}>{reviewTasks.length}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#a86a00', background: '#f8e9c8', padding: '2px 9px', borderRadius: 100, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{reviewTasks.length}</span>
               </div>
               {reviewTasks.map(t => (
                 <VideoReviewCard key={t.clickupTaskId} task={t} thumbnail={thumbnails[t.clickupTaskId] ?? null} />
@@ -249,16 +249,16 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             fontSize: 12, fontWeight: 700, padding: '5px 10px', borderRadius: 9,
-            color: '#b06f06', background: '#fbeecf',
+            color: '#a86a00', background: '#f8e9c8',
           }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#b06f06' }} />
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#a86a00' }} />
             Awaiting your review
           </span>
         </div>
 
         {/* Primary CTA */}
         <Link href={`/client/videos/${task.clickupTaskId}`} style={{
-          width: '100%', padding: '15px', borderRadius: 15, border: 'none',
+          width: '100%', padding: '15px', borderRadius: 13, border: 'none',
           background: '#FF6000', color: '#fff', fontWeight: 700, fontSize: 15,
           cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           fontFamily: 'inherit', textDecoration: 'none',
@@ -279,7 +279,7 @@ function TabItems({ items }: { items: { label: string; badge: number; active: bo
   return (
     <>
       {items.map(({ label, badge, active, icon }) => (
-        <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: active ? '#B23E00' : '#9d9488', position: 'relative', padding: '2px 14px' }}>
+        <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: active ? '#FF6000' : '#9d9488', position: 'relative', padding: '2px 14px' }}>
           {icon}
           {badge > 0 && (
             <span style={{ position: 'absolute', top: -2, right: 6, minWidth: 16, height: 16, background: '#cf3f36', color: '#fff', fontSize: 10, fontWeight: 800, borderRadius: 100, display: 'grid', placeItems: 'center', padding: '0 4px', border: '1.5px solid #fff' }}>{badge}</span>

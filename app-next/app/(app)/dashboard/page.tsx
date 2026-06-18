@@ -94,11 +94,11 @@ function buildClientStats(tasks: MappedTask[]) {
   return Array.from(map.entries()).map(([name, s]) => ({ name, ...s, DAY_MS })).sort((a, b) => b.total - a.total);
 }
 
-function KpiCard({ label, value, accent, sub }: { label: string; value: string | number; accent: string; sub?: string }) {
+function KpiCard({ label, value, sub }: { label: string; value: string | number; accent?: string; sub?: string }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '18px 20px', flex: '1 1 0', minWidth: 140, borderTop: `3px solid ${accent}` }}>
+    <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, padding: '18px 20px', flex: '1 1 0', minWidth: 140 }}>
       <div style={{ fontSize: 11, fontWeight: 600, color: '#8b97a4', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 28, fontWeight: 700, color: '#111c28', lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 30, fontWeight: 700, color: '#111c28', lineHeight: 1, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{value}</div>
       {sub && <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 4 }}>{sub}</div>}
     </div>
   );
@@ -209,12 +209,12 @@ export default async function DashboardPage({
 
       {/* KPI cards */}
       <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
-        <KpiCard label="Videos in Production" value={totalInProduction} accent="#FF6000" sub="active tasks" />
-        <KpiCard label="Pending Approval"      value={pendingApproval}   accent="#ffc53d" sub="awaiting client review" />
-        <KpiCard label="Ready to Post"         value={readyToPost}       accent="#1090e0" sub="scheduled or queued" />
-        <KpiCard label="Posted This Month"     value={postedThisMonth}   accent="#30a46c" sub={new Date().toLocaleString('default', { month: 'long', year: 'numeric' })} />
+        <KpiCard label="Videos in Production" value={totalInProduction} sub="active tasks" />
+        <KpiCard label="Pending Approval"      value={pendingApproval}   sub="awaiting client review" />
+        <KpiCard label="Ready to Post"         value={readyToPost}       sub="scheduled or queued" />
+        <KpiCard label="Posted This Month"     value={postedThisMonth}   sub={new Date().toLocaleString('default', { month: 'long', year: 'numeric' })} />
         {onTimePct !== null && (
-          <KpiCard label="On-Time Rate" value={`${onTimePct}%`} accent={onTimePct >= 70 ? '#30a46c' : onTimePct >= 40 ? '#ffc53d' : '#e5484d'} sub="completed before due date" />
+          <KpiCard label="On-Time Rate" value={`${onTimePct}%`} sub="completed before due date" />
         )}
       </div>
 
@@ -223,23 +223,23 @@ export default async function DashboardPage({
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, marginBottom: 24 }}>
 
         {/* Status breakdown donut */}
-        <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '20px 24px' }}>
+        <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, padding: '20px 24px' }}>
           <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Task Status Breakdown</h2>
           <DonutChart
             total={tasks.length}
             segments={[
-              { label: 'To Do',          color: '#8d8d8d', count: (stats['not ready'] ?? 0) + (stats['backlog'] ?? 0) + (stats['not assigned'] ?? 0) },
-              { label: 'In Progress',    color: '#1090e0', count: (stats['in progress (editor)'] ?? 0) + (stats['in progress (corrections)'] ?? 0) },
-              { label: 'Quality Check',  color: '#7C4DFF', count: (stats['tc - qc (somu)'] ?? 0) + (stats['qc final - am'] ?? 0) },
-              { label: 'Client Review',  color: '#ffc53d', count: stats['for client review'] ?? 0 },
-              { label: 'Ready to Post',  color: '#20c997', count: stats['ready to be posted'] ?? 0 },
-              { label: 'Posted',         color: '#30a46c', count: stats['posted in socials'] ?? 0 },
+              { label: 'To Do',          color: '#54616f', count: (stats['not ready'] ?? 0) + (stats['backlog'] ?? 0) + (stats['not assigned'] ?? 0) },
+              { label: 'In Progress',    color: '#2563eb', count: (stats['in progress (editor)'] ?? 0) + (stats['in progress (corrections)'] ?? 0) },
+              { label: 'Quality Check',  color: '#7c66c4', count: (stats['tc - qc (somu)'] ?? 0) + (stats['qc final - am'] ?? 0) },
+              { label: 'Client Review',  color: '#a86a00', count: stats['for client review'] ?? 0 },
+              { label: 'Ready to Post',  color: '#14805f', count: stats['ready to be posted'] ?? 0 },
+              { label: 'Posted',         color: '#14805f', count: stats['posted in socials'] ?? 0 },
             ]}
           />
         </div>
 
         {/* Pipeline funnel — clickable */}
-        <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '20px 24px' }}>
+        <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, padding: '20px 24px' }}>
           <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 4px' }}>Pipeline Funnel</h2>
           <p style={{ fontSize: 12, color: '#8b97a4', margin: '0 0 14px' }}>Click a stage to see its videos</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -253,10 +253,10 @@ export default async function DashboardPage({
                 <a key={stage} href={`/dashboard?${params}`} style={{ textDecoration: 'none', display: 'block', padding: '6px 8px', borderRadius: 7, background: active ? '#fff4ee' : 'transparent', border: active ? '1px solid #ffd4b8' : '1px solid transparent', transition: 'background 0.15s' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
                     <span style={{ fontSize: 12, color: active ? '#FF6000' : '#54616f', fontWeight: active ? 700 : 400 }}>{PIPELINE_LABELS[stage] ?? stage}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: active ? '#FF6000' : '#111c28', fontFamily: 'monospace' }}>{count}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: active ? '#FF6000' : '#111c28', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{count}</span>
                   </div>
-                  <div style={{ height: 5, background: '#eceef1', borderRadius: 3, overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: active ? '#FF6000' : '#c8d0d8', borderRadius: 3 }} />
+                  <div style={{ height: 7, background: '#e7ebef', borderRadius: 120, overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: active ? '#FF6000' : '#d4dbe2', borderRadius: 120 }} />
                   </div>
                 </a>
               );
@@ -265,7 +265,7 @@ export default async function DashboardPage({
         </div>
 
         {/* Client breakdown */}
-        <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '20px 24px' }}>
+        <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, padding: '20px 24px' }}>
           <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Client Breakdown</h2>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
@@ -281,18 +281,18 @@ export default async function DashboardPage({
                 return (
                   <tr key={c.name} style={{ borderBottom: '1px solid #f4f6f8' }}>
                     <td style={{ padding: '8px 8px', fontWeight: 500, color: '#111c28' }}>{c.name}</td>
-                    <td style={{ textAlign: 'center', padding: '8px 8px', fontWeight: 600, color: '#111c28' }}>{c.total}</td>
+                    <td style={{ textAlign: 'center', padding: '8px 8px', fontWeight: 600, color: '#111c28', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{c.total}</td>
                     <td style={{ textAlign: 'center', padding: '8px 8px' }}>
                       {c.pending > 0
-                        ? <span style={{ fontWeight: 600, color: stale ? '#e59700' : '#1090e0' }}>{c.pending}</span>
+                        ? <span style={{ fontWeight: 600, color: stale ? '#a86a00' : '#2563eb', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{c.pending}</span>
                         : <span style={{ color: '#8b97a4' }}>—</span>}
                     </td>
                     <td style={{ textAlign: 'center', padding: '8px 8px' }}>
                       {c.pending === 0
-                        ? <span style={{ fontSize: 11, fontWeight: 600, color: '#30a46c', background: '#e8f5ee', padding: '2px 8px', borderRadius: 4 }}>On Track</span>
+                        ? <span style={{ fontSize: 11, fontWeight: 600, color: '#14805f', background: '#e6f4ee', padding: '2px 8px', borderRadius: 6 }}>On Track</span>
                         : stale
-                          ? <span style={{ fontSize: 11, fontWeight: 600, color: '#e59700', background: '#fef4e0', padding: '2px 8px', borderRadius: 4 }}>Needs Attention</span>
-                          : <span style={{ fontSize: 11, fontWeight: 600, color: '#1090e0', background: '#e6f2fc', padding: '2px 8px', borderRadius: 4 }}>In Review</span>}
+                          ? <span style={{ fontSize: 11, fontWeight: 600, color: '#a86a00', background: '#fbf1dc', padding: '2px 8px', borderRadius: 6 }}>Needs Attention</span>
+                          : <span style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', background: '#eaf0ff', padding: '2px 8px', borderRadius: 6 }}>In Review</span>}
                     </td>
                   </tr>
                 );
@@ -303,7 +303,7 @@ export default async function DashboardPage({
       </div>
 
       {/* Team Performance */}
-      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '20px 24px', marginBottom: 24 }}>
+      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, padding: '20px 24px', marginBottom: 24 }}>
         <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Team Performance</h2>
         <TeamPerformance editors={editorStats} />
       </div>
@@ -323,7 +323,7 @@ export default async function DashboardPage({
                 Clear
               </a>
             </div>
-            <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, overflow: 'hidden' }}>
+            <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, overflow: 'hidden' }}>
               <VideoTable tasks={drillTasks} />
             </div>
           </div>
@@ -338,7 +338,7 @@ export default async function DashboardPage({
         </div>
         <StatusBadge tone="amber">{approvalTasks.length} pending</StatusBadge>
       </div>
-      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, overflow: 'hidden' }}>
+      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, overflow: 'hidden' }}>
         <VideoTable tasks={approvalTasks} />
       </div>
 
