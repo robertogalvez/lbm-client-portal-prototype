@@ -126,11 +126,11 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
           const invRes = await fetch('/api/admin/create-client', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: fContactEmail, name: fContactName, clientName: fName }),
+            body: JSON.stringify({ email: fContactEmail, name: fContactName, clientName: fClickup || fName }),
           });
           const invData = await invRes.json();
           if (invRes.ok) {
-            portalUsers = [{ id: invData.id ?? fContactEmail, name: fContactName, email: fContactEmail, clientName: fName, emailVerified: false }];
+            portalUsers = [{ id: invData.id ?? fContactEmail, name: fContactName, email: fContactEmail, clientName: fClickup || fName, emailVerified: false }];
           }
         }
         const newClient = { ...data.client, brandingConfig: data.client.brandingConfig as Record<string, unknown> | null, portalUsers };
@@ -168,7 +168,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
       const res = await fetch('/api/admin/create-client', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: u.email, name: u.name, clientName: selected.name }),
+        body: JSON.stringify({ email: u.email, name: u.name, clientName: selected.clickupOptionId || selected.name }),
       });
       if (!res.ok) throw new Error('Failed to resend');
       setMsg('Invite resent to ' + u.email);
@@ -199,11 +199,11 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
       const res = await fetch('/api/admin/create-client', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: invEmail, name: invName, clientName: selected.name }),
+        body: JSON.stringify({ email: invEmail, name: invName, clientName: selected.clickupOptionId || selected.name }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed');
-      const newUser: PortalUser = { id: data.id ?? invEmail, name: invName, email: invEmail, clientName: selected.name, emailVerified: false };
+      const newUser: PortalUser = { id: data.id ?? invEmail, name: invName, email: invEmail, clientName: selected.clickupOptionId || selected.name, emailVerified: false };
       setClients(prev => prev.map(c => c.id === selected.id ? { ...c, portalUsers: [...c.portalUsers, newUser] } : c));
       setSelected(prev => prev ? { ...prev, portalUsers: [...prev.portalUsers, newUser] } : prev);
       setInvMsg('Invited!');
