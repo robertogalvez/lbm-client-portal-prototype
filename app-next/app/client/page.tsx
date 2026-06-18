@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm';
 import { getTasksFromList } from '@/lib/clickup';
 import type { MappedTask } from '@/lib/clickup';
 import { ApprovalButtons } from '@/components/client/ApprovalButtons';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -314,17 +315,17 @@ function VideoReviewCard({ task }: { task: MappedTask }) {
         </div>
 
         {/* Primary CTA */}
-        <button style={{
+        <Link href={`/client/videos/${task.clickupTaskId}`} style={{
           width: '100%', padding: '15px', borderRadius: 15, border: 'none',
           background: '#FF6000', color: '#fff', fontWeight: 700, fontSize: 15,
           cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          fontFamily: 'inherit',
+          fontFamily: 'inherit', textDecoration: 'none',
         }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:16,height:16}}>
             <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
           </svg>
           Watch &amp; review
-        </button>
+        </Link>
 
         <ApprovalButtons taskId={task.clickupTaskId} currentApproval={task.clientApproval} />
       </div>
