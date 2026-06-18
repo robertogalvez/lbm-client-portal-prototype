@@ -18,24 +18,32 @@ export const auth = betterAuth({
     magicLink({
       sendMagicLink: async ({ email, url }) => {
         try {
-          const { Resend } = await import('resend');
-          const resend = new Resend(process.env.RESEND_API_KEY);
-          const result = await resend.emails.send({
-            from: 'LBM Portal <noreply@ecollect.do>',
-            to: email,
-            subject: 'Your LBM Portal login link',
-            html: `
-            <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
-              <p style="font-size: 16px; color: #111c28; margin: 0 0 24px;">Click the button below to log in to the LBM Portal. This link expires in 10 minutes.</p>
-              <a href="${url}" style="display: inline-block; background: #FF6000; color: #fff; font-weight: 600; font-size: 14px; padding: 12px 24px; border-radius: 8px; text-decoration: none;">
-                Log in to LBM Portal
-              </a>
-              <p style="font-size: 12px; color: #8b97a4; margin: 24px 0 0;">If you didn't request this, you can ignore this email.</p>
-            </div>
-          `,
+          const res = await fetch('https://api.postmarkapp.com/email', {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'X-Postmark-Server-Token': process.env.POSTMARK_API_KEY!,
+            },
+            body: JSON.stringify({
+              From: 'LBM Portal <noreply@ecollect.do>',
+              To: email,
+              Subject: 'Your LBM Portal login link',
+              HtmlBody: `
+                <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
+                  <p style="font-size: 16px; color: #111c28; margin: 0 0 24px;">Click the button below to log in to the LBM Portal. This link expires in 10 minutes.</p>
+                  <a href="${url}" style="display: inline-block; background: #FF6000; color: #fff; font-weight: 600; font-size: 14px; padding: 12px 24px; border-radius: 8px; text-decoration: none;">
+                    Log in to LBM Portal
+                  </a>
+                  <p style="font-size: 12px; color: #8b97a4; margin: 24px 0 0;">If you didn't request this, you can ignore this email.</p>
+                </div>
+              `,
+              MessageStream: 'outbound',
+            }),
           });
-          if (result.error) console.error('[sendMagicLink] Resend error:', result.error);
-          else console.log('[sendMagicLink] sent to', email, 'id:', result.data?.id);
+          const data = await res.json();
+          if (!res.ok) console.error('[sendMagicLink] Postmark error:', data);
+          else console.log('[sendMagicLink] sent to', email, 'id:', data.MessageID);
         } catch (err) {
           console.error('[sendMagicLink] exception:', err);
           throw err;
