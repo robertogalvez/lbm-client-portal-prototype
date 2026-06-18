@@ -251,7 +251,9 @@ export default async function ClientPortalPage() {
 }
 
 function VideoReviewCard({ task }: { task: MappedTask }) {
-  const waiting = Math.floor((Date.now() - new Date(task.dateUpdated).getTime()) / 86_400_000);
+  const ts = Number(task.dateUpdated);
+  const updatedDate = isNaN(ts) ? new Date(task.dateUpdated) : new Date(ts);
+  const waiting = Math.floor((Date.now() - updatedDate.getTime()) / 86_400_000);
   return (
     <div style={{ background: '#fff', border: '1px solid #ece4d8', borderRadius: 22, overflow: 'hidden' }}>
       {/* Thumbnail */}

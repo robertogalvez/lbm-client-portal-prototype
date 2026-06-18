@@ -16,7 +16,10 @@ function fmtDate(iso: string | null) {
 }
 
 function daysWaiting(dateUpdated: string) {
-  const d = Math.floor((Date.now() - new Date(dateUpdated).getTime()) / 86_400_000);
+  const ts = Number(dateUpdated);
+  const date = isNaN(ts) ? new Date(dateUpdated) : new Date(ts);
+  const d = Math.floor((Date.now() - date.getTime()) / 86_400_000);
+  if (isNaN(d)) return '';
   return d === 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d}d ago`;
 }
 
