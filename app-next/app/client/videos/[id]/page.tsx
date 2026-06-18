@@ -114,9 +114,6 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: isReview ? '#b06f06' : '#54616f' }} />
             {isReview ? 'Awaiting your review' : task.status}
           </span>
-          {task.videoLevel && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 9, color: '#54616f', background: '#f7f2ea' }}>{task.videoLevel}</span>
-          )}
           {task.frameLink && (
             <a href={task.frameLink} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: '#6c6357', textDecoration: 'none' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:13,height:13}}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -129,7 +126,7 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
           {task.assignedAmName && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#5e6b7a', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 9, fontWeight: 700 }}>{initials(task.assignedAmName)}</span>
-              {task.assignedAmName}
+              <span>AM · {task.assignedAmName}</span>
             </span>
           )}
           <span style={{ width: 3, height: 3, borderRadius: '50%', background: '#9d9488' }} />

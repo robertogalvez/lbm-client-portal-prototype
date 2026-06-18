@@ -282,13 +282,6 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
           : 'linear-gradient(135deg, #2c3540, #4a5562)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        {task.videoLevel && (
-          <span style={{
-            position: 'absolute', top: 10, left: 10,
-            background: 'rgba(12,14,17,.62)', backdropFilter: 'blur(4px)',
-            color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 9px', borderRadius: 8,
-          }}>{task.videoLevel}</span>
-        )}
       </div>
 
       {/* Body */}
@@ -305,7 +298,7 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
                 color: '#fff', display: 'grid', placeItems: 'center',
                 fontSize: 9.5, fontWeight: 700, flexShrink: 0,
               }}>{initials(task.assignedAmName)}</span>
-              {task.assignedAmName}
+              <span>AM · {task.assignedAmName}</span>
             </span>
           )}
           <span style={{ width: 3, height: 3, borderRadius: '50%', background: '#9d9488' }} />
