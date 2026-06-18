@@ -29,11 +29,6 @@ const IconBell = () => (
     <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>
   </svg>
 );
-const IconPlay = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor" style={{width:18,height:18,marginLeft:2}}>
-    <path d="M8 5v14l11-7z"/>
-  </svg>
-);
 
 export default async function ClientPortalPage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -269,13 +264,6 @@ function VideoReviewCard({ task }: { task: MappedTask }) {
             color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 9px', borderRadius: 8,
           }}>{task.videoLevel}</span>
         )}
-        <div style={{
-          width: 52, height: 52, borderRadius: '50%', background: 'rgba(255,255,255,.92)',
-          display: 'grid', placeItems: 'center', boxShadow: '0 4px 14px rgba(0,0,0,.25)',
-          color: '#221e18',
-        }}>
-          <IconPlay />
-        </div>
       </div>
 
       {/* Body */}
