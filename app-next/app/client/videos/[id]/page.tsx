@@ -57,7 +57,23 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
 
   const allTasks = await getTasksFromList(process.env.CLICKUP_LIST_ID!, false);
   const task = allTasks.find(t => t.clickupTaskId === id && t.clientName === userRow.clientName);
-  if (!task) notFound();
+  if (!task) {
+    const anyTask = allTasks.find(t => t.clickupTaskId === id);
+    if (anyTask) {
+      return (
+        <main style={{ minHeight: '100vh', background: '#faf6f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: 'system-ui, sans-serif' }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '32px 28px', maxWidth: 420, border: '1px solid #ece4d8' }}>
+            <h2 style={{ fontSize: 17, fontWeight: 700, color: '#221e18', margin: '0 0 10px' }}>Access mismatch</h2>
+            <p style={{ fontSize: 13, color: '#6c6357', lineHeight: 1.6, margin: '0 0 16px' }}>
+              Your account is linked to client <strong>{userRow.clientName ?? '(none)'}</strong>, but this video belongs to client <strong>{anyTask.clientName ?? '(none)'}</strong>.
+            </p>
+            <p style={{ fontSize: 12, color: '#9d9488', margin: 0 }}>Contact your account manager to fix your portal access.</p>
+          </div>
+        </main>
+      );
+    }
+    notFound();
+  }
 
   const isReview = task.status.toLowerCase().includes('client review');
   const embedUrl = task.frameLink ? toFrameioEmbedUrl(task.frameLink) : null;

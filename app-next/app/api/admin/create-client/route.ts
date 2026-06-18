@@ -6,6 +6,9 @@ import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 export async function POST(req: Request) {
+  const reqUrl = new URL(req.url);
+  const baseUrl = `${reqUrl.protocol}//${reqUrl.host}`;
+
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -36,7 +39,7 @@ export async function POST(req: Request) {
       .update(authUsers)
       .set({ role: 'client', clientName, name })
       .where(eq(authUsers.email, email));
-    await sendInviteEmail(email);
+    await sendInviteEmail(email, baseUrl);
     return NextResponse.json({ ok: true, action: 'updated', email });
   }
 
@@ -53,13 +56,12 @@ export async function POST(req: Request) {
     updatedAt: new Date(),
   });
 
-  await sendInviteEmail(email);
+  await sendInviteEmail(email, baseUrl);
   return NextResponse.json({ ok: true, action: 'created', id, email });
 }
 
-async function sendInviteEmail(email: string) {
+async function sendInviteEmail(email: string, baseUrl: string) {
   try {
-    const baseUrl = process.env.BETTER_AUTH_URL ?? 'http://localhost:3000';
     const res = await fetch(`${baseUrl}/api/auth/sign-in/magic-link`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
