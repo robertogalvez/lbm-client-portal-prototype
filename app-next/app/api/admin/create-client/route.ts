@@ -32,11 +32,11 @@ export async function POST(req: Request) {
     .limit(1);
 
   if (existing.length > 0) {
-    // Update existing user to client role and set clientName
     await db
       .update(authUsers)
       .set({ role: 'client', clientName, name })
       .where(eq(authUsers.email, email));
+    await sendInviteEmail(email);
     return NextResponse.json({ ok: true, action: 'updated', email });
   }
 
@@ -53,5 +53,21 @@ export async function POST(req: Request) {
     updatedAt: new Date(),
   });
 
+  await sendInviteEmail(email);
   return NextResponse.json({ ok: true, action: 'created', id, email });
+}
+
+async function sendInviteEmail(email: string) {
+  try {
+    const baseUrl = process.env.BETTER_AUTH_URL ?? 'http://localhost:3000';
+    const res = await fetch(`${baseUrl}/api/auth/sign-in/magic-link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, callbackURL: '/client' }),
+    });
+    if (!res.ok) console.error('[create-client] magic link error:', await res.text());
+    else console.log('[create-client] invite sent to', email);
+  } catch (e) {
+    console.error('[create-client] magic link exception:', e);
+  }
 }
