@@ -118,73 +118,6 @@ export default function LoginPage() {
               </div>
 
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {/* Google button */}
-                <button
-                  type="button"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 10,
-                    width: '100%',
-                    padding: '11px 16px',
-                    background: '#18181b',
-                    border: '1px solid #2a2a2e',
-                    borderRadius: 8,
-                    color: '#e4e4e7',
-                    fontSize: 14,
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 18 18">
-                    <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-                    <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
-                    <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-                    <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-                  </svg>
-                  Continue with Google
-                </button>
-
-                {/* Email magic link button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const emailInput = document.getElementById('email-input') as HTMLInputElement;
-                    if (emailInput) emailInput.focus();
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 10,
-                    width: '100%',
-                    padding: '11px 16px',
-                    background: '#18181b',
-                    border: '1px solid #2a2a2e',
-                    borderRadius: 8,
-                    color: '#e4e4e7',
-                    fontSize: 14,
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                    <path d="M2.25 3.75h13.5c.621 0 1.125.504 1.125 1.125v8.25c0 .621-.504 1.125-1.125 1.125H2.25A1.125 1.125 0 011.125 13.125v-8.25c0-.621.504-1.125 1.125-1.125z" stroke="#e4e4e7" strokeWidth="1.4" strokeLinejoin="round"/>
-                    <path d="M1.125 4.875L9 10.125l7.875-5.25" stroke="#e4e4e7" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  Continue with email
-                </button>
-
-                {/* Divider */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0' }}>
-                  <div style={{ flex: 1, height: 1, background: '#2a2a2e' }} />
-                  <span style={{ fontSize: 12, color: '#555', letterSpacing: '0.04em' }}>OR</span>
-                  <div style={{ flex: 1, height: 1, background: '#2a2a2e' }} />
-                </div>
-
                 {/* Email input */}
                 <input
                   id="email-input"
@@ -312,95 +245,30 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Mock dashboard card */}
+        {/* Hero image placeholder */}
         <div style={{
           marginTop: 48,
-          background: '#16161a',
-          border: '1px solid #2a2a2e',
-          borderRadius: 16,
           width: '100%',
-          maxWidth: 520,
-          overflow: 'hidden',
-          boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
+          maxWidth: 560,
+          aspectRatio: '16/10',
+          borderRadius: 16,
+          border: '1px dashed #2a2a2e',
+          background: '#16161a',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 10,
           position: 'relative',
           zIndex: 1,
         }}>
-          {/* Card header */}
-          <div style={{
-            padding: '14px 20px',
-            borderBottom: '1px solid #2a2a2e',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-          }}>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#3a3a3e' }} />
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#3a3a3e' }} />
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#3a3a3e' }} />
-            </div>
-            <div style={{ flex: 1, height: 1, background: '#2a2a2e' }} />
-            <div style={{
-              background: 'rgba(255,96,0,0.15)',
-              color: '#FF6000',
-              fontSize: 11,
-              fontWeight: 600,
-              padding: '3px 10px',
-              borderRadius: 20,
-              border: '1px solid rgba(255,96,0,0.3)',
-            }}>
-              In Progress
-            </div>
-          </div>
-
-          {/* Card body */}
-          <div style={{ padding: '20px' }}>
-            {/* Project rows */}
-            {[
-              { name: 'Brand Story — Episode 4', status: 'Review', color: '#818cf8' },
-              { name: 'Product Launch Ad v2', status: 'Editing', color: '#FF6000' },
-              { name: 'Testimonial Series #7', status: 'Done', color: '#34d399' },
-            ].map((item, i) => (
-              <div key={i} style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '10px 0',
-                borderBottom: i < 2 ? '1px solid #1e1e22' : 'none',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    background: item.color,
-                    flexShrink: 0,
-                  }} />
-                  <span style={{ fontSize: 13, color: '#ccc' }}>{item.name}</span>
-                </div>
-                <span style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: item.color,
-                  background: `${item.color}1a`,
-                  padding: '2px 8px',
-                  borderRadius: 20,
-                }}>
-                  {item.status}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Progress bar footer */}
-          <div style={{ padding: '14px 20px', borderTop: '1px solid #1e1e22', background: '#111113' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 11, color: '#555' }}>Monthly delivery progress</span>
-              <span style={{ fontSize: 11, color: '#FF6000', fontWeight: 600 }}>67%</span>
-            </div>
-            <div style={{ height: 4, background: '#2a2a2e', borderRadius: 4, overflow: 'hidden' }}>
-              <div style={{ width: '67%', height: '100%', background: 'linear-gradient(90deg, #FF6000, #F5232B)', borderRadius: 4 }} />
-            </div>
-          </div>
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <rect x="3" y="5" width="26" height="19" rx="2" stroke="#3a3a3e" strokeWidth="1.5"/>
+            <path d="M3 20l7-6 5 4 4-3 7 5" stroke="#3a3a3e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="11" cy="12" r="2" stroke="#3a3a3e" strokeWidth="1.5"/>
+            <path d="M10 27h12" stroke="#3a3a3e" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <span style={{ fontSize: 12, color: '#3a3a3e', letterSpacing: '0.04em' }}>Hero image coming soon</span>
         </div>
       </div>
     </div>
