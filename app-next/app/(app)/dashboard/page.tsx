@@ -114,7 +114,7 @@ function rangeCutoff(range: string): number {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; member?: string; am?: string; client?: string; archived?: string }>;
+  searchParams: Promise<{ range?: string; member?: string; am?: string; client?: string; archived?: string; status?: string }>;
 }) {
   if (!isConfigured()) {
     return (
@@ -127,7 +127,7 @@ export default async function DashboardPage({
     );
   }
 
-  const { range = 'all', member = '', am: amFilter = '', client: clientFilter = '', archived = '' } = await searchParams;
+  const { range = 'all', member = '', am: amFilter = '', client: clientFilter = '', archived = '', status: statusFilter = '' } = await searchParams;
   const includeArchived = archived === '1';
 
   // Always prefer the master list (single source of truth) to avoid counting
@@ -191,7 +191,7 @@ export default async function DashboardPage({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111c28', margin: 0 }}>Production Overview</h1>
-          <p style={{ fontSize: 13, color: '#8b97a4', margin: '4px 0 0' }}>Live from ClickUp · refreshes every 5 min</p>
+          <p style={{ fontSize: 13, color: '#8b97a4', margin: '4px 0 0' }}>Live from ClickUp · click refresh for latest data</p>
         </div>
         <RefreshButton />
       </div>
@@ -238,23 +238,27 @@ export default async function DashboardPage({
           />
         </div>
 
-        {/* Pipeline funnel */}
+        {/* Pipeline funnel — clickable */}
         <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '20px 24px' }}>
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Pipeline Funnel</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 4px' }}>Pipeline Funnel</h2>
+          <p style={{ fontSize: 12, color: '#8b97a4', margin: '0 0 14px' }}>Click a stage to see its videos</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {PIPELINE_ORDER.map(stage => {
               const count = stats[stage] ?? 0;
               const pct = Math.round(count / maxPipeline * 100);
+              const active = statusFilter === stage;
+              const params = new URLSearchParams({ range, ...(member && { member }), ...(amFilter && { am: amFilter }), ...(clientFilter && { client: clientFilter }), ...(archived && { archived }) });
+              if (!active) params.set('status', stage);
               return (
-                <div key={stage}>
+                <a key={stage} href={`/dashboard?${params}`} style={{ textDecoration: 'none', display: 'block', padding: '6px 8px', borderRadius: 7, background: active ? '#fff4ee' : 'transparent', border: active ? '1px solid #ffd4b8' : '1px solid transparent', transition: 'background 0.15s' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                    <span style={{ fontSize: 12, color: '#54616f' }}>{PIPELINE_LABELS[stage] ?? stage}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#111c28', fontFamily: 'monospace' }}>{count}</span>
+                    <span style={{ fontSize: 12, color: active ? '#FF6000' : '#54616f', fontWeight: active ? 700 : 400 }}>{PIPELINE_LABELS[stage] ?? stage}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: active ? '#FF6000' : '#111c28', fontFamily: 'monospace' }}>{count}</span>
                   </div>
-                  <div style={{ height: 6, background: '#eceef1', borderRadius: 3, overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: '#FF6000', borderRadius: 3 }} />
+                  <div style={{ height: 5, background: '#eceef1', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: active ? '#FF6000' : '#c8d0d8', borderRadius: 3 }} />
                   </div>
-                </div>
+                </a>
               );
             })}
           </div>
@@ -304,7 +308,29 @@ export default async function DashboardPage({
         <TeamPerformance editors={editorStats} />
       </div>
 
-      {/* Approval queue */}
+      {/* Drill-down table when a pipeline stage is selected */}
+      {statusFilter && (() => {
+        const drillTasks = tasks.filter(t => norm(t.status) === statusFilter);
+        return (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: 0 }}>{PIPELINE_LABELS[statusFilter] ?? statusFilter}</h2>
+                <p style={{ fontSize: 13, color: '#8b97a4', margin: '2px 0 0' }}>{drillTasks.length} video{drillTasks.length !== 1 ? 's' : ''} in this stage</p>
+              </div>
+              <a href={`/dashboard?${new URLSearchParams({ range, ...(member && { member }), ...(amFilter && { am: amFilter }), ...(clientFilter && { client: clientFilter }), ...(archived && { archived }) })}`} style={{ fontSize: 13, color: '#8b97a4', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:14,height:14}}><path d="M18 6 6 18M6 6l12 12"/></svg>
+                Clear
+              </a>
+            </div>
+            <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, overflow: 'hidden' }}>
+              <VideoTable tasks={drillTasks} />
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Approval queue — always shown */}
       <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: 0 }}>For Client Review</h2>
