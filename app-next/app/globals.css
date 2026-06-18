@@ -107,3 +107,168 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================
+   Client Portal — responsive layout
+   ============================================================ */
+
+/* Mobile: full-screen shell */
+.cp-shell {
+  min-height: 100vh;
+  background: #faf6f0;
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  color: #221e18;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+}
+/* On mobile the frame is transparent — just a flex column passthrough */
+.cp-frame {
+  display: contents;
+}
+.cp-body {
+  flex: 1;
+  overflow: auto;
+  padding: 4px 16px 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.cp-tab-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 76px;
+  background: #fff;
+  border-top: 1px solid #ece4d8;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-around;
+  padding: 11px 12px 0;
+  z-index: 100;
+}
+.cp-tab-bar-desktop { display: none; }
+
+/* Desktop: centred phone-frame */
+@media (min-width: 768px) {
+  .cp-shell {
+    background: #ede8df;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+  }
+  .cp-frame {
+    background: #faf6f0;
+    border-radius: 36px;
+    overflow: hidden;
+    width: 100%;
+    max-width: 460px;
+    box-shadow: 0 32px 100px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06);
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+  }
+  .cp-body {
+    padding: 4px 16px 16px;
+    overflow-y: auto;
+    gap: 14px;
+  }
+  .cp-tab-bar { display: none; }
+  .cp-tab-bar-desktop {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 10px 12px 12px;
+    border-top: 1px solid #ece4d8;
+    background: #fff;
+    flex-shrink: 0;
+  }
+}
+
+/* Video detail — mobile */
+.vd-left { display: contents; }
+.vd-left-header { display: none; }
+.vd-right { display: contents; }
+.vd-right-header { display: none; }
+.vd-mobile-header { display: flex; }
+
+.vd-shell {
+  min-height: 100vh;
+  background: #faf6f0;
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  color: #221e18;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+}
+.vd-player { flex: 1; position: relative; background: #1a1e24; min-height: 0; }
+.vd-player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; display: block; }
+.vd-meta { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.vd-dock {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: #fff;
+  border-top: 1px solid #ece4d8;
+  padding: 13px 18px calc(13px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 100;
+}
+
+/* Video detail — desktop */
+@media (min-width: 768px) {
+  .vd-shell {
+    flex-direction: row;
+    height: 100vh;
+    overflow: hidden;
+  }
+  .vd-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: #111;
+  }
+  .vd-left-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px);
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 10;
+  }
+  .vd-player { flex: 1; }
+  .vd-right {
+    width: 360px;
+    flex-shrink: 0;
+    background: #faf6f0;
+    border-left: 1px solid #ece4d8;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .vd-right-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid #ece4d8;
+    flex-shrink: 0;
+  }
+  .vd-meta {
+    padding: 20px;
+    flex: 1;
+  }
+  .vd-dock {
+    position: static;
+    padding: 16px 20px;
+    border-top: 1px solid #ece4d8;
+    flex-shrink: 0;
+  }
+  .vd-mobile-header { display: none; }
+}

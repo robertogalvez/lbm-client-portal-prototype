@@ -100,170 +100,104 @@ export default async function ClientPortalPage() {
     if (t.frameLink) thumbnails[t.clickupTaskId] = await getFrameioThumbnail(t.frameLink);
   }));
 
+  const tabItems = [
+    { label: 'Reviews', badge: reviewTasks.length, active: true, icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg> },
+    { label: 'Calendar', badge: 0, active: false, icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> },
+    { label: 'Account', badge: 0, active: false, icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg> },
+  ];
+
   return (
-    <main style={{
-      minHeight: '100vh',
-      background: '#faf6f0',
-      fontFamily: '"Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif',
-      color: '#221e18',
-      fontSize: 15,
-      WebkitFontSmoothing: 'antialiased' as const,
-      lineHeight: 1.45,
-    }}>
-      {/* App header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px 12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 10, background: '#FF6000',
-            display: 'grid', placeItems: 'center',
-            color: '#fff', fontWeight: 800, fontSize: 12, letterSpacing: '-0.02em', flexShrink: 0,
-          }}>LBM</div>
-          <div>
-            <div style={{ fontSize: 12, color: '#9d9488', fontWeight: 600 }}>Welcome back</div>
-            <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.1 }}>{displayName}</div>
-          </div>
-        </div>
-        <button style={{
-          width: 40, height: 40, borderRadius: 12, background: '#fff',
-          border: '1px solid #ece4d8', display: 'grid', placeItems: 'center',
-          color: '#6c6357', cursor: 'pointer',
-        }}>
-          <IconBell />
-        </button>
-      </div>
-
-      {/* Scrollable body */}
-      <div style={{ padding: '4px 16px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-        {/* Package / pipeline banner */}
-        <div style={{
-          background: '#221e18', color: '#fff', borderRadius: 20,
-          padding: '16px 18px', display: 'flex', alignItems: 'center',
-          justifyContent: 'space-between', gap: 12,
-        }}>
-          <div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' as const }}>
-              {new Date().toLocaleString('en-US', { month: 'long' }).toUpperCase()} CONTENT
-            </div>
-            <div style={{ fontSize: 17, fontWeight: 700, marginTop: 2, letterSpacing: '-0.01em' }}>
-              {clientTasks.length} video{clientTasks.length !== 1 ? 's' : ''} in pipeline
-            </div>
-          </div>
+    <main className="cp-shell">
+      <div className="cp-frame">
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px 12px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums' as const }}>
-                {reviewTasks.length}
-              </div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', fontWeight: 600 }}>to review</div>
-            </div>
-            <div style={{
-              width: 46, height: 46, borderRadius: '50%',
-              background: `conic-gradient(#FF6000 ${pct}%, rgba(255,255,255,.16) 0)`,
-              display: 'grid', placeItems: 'center',
-            }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: '50%', background: '#221e18',
-                display: 'grid', placeItems: 'center',
-                fontSize: 11, fontWeight: 800, color: '#fff',
-              }}>
-                {postedThisMonth}
-              </div>
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: '#FF6000', display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 800, fontSize: 12, letterSpacing: '-0.02em', flexShrink: 0 }}>LBM</div>
+            <div>
+              <div style={{ fontSize: 12, color: '#9d9488', fontWeight: 600 }}>Welcome back</div>
+              <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.1 }}>{displayName}</div>
             </div>
           </div>
+          <button style={{ width: 40, height: 40, borderRadius: 12, background: '#fff', border: '1px solid #ece4d8', display: 'grid', placeItems: 'center', color: '#6c6357', cursor: 'pointer' }}>
+            <IconBell />
+          </button>
         </div>
 
-        {fetchError && (
-          <div style={{ background: '#fbe7e2', border: '1px solid #f8d0cc', borderRadius: 12, padding: '12px 16px', fontSize: 13, color: '#cf3f36' }}>
-            Error loading content: {fetchError}
-          </div>
-        )}
-
-        {/* Needs Review */}
-        {reviewTasks.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>
-              Needs your review
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#b06f06', background: '#fbeecf', padding: '2px 9px', borderRadius: 100, fontVariantNumeric: 'tabular-nums' as const }}>
-                {reviewTasks.length}
-              </span>
+        {/* Scrollable body */}
+        <div className="cp-body">
+          {/* Pipeline banner */}
+          <div style={{ background: '#221e18', color: '#fff', borderRadius: 20, padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' as const }}>
+                {new Date().toLocaleString('en-US', { month: 'long' }).toUpperCase()} CONTENT
+              </div>
+              <div style={{ fontSize: 17, fontWeight: 700, marginTop: 2, letterSpacing: '-0.01em' }}>
+                {clientTasks.length} video{clientTasks.length !== 1 ? 's' : ''} in pipeline
+              </div>
             </div>
-            {reviewTasks.map(t => (
-              <VideoReviewCard key={t.clickupTaskId} task={t} thumbnail={thumbnails[t.clickupTaskId] ?? null} />
-            ))}
-          </div>
-        )}
-
-        {/* In production */}
-        {inProgress.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>
-              In production
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums' as const }}>{reviewTasks.length}</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', fontWeight: 600 }}>to review</div>
+              </div>
+              <div style={{ width: 46, height: 46, borderRadius: '50%', background: `conic-gradient(#FF6000 ${pct}%, rgba(255,255,255,.16) 0)`, display: 'grid', placeItems: 'center' }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#221e18', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800, color: '#fff' }}>{postedThisMonth}</div>
+              </div>
             </div>
-            {inProgress.map(t => (
-              <VideoRow key={t.clickupTaskId} task={t} color="#2563eb" colorBg="#e8eefc" />
-            ))}
           </div>
-        )}
 
-        {/* Recently posted */}
-        {postedTasks.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0', marginTop: 4 }}>
-              Recently reviewed
+          {fetchError && (
+            <div style={{ background: '#fbe7e2', border: '1px solid #f8d0cc', borderRadius: 12, padding: '12px 16px', fontSize: 13, color: '#cf3f36' }}>
+              Error loading content: {fetchError}
             </div>
-            {postedTasks.slice(0, 8).map(t => (
-              <VideoRow key={t.clickupTaskId} task={t} color="#14805f" colorBg="#e4f3ec" label="Posted" date={fmtDate(t.dateUpdated)} />
-            ))}
-          </div>
-        )}
+          )}
 
-        {clientTasks.length === 0 && !fetchError && (
-          <div style={{ textAlign: 'center', padding: '64px 24px', color: '#9d9488' }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>🎬</div>
-            <p style={{ fontSize: 14, margin: 0, fontWeight: 500 }}>No videos found for your account yet.</p>
-          </div>
-        )}
+          {reviewTasks.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>
+                Needs your review
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#b06f06', background: '#fbeecf', padding: '2px 9px', borderRadius: 100 }}>{reviewTasks.length}</span>
+              </div>
+              {reviewTasks.map(t => (
+                <VideoReviewCard key={t.clickupTaskId} task={t} thumbnail={thumbnails[t.clickupTaskId] ?? null} />
+              ))}
+            </div>
+          )}
+
+          {inProgress.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>In production</div>
+              {inProgress.map(t => (
+                <VideoRow key={t.clickupTaskId} task={t} color="#2563eb" colorBg="#e8eefc" />
+              ))}
+            </div>
+          )}
+
+          {postedTasks.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0', marginTop: 4 }}>Recently reviewed</div>
+              {postedTasks.slice(0, 8).map(t => (
+                <VideoRow key={t.clickupTaskId} task={t} color="#14805f" colorBg="#e4f3ec" label="Posted" date={fmtDate(t.dateUpdated)} />
+              ))}
+            </div>
+          )}
+
+          {clientTasks.length === 0 && !fetchError && (
+            <div style={{ textAlign: 'center', padding: '64px 24px', color: '#9d9488' }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>🎬</div>
+              <p style={{ fontSize: 14, margin: 0, fontWeight: 500 }}>No videos found for your account yet.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Tab bar — mobile fixed, desktop inline at bottom of frame */}
+        <nav className="cp-tab-bar">
+          <TabItems items={tabItems} />
+        </nav>
+        <nav className="cp-tab-bar-desktop">
+          <TabItems items={tabItems} />
+        </nav>
       </div>
-
-      {/* Tab bar */}
-      <nav style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0,
-        height: 76, background: '#fff', borderTop: '1px solid #ece4d8',
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'space-around',
-        padding: '11px 12px 0', zIndex: 100,
-      }}>
-        {[
-          { label: 'Reviews', badge: reviewTasks.length, active: true, icon: (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
-          )},
-          { label: 'Calendar', badge: 0, active: false, icon: (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-          )},
-          { label: 'Account', badge: 0, active: false, icon: (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg>
-          )},
-        ].map(({ label, badge, active, icon }) => (
-          <div key={label} style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-            fontSize: 10.5, fontWeight: 700,
-            color: active ? '#B23E00' : '#9d9488',
-            position: 'relative', padding: '2px 14px',
-          }}>
-            {icon}
-            {badge > 0 && (
-              <span style={{
-                position: 'absolute', top: -2, right: 6,
-                minWidth: 16, height: 16,
-                background: '#cf3f36', color: '#fff',
-                fontSize: 10, fontWeight: 800,
-                borderRadius: 100, display: 'grid', placeItems: 'center',
-                padding: '0 4px', border: '1.5px solid #fff',
-              }}>{badge}</span>
-            )}
-            {label}
-          </div>
-        ))}
-      </nav>
     </main>
   );
 }
@@ -298,7 +232,7 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
                 color: '#fff', display: 'grid', placeItems: 'center',
                 fontSize: 9.5, fontWeight: 700, flexShrink: 0,
               }}>{initials(task.assignedAmName)}</span>
-              <span>AM · {task.assignedAmName}</span>
+              <span>Account Manager · {task.assignedAmName}</span>
             </span>
           )}
           <span style={{ width: 3, height: 3, borderRadius: '50%', background: '#9d9488' }} />
@@ -338,6 +272,22 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
         <ApprovalButtons taskId={task.clickupTaskId} currentApproval={task.clientApproval} />
       </div>
     </div>
+  );
+}
+
+function TabItems({ items }: { items: { label: string; badge: number; active: boolean; icon: React.ReactNode }[] }) {
+  return (
+    <>
+      {items.map(({ label, badge, active, icon }) => (
+        <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: active ? '#B23E00' : '#9d9488', position: 'relative', padding: '2px 14px' }}>
+          {icon}
+          {badge > 0 && (
+            <span style={{ position: 'absolute', top: -2, right: 6, minWidth: 16, height: 16, background: '#cf3f36', color: '#fff', fontSize: 10, fontWeight: 800, borderRadius: 100, display: 'grid', placeItems: 'center', padding: '0 4px', border: '1.5px solid #fff' }}>{badge}</span>
+          )}
+          {label}
+        </div>
+      ))}
+    </>
   );
 }
 
