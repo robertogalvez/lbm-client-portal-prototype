@@ -9,6 +9,7 @@
   CLICKUP_LIST_ID     = ""
   CLICKUP_API_TOKEN   = ""
   DATABASE_URL        = ""
+  POSTMARK_API_KEY    = ""
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
