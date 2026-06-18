@@ -26,7 +26,7 @@ export const auth = betterAuth({
               'X-Postmark-Server-Token': process.env.POSTMARK_API_KEY!,
             },
             body: JSON.stringify({
-              From: 'LBM Portal <noreply@ecollect.do>',
+              From: 'LBM Portal <noreply@flowrk.ca>',
               To: email,
               Subject: 'Your LBM Portal login link',
               HtmlBody: `
