@@ -24,6 +24,7 @@ export default async function AdminClientsPage() {
 
   const clientsWithUsers = allClients.map(c => ({
     ...c,
+    brandingConfig: c.brandingConfig as Record<string, unknown> | null,
     portalUsers: portalUsers.filter(u => u.clientName === c.name),
   }));
 
