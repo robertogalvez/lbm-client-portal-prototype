@@ -245,30 +245,23 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Hero image placeholder */}
+        {/* Hero image */}
         <div style={{
           marginTop: 48,
           width: '100%',
           maxWidth: 560,
-          aspectRatio: '16/10',
           borderRadius: 16,
-          border: '1px dashed #2a2a2e',
-          background: '#16161a',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 10,
+          overflow: 'hidden',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
           position: 'relative',
           zIndex: 1,
         }}>
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-            <rect x="3" y="5" width="26" height="19" rx="2" stroke="#3a3a3e" strokeWidth="1.5"/>
-            <path d="M3 20l7-6 5 4 4-3 7 5" stroke="#3a3a3e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <circle cx="11" cy="12" r="2" stroke="#3a3a3e" strokeWidth="1.5"/>
-            <path d="M10 27h12" stroke="#3a3a3e" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-          <span style={{ fontSize: 12, color: '#3a3a3e', letterSpacing: '0.04em' }}>Hero image coming soon</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://legacybuildingmedia.com/wp-content/uploads/2025/01/podcaster-using-a-laptop.jpg"
+            alt="Podcaster using a laptop"
+            style={{ width: '100%', height: 'auto', display: 'block' }}
+          />
         </div>
       </div>
     </div>
