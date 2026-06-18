@@ -4,7 +4,7 @@ const NAV = [
   { label: 'Dashboard', href: '/dashboard', icon: '▦' },
   { label: 'Clients', href: '#', icon: '◎', disabled: true },
   { label: 'Publishing', href: '#', icon: '⬆', disabled: true },
-  { label: 'Settings', href: '#', icon: '⚙', disabled: true },
+  { label: 'Settings', href: '/settings', icon: '⚙' },
 ];
 
 export function Sidebar({ active }: { active?: string }) {
@@ -61,7 +61,7 @@ export function Sidebar({ active }: { active?: string }) {
 
       {/* Footer */}
       <div style={{ padding: '14px 20px', borderTop: '1px solid #1a2735', fontSize: 12, color: '#6b7888' }}>
-        LBM Ops · Fase 0
+        LBM Ops · v1
       </div>
     </aside>
   );

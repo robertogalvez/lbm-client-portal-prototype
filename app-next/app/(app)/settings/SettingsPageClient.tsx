@@ -1,0 +1,370 @@
+'use client';
+
+import { useState } from 'react';
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  emailVerified: boolean;
+  createdAt: Date | null;
+}
+
+interface Props {
+  users: User[];
+  currentUserId: string;
+}
+
+type DrawerMode = 'invite' | 'edit';
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Admin',
+  account_manager: 'Account Manager',
+};
+
+const AVATAR_COLORS = ['#5e6b7a', '#5172c4', '#b58236', '#7c66c4', '#cf5b53', '#14805f', '#b06f06'];
+
+function avatarColor(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+function initials(name: string) {
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function fmtDate(d: Date | null) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+export function SettingsPageClient({ users: initial, currentUserId }: Props) {
+  const [users, setUsers] = useState<User[]>(initial);
+  const [drawer, setDrawer] = useState<{ mode: DrawerMode; user?: User } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  // Form state
+  const [form, setForm] = useState({ name: '', email: '', role: 'account_manager' });
+
+  function openInvite() {
+    setForm({ name: '', email: '', role: 'account_manager' });
+    setError('');
+    setSuccess('');
+    setDrawer({ mode: 'invite' });
+  }
+
+  function openEdit(user: User) {
+    setForm({ name: user.name, email: user.email, role: user.role });
+    setError('');
+    setSuccess('');
+    setDrawer({ mode: 'edit', user });
+  }
+
+  function close() {
+    setDrawer(null);
+    setError('');
+    setSuccess('');
+  }
+
+  async function saveInvite() {
+    setSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch('/api/admin/invite-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: form.name, email: form.email, role: form.role }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed');
+      setSuccess(data.action === 'created' ? `Invite sent to ${form.email}` : `Updated ${form.email}`);
+      // Refresh list
+      const listRes = await fetch('/api/admin/list-users');
+      if (listRes.ok) setUsers(await listRes.json());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveRole() {
+    if (!drawer?.user) return;
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch('/api/admin/update-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: drawer.user.id, role: form.role }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed');
+      setUsers(prev => prev.map(u => u.id === drawer.user!.id ? { ...u, role: form.role } : u));
+      setSuccess('Role updated');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deactivate(user: User) {
+    if (!confirm(`Remove ${user.name} from the portal? They will lose access immediately.`)) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/update-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, deactivate: true }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      setUsers(prev => prev.filter(u => u.id !== user.id));
+      close();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '9px 12px', fontSize: 14,
+    border: '1px solid #d4dbe2', borderRadius: 8, outline: 'none',
+    fontFamily: 'inherit', color: '#111c28', background: '#fff', boxSizing: 'border-box',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: 12, fontWeight: 600, color: '#54616f',
+    display: 'block', marginBottom: 5,
+  };
+
+  return (
+    <main style={{ padding: '28px 32px', maxWidth: 900 }}>
+      {/* Header */}
+      <div style={{ marginBottom: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111c28', margin: 0 }}>Settings</h1>
+          <p style={{ fontSize: 13, color: '#8b97a4', margin: '4px 0 0' }}>Manage internal team access and roles</p>
+        </div>
+        <button
+          onClick={openInvite}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 7,
+            padding: '9px 16px', borderRadius: 8, border: 'none',
+            background: '#FF6000', color: '#fff', fontWeight: 600, fontSize: 13,
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Invite user
+        </button>
+      </div>
+
+      {/* Users table */}
+      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #e7ebef', background: '#f8f9fb' }}>
+              {['User', 'Role', 'Status', 'Joined', ''].map(h => (
+                <th key={h} style={{
+                  textAlign: 'left', padding: '10px 16px',
+                  fontWeight: 600, color: '#8b97a4', fontSize: 11,
+                  textTransform: 'uppercase', letterSpacing: '0.04em',
+                }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {users.map(user => {
+              const isYou = user.id === currentUserId;
+              return (
+                <tr key={user.id} style={{ borderBottom: '1px solid #f4f6f8' }}>
+                  <td style={{ padding: '12px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: '50%',
+                        background: avatarColor(user.id),
+                        color: '#fff', display: 'grid', placeItems: 'center',
+                        fontSize: 12, fontWeight: 700, flexShrink: 0,
+                      }}>
+                        {initials(user.name)}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 600, color: '#111c28' }}>
+                          {user.name}
+                          {isYou && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: '#8b97a4', background: '#eceef1', borderRadius: 4, padding: '2px 6px' }}>you</span>}
+                        </div>
+                        <div style={{ fontSize: 12, color: '#8b97a4' }}>{user.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      fontSize: 12, fontWeight: 600, padding: '3px 9px', borderRadius: 6,
+                      color: user.role === 'admin' ? '#7c4dff' : '#1090e0',
+                      background: user.role === 'admin' ? '#f0ebff' : '#e6f2fc',
+                    }}>
+                      {ROLE_LABELS[user.role] ?? user.role}
+                    </span>
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>
+                    {user.emailVerified
+                      ? <span style={{ fontSize: 12, fontWeight: 600, color: '#14805f', background: '#e8f5ee', padding: '3px 9px', borderRadius: 6 }}>Active</span>
+                      : <span style={{ fontSize: 12, fontWeight: 600, color: '#b06f06', background: '#fef4e0', padding: '3px 9px', borderRadius: 6 }}>Invite sent</span>
+                    }
+                  </td>
+                  <td style={{ padding: '12px 16px', color: '#8b97a4', fontSize: 12 }}>{fmtDate(user.createdAt)}</td>
+                  <td style={{ padding: '12px 16px' }}>
+                    {!isYou && (
+                      <button
+                        onClick={() => openEdit(user)}
+                        style={{
+                          fontSize: 12, fontWeight: 600, color: '#54616f',
+                          background: 'none', border: '1px solid #d4dbe2',
+                          borderRadius: 6, padding: '5px 10px', cursor: 'pointer',
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Drawer overlay */}
+      {drawer && (
+        <div
+          onClick={close}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)',
+            zIndex: 200, display: 'flex', justifyContent: 'flex-end',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 380, background: '#fff', height: '100%',
+              boxShadow: '-4px 0 24px rgba(0,0,0,0.12)',
+              display: 'flex', flexDirection: 'column',
+            }}
+          >
+            {/* Drawer header */}
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e7ebef', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#111c28' }}>
+                {drawer.mode === 'invite' ? 'Invite team member' : `Edit ${drawer.user?.name}`}
+              </div>
+              <button onClick={close} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b97a4', padding: 4 }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Drawer body */}
+            <div style={{ padding: '24px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+              {drawer.mode === 'invite' && (
+                <>
+                  <div>
+                    <label style={labelStyle}>Full name</label>
+                    <input
+                      style={inputStyle}
+                      value={form.name}
+                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="Jane Smith"
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Email</label>
+                    <input
+                      style={inputStyle}
+                      type="email"
+                      value={form.email}
+                      onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                      placeholder="jane@legacybuildingmedia.com"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label style={labelStyle}>Role</label>
+                <select
+                  style={{ ...inputStyle, cursor: 'pointer' }}
+                  value={form.role}
+                  onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
+                >
+                  <option value="account_manager">Account Manager</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <p style={{ fontSize: 12, color: '#8b97a4', margin: '6px 0 0', lineHeight: 1.5 }}>
+                  {form.role === 'admin'
+                    ? 'Full access: CEO dashboard, Settings, client management, and all AM views.'
+                    : 'Access to their AM dashboard, client portal, and assigned tasks.'}
+                </p>
+              </div>
+
+              {error && (
+                <div style={{ fontSize: 13, color: '#cf3f36', background: '#fdedeb', border: '1px solid #f8d0cc', borderRadius: 8, padding: '10px 14px' }}>
+                  {error}
+                </div>
+              )}
+
+              {success && (
+                <div style={{ fontSize: 13, color: '#14805f', background: '#e8f5ee', border: '1px solid #c3e8d6', borderRadius: 8, padding: '10px 14px' }}>
+                  {success}
+                </div>
+              )}
+            </div>
+
+            {/* Drawer footer */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #e7ebef', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button
+                onClick={drawer.mode === 'invite' ? saveInvite : saveRole}
+                disabled={saving || (drawer.mode === 'invite' && (!form.name || !form.email))}
+                style={{
+                  width: '100%', padding: '11px', borderRadius: 8, border: 'none',
+                  background: saving ? '#eceef1' : '#FF6000',
+                  color: saving ? '#8b97a4' : '#fff',
+                  fontWeight: 700, fontSize: 14, cursor: saving ? 'not-allowed' : 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {saving ? 'Saving…' : drawer.mode === 'invite' ? 'Send invite' : 'Save changes'}
+              </button>
+
+              {drawer.mode === 'edit' && drawer.user && (
+                <button
+                  onClick={() => deactivate(drawer.user!)}
+                  disabled={saving}
+                  style={{
+                    width: '100%', padding: '11px', borderRadius: 8,
+                    border: '1px solid #f8d0cc', background: '#fff',
+                    color: '#cf3f36', fontWeight: 600, fontSize: 13,
+                    cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  Remove from portal
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
