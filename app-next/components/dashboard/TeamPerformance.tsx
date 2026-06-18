@@ -63,11 +63,11 @@ export function TeamPerformance({ editors }: { editors: EditorStat[] }) {
                     {e.name}
                   </div>
                 </td>
-                <td style={{ textAlign: 'center', padding: '10px 10px', color: '#111c28', fontWeight: 600 }}>{e.total}</td>
-                <td style={{ textAlign: 'center', padding: '10px 10px', color: '#30a46c', fontWeight: 600 }}>{e.approved}</td>
-                <td style={{ textAlign: 'center', padding: '10px 10px', color: '#1090e0' }}>{e.inProgress}</td>
-                <td style={{ textAlign: 'center', padding: '10px 10px', color: '#30a46c' }}>{e.withDueDate > 0 ? `${Math.round(e.onTime / e.withDueDate * 100)}%` : '—'}</td>
-                <td style={{ textAlign: 'center', padding: '10px 10px', color: e.late > 0 ? '#e5484d' : '#8b97a4' }}>{e.withDueDate > 0 ? `${Math.round(e.late / e.withDueDate * 100)}%` : '—'}</td>
+                <td style={{ textAlign: 'center', padding: '10px 10px', color: '#111c28', fontWeight: 600, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{e.total}</td>
+                <td style={{ textAlign: 'center', padding: '10px 10px', color: '#14805f', fontWeight: 600, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{e.approved}</td>
+                <td style={{ textAlign: 'center', padding: '10px 10px', color: '#2563eb', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{e.inProgress}</td>
+                <td style={{ textAlign: 'center', padding: '10px 10px', color: '#14805f', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{e.withDueDate > 0 ? `${Math.round(e.onTime / e.withDueDate * 100)}%` : '—'}</td>
+                <td style={{ textAlign: 'center', padding: '10px 10px', color: e.late > 0 ? '#cf3f36' : '#8b97a4', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{e.withDueDate > 0 ? `${Math.round(e.late / e.withDueDate * 100)}%` : '—'}</td>
               </tr>
             ))}
           </tbody>
@@ -96,15 +96,15 @@ export function TeamPerformance({ editors }: { editors: EditorStat[] }) {
                       {e.name}
                     </div>
                   </td>
-                  <td style={{ textAlign: 'center', padding: '10px 10px' }}>{e.withDueDate}</td>
-                  <td style={{ textAlign: 'center', padding: '10px 10px', color: '#30a46c', fontWeight: 600 }}>{e.onTime}</td>
-                  <td style={{ textAlign: 'center', padding: '10px 10px', color: e.late > 0 ? '#e5484d' : '#8b97a4', fontWeight: 600 }}>{e.late}</td>
+                  <td style={{ textAlign: 'center', padding: '10px 10px', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{e.withDueDate}</td>
+                  <td style={{ textAlign: 'center', padding: '10px 10px', color: '#14805f', fontWeight: 600, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{e.onTime}</td>
+                  <td style={{ textAlign: 'center', padding: '10px 10px', color: e.late > 0 ? '#cf3f36' : '#8b97a4', fontWeight: 600, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{e.late}</td>
                   <td style={{ textAlign: 'center', padding: '10px 10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-                      <div style={{ width: 80, height: 6, background: '#eceef1', borderRadius: 3, overflow: 'hidden' }}>
-                        <div style={{ width: `${rate}%`, height: '100%', background: rate >= 70 ? '#30a46c' : rate >= 40 ? '#ffc53d' : '#e5484d', borderRadius: 3 }} />
+                      <div style={{ width: 80, height: 7, background: '#e7ebef', borderRadius: 100, overflow: 'hidden' }}>
+                        <div style={{ width: `${rate}%`, height: '100%', background: rate >= 70 ? '#14805f' : rate >= 40 ? '#a86a00' : '#cf3f36', borderRadius: 100 }} />
                       </div>
-                      <span style={{ color: rate >= 70 ? '#30a46c' : rate >= 40 ? '#e59700' : '#e5484d', fontWeight: 600, fontSize: 12 }}>{rate}%</span>
+                      <span style={{ color: rate >= 70 ? '#14805f' : rate >= 40 ? '#a86a00' : '#cf3f36', fontWeight: 600, fontSize: 12, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{rate}%</span>
                     </div>
                   </td>
                 </tr>
