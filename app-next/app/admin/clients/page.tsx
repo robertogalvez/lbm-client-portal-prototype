@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { CreateClientForm } from './CreateClientForm';
+import { ClientsPageClient } from './ClientsPageClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,21 +20,17 @@ export default async function AdminClientsPage() {
 
   if (rows[0]?.role === 'client') redirect('/client');
 
-  return (
-    <div style={{ padding: '32px 24px', maxWidth: 560 }}>
-      <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111c28', margin: '0 0 4px' }}>
-        Client Accounts
-      </h1>
-      <p style={{ fontSize: 14, color: '#54616f', margin: '0 0 28px' }}>
-        Create or update a portal account for a client. They'll log in via magic link.
-      </p>
+  const clients = await db
+    .select({
+      id: authUsers.id,
+      name: authUsers.name,
+      email: authUsers.email,
+      clientName: authUsers.clientName,
+      emailVerified: authUsers.emailVerified,
+      createdAt: authUsers.createdAt,
+    })
+    .from(authUsers)
+    .where(eq(authUsers.role, 'client'));
 
-      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, padding: '24px' }}>
-        <h2 style={{ fontSize: 15, fontWeight: 600, color: '#111c28', margin: '0 0 20px' }}>
-          Add / update client
-        </h2>
-        <CreateClientForm />
-      </div>
-    </div>
-  );
+  return <ClientsPageClient clients={clients} />;
 }
