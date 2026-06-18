@@ -162,6 +162,36 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
     }
   }
 
+  async function resendInvite(u: PortalUser) {
+    if (!selected) return;
+    try {
+      const res = await fetch('/api/admin/create-client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: u.email, name: u.name, clientName: selected.name }),
+      });
+      if (!res.ok) throw new Error('Failed to resend');
+      setMsg('Invite resent to ' + u.email);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Error');
+    }
+  }
+
+  async function cancelInvite(u: PortalUser) {
+    if (!selected) return;
+    if (!confirm(`Remove portal access for ${u.name}?`)) return;
+    try {
+      const res = await fetch(`/api/admin/portal-user/${u.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed');
+      const updated = selected.portalUsers.filter(p => p.id !== u.id);
+      setSelected(prev => prev ? { ...prev, portalUsers: updated } : prev);
+      setClients(prev => prev.map(c => c.id === selected.id ? { ...c, portalUsers: updated } : c));
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Error');
+    }
+  }
+
   async function invite() {
     if (!selected || !invEmail || !invName) return;
     setInviting(true); setInvMsg('');
@@ -396,6 +426,12 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                           <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 100, color: u.emailVerified ? '#14805f' : '#b06f06', background: u.emailVerified ? '#e6f4ee' : '#fdf3e1', flexShrink: 0 }}>
                             {u.emailVerified ? 'Active' : 'Pending'}
                           </span>
+                          {!u.emailVerified && (
+                            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                              <button onClick={() => resendInvite(u)} title="Resend invite" style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Resend</button>
+                              <button onClick={() => cancelInvite(u)} title="Cancel invitation" style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #fbd5d0', background: '#fef2f1', color: '#cf3f36', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
