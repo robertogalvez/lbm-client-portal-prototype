@@ -202,7 +202,7 @@ export default async function DashboardPage({
   return (
     <main style={{ maxWidth: 1400 }}>
       {/* Topbar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '15px 24px', borderBottom: '1px solid #e7ebef' }}>
+      <div className="db-topbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '15px 24px', borderBottom: '1px solid #e7ebef' }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em' }}>Production Overview</div>
           <div style={{ fontSize: 12.5, color: '#8b97a4', marginTop: 1, display: 'flex', alignItems: 'center', gap: 7 }}>

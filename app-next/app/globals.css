@@ -500,3 +500,9 @@ body {
   from { transform: translateX(-100%); }
   to   { transform: translateX(0); }
 }
+
+/* Topbar — push right of hamburger button on narrow screens */
+.db-topbar { }
+@media (max-width: 860px) {
+  .db-topbar { padding-left: 62px !important; }
+}
