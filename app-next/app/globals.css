@@ -441,3 +441,16 @@ body {
 .db-tscroll table {
   min-width: 560px;
 }
+
+.db-sidebar { }
+@media (max-width: 860px) {
+  .db-sidebar { display: none !important; }
+}
+
+.db-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
