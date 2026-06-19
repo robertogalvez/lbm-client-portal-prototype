@@ -9,7 +9,7 @@ const NAV = [
 
 export function Sidebar({ active }: { active?: string }) {
   return (
-    <aside style={{
+    <aside className="db-sidebar" style={{
       width: 220, flexShrink: 0, background: '#101a26',
       display: 'flex', flexDirection: 'column',
       minHeight: '100vh', position: 'sticky', top: 0,

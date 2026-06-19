@@ -213,7 +213,7 @@ export default async function DashboardPage({
             · cached 60s
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="db-topbar-right">
           <div style={{ display: 'inline-flex', background: '#f5f7f9', border: '1px solid #e7ebef', borderRadius: 9, padding: 3, gap: 2 }}>
             {segRanges.map(r => (
               <a
