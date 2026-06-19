@@ -77,6 +77,10 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
   const isReview = task.status.toLowerCase().includes('client review');
   const embedUrl = task.frameLink ? toFrameioEmbedUrl(task.frameLink) : null;
 
+  const clientTasks = allTasks.filter(t => t.clientName === userRow.clientName);
+  const reviewCount = clientTasks.filter(t => t.status.toLowerCase().includes('client review')).length;
+  const navInitials = userRow.clientName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
+
   const metaPanel = (
     <>
       {/* Status + open link */}
@@ -133,7 +137,79 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
     </Link>
   );
 
+  const desktopStatusBadge = isReview
+    ? { label: 'Awaiting your review', color: '#a86a00', bg: '#fbf1dc' }
+    : task.clientApproval === 'approved'
+      ? { label: 'Approved', color: '#14805f', bg: '#e6f4ee' }
+      : task.clientApproval === 'changes_requested'
+        ? { label: 'Changes sent', color: '#cf3f36', bg: '#fdedeb' }
+        : { label: task.status, color: '#54616f', bg: '#eef1f4' };
+
   return (
+    <>
+    {/* Desktop layout */}
+    <div className="vd-desktop">
+      {/* Top nav */}
+      <nav className="cd-nav" style={{ flexShrink: 0 }}>
+        <div className="cd-nav-inner">
+          <div className="cd-nav-left">
+            <Link href="/client" className="cd-logo">LEGACY MEDIA</Link>
+            <div className="cd-tabs">
+              <Link href="/client?tab=reviews" className="cd-tab">
+                Reviews
+                {reviewCount > 0 && <span className="cd-tab-badge">{reviewCount}</span>}
+              </Link>
+              <Link href="/client?tab=calendar" className="cd-tab">Calendar</Link>
+              <Link href="/client?tab=account" className="cd-tab">Account</Link>
+            </div>
+          </div>
+          <div className="cd-nav-right">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#9d9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:20,height:20,cursor:'pointer'}}><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span className="cd-client-name">{userRow.clientName}</span>
+            <div className="cd-avatar">{navInitials}</div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Breadcrumb + meta bar */}
+      <div className="vd-desktop-meta">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#9d9488', marginBottom: 10 }}>
+          <Link href="/client" style={{ color: '#9d9488', textDecoration: 'none', fontWeight: 500 }}>Reviews</Link>
+          <span>/</span>
+          <span style={{ color: '#221e18', fontWeight: 600 }}>{task.title}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' as const }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 9, color: desktopStatusBadge.color, background: desktopStatusBadge.bg }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: desktopStatusBadge.color }} />
+            {desktopStatusBadge.label}
+          </span>
+          <h1 style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.2, margin: 0, color: '#221e18' }}>{task.title}</h1>
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: '#9d9488', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{daysWaiting(task.dateUpdated)}</span>
+          {task.frameLink && (
+            <a href={task.frameLink} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: '#6c6357', textDecoration: 'none' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:13,height:13}}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Open in Frame.io
+            </a>
+          )}
+        </div>
+      </div>
+
+      {/* Full-width embed */}
+      <div className="vd-desktop-embed">
+        {embedUrl ? (
+          <iframe src={embedUrl} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} allow="fullscreen; picture-in-picture" allowFullScreen />
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'linear-gradient(135deg, #2c3540, #4a5562)' }}>
+            <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'rgba(255,255,255,.15)', display: 'grid', placeItems: 'center' }}>
+              <svg viewBox="0 0 24 24" fill="#fff" style={{width:24,height:24,marginLeft:3}}><path d="M8 5v14l11-7z"/></svg>
+            </div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,.5)' }}>No video link attached yet</div>
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* Mobile layout */}
     <main className="vd-shell">
       {/* Mobile-only header */}
       <div className="vd-mobile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px', background: '#faf6f0', flexShrink: 0 }}>
@@ -171,5 +247,6 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
         )}
       </div>
     </main>
+    </>
   );
 }
