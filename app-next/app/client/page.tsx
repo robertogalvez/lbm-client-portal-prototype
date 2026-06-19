@@ -84,11 +84,6 @@ const IconCalendar = () => (
   </svg>
 );
 
-const IconUser = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:16,height:16}}>
-    <circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/>
-  </svg>
-);
 
 const IconChevLeft = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:16,height:16}}>
@@ -201,7 +196,6 @@ export default async function ClientPortalPage({
   const tabItems = [
     { label: 'Reviews', badge: reviewTasks.length, active: tab !== 'calendar', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg> },
     { label: 'Calendar', badge: 0, active: tab === 'calendar', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> },
-    { label: 'Account', badge: 0, active: false, icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg> },
   ];
 
   // Desktop nav shared markup
@@ -219,10 +213,6 @@ export default async function ClientPortalPage({
             <a href="/client?tab=calendar" className={`cd-tab${tab === 'calendar' ? ' cd-active' : ''}`}>
               <IconCalendar />
               Calendar
-            </a>
-            <a href="/client?tab=account" className={`cd-tab${tab === 'account' ? ' cd-active' : ''}`}>
-              <IconUser />
-              Account
             </a>
           </div>
         </div>
