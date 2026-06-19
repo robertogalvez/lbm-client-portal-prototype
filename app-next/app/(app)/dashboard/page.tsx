@@ -1,120 +1,127 @@
 import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask } from '@/lib/clickup';
-import { VideoTable } from '@/components/videos/VideoTable';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import { TeamPerformance, EditorStat } from '@/components/dashboard/TeamPerformance';
-import { FiltersBar } from '@/components/dashboard/FiltersBar';
-import { DonutChart } from '@/components/dashboard/DonutChart';
 import { RefreshButton } from '@/components/dashboard/RefreshButton';
-import { Suspense } from 'react';
+import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor } from '@/components/dashboard/DashboardTabs';
 
 export const dynamic = 'force-dynamic';
-
-// Normalized (lowercase) pipeline stage names — must match exact ClickUp status strings
-const PIPELINE_ORDER = [
-  'not ready',           // ClickUp: "not ready"  (was "backlog / not ready")
-  'backlog',             // ClickUp: "backlog"
-  'not assigned',
-  'in progress (editor)',
-  'in progress (corrections)',
-  'tc - qc (somu)',      // ClickUp: "tc - qc (somu)"  (was "quality control – tc / qc")
-  'qc final - am',       // ClickUp: "qc final - am"   (hyphen, not en dash)
-  'for client review',
-  'ready to be posted',
-  'posted in socials',
-];
-
-// Display labels for pipeline stages
-const PIPELINE_LABELS: Record<string, string> = {
-  'not ready':              'Not Ready',
-  'backlog':                'Backlog',
-  'not assigned':           'Not Assigned',
-  'in progress (editor)':   'In Progress (Editor)',
-  'in progress (corrections)': 'In Progress (Corrections)',
-  'tc - qc (somu)':         'TC / QC (Somu)',
-  'qc final - am':          'QC Final – AM',
-  'for client review':      'For Client Review',
-  'ready to be posted':     'Ready to be Posted',
-  'posted in socials':      'Posted in Socials',
-};
 
 function norm(s: string) {
   return s.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-function pipelineStats(tasks: MappedTask[]) {
-  const counts: Record<string, number> = {};
-  for (const t of tasks) {
-    const key = norm(t.status);
-    counts[key] = (counts[key] ?? 0) + 1;
-  }
-  return counts;
-}
-
-function buildEditorStats(tasks: MappedTask[]): EditorStat[] {
-  const map = new Map<string, EditorStat>();
-  const now = Date.now();
-  for (const t of tasks) {
-    const name = t.editorName ?? t.assignedAmName;
-    if (!name) continue;
-    if (!map.has(name)) map.set(name, { name, total: 0, approved: 0, inProgress: 0, onTime: 0, late: 0, withDueDate: 0 });
-    const s = map.get(name)!;
-    s.total++;
-    const st = norm(t.status);
-    if (st === 'posted in socials') s.approved++;
-    if (st.includes('in progress') || st === 'for client review') s.inProgress++;
-    if (t.dueDate) {
-      s.withDueDate++;
-      const due = new Date(t.dueDate).getTime();
-      const updated = new Date(t.dateUpdated).getTime();
-      if (st === 'posted in socials') {
-        if (updated <= due) s.onTime++; else s.late++;
-      } else if (due < now) {
-        s.late++;
-      }
-    }
-  }
-  return Array.from(map.values());
-}
-
-function buildClientStats(tasks: MappedTask[]) {
-  const DAY_MS = 86_400_000;
-  const map = new Map<string, { total: number; pending: number; oldestPendingMs: number }>();
-  const now = Date.now();
-  for (const t of tasks) {
-    const name = t.clientName ?? 'Unknown';
-    if (!map.has(name)) map.set(name, { total: 0, pending: 0, oldestPendingMs: 0 });
-    const s = map.get(name)!;
-    s.total++;
-    if (norm(t.status) === 'for client review') {
-      s.pending++;
-      const age = now - new Date(t.dateUpdated).getTime();
-      if (age > s.oldestPendingMs) s.oldestPendingMs = age;
-    }
-  }
-  return Array.from(map.entries()).map(([name, s]) => ({ name, ...s, DAY_MS })).sort((a, b) => b.total - a.total);
-}
-
-function KpiCard({ label, value, sub }: { label: string; value: string | number; accent?: string; sub?: string }) {
-  return (
-    <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, padding: '18px 20px', flex: '1 1 0', minWidth: 140 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: '#8b97a4', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 30, fontWeight: 700, color: '#111c28', lineHeight: 1, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{value}</div>
-      {sub && <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 4 }}>{sub}</div>}
-    </div>
-  );
+function daysAgo(dateStr: string): number {
+  const ts = Number(dateStr);
+  const date = isNaN(ts) ? new Date(dateStr) : new Date(ts);
+  return Math.floor((Date.now() - date.getTime()) / 86_400_000);
 }
 
 function rangeCutoff(range: string): number {
   if (range === '30d')  return Date.now() - 30  * 86_400_000;
   if (range === '90d')  return Date.now() - 90  * 86_400_000;
-  if (range === '365d') return Date.now() - 365 * 86_400_000;
+  if (range === '1y')   return Date.now() - 365 * 86_400_000;
   return 0;
+}
+
+const PIPELINE_STAGES: { key: string; label: string; group: string; barColor: string; isRework: boolean }[] = [
+  { key: 'not ready',                 label: 'Not Ready',                  group: 'To do',          barColor: '#aeb9c6', isRework: false },
+  { key: 'backlog',                   label: 'Backlog',                     group: 'To do',          barColor: '#aeb9c6', isRework: false },
+  { key: 'not assigned',              label: 'Not Assigned',                group: 'To do',          barColor: '#aeb9c6', isRework: false },
+  { key: 'in progress (editor)',      label: 'In Progress (Editor)',        group: 'In progress',    barColor: '#2563eb', isRework: false },
+  { key: 'in progress (corrections)', label: 'In Progress (Corrections)',   group: 'In progress',    barColor: '#a86a00', isRework: true  },
+  { key: 'tc - qc (somu)',            label: 'TC / QC (Somu)',              group: 'Quality check',  barColor: '#7c66c4', isRework: false },
+  { key: 'qc final - am',             label: 'QC Final – AM',               group: 'Quality check',  barColor: '#7c66c4', isRework: false },
+  { key: 'for client review',         label: 'For Client Review',           group: 'Review & ship',  barColor: '#FF6000', isRework: false },
+  { key: 'ready to be posted',        label: 'Ready to be Posted',          group: 'Review & ship',  barColor: '#14805f', isRework: false },
+  { key: 'posted in socials',         label: 'Posted in Socials',           group: 'Review & ship',  barColor: '#14805f', isRework: false },
+];
+
+function buildPipeline(tasks: MappedTask[]): PipelineStage[] {
+  const counts: Record<string, number> = {};
+  for (const t of tasks) counts[norm(t.status)] = (counts[norm(t.status)] ?? 0) + 1;
+  return PIPELINE_STAGES.map(s => ({ ...s, count: counts[s.key] ?? 0 }));
+}
+
+function buildApprovals(tasks: MappedTask[]): ApprovalRow[] {
+  return tasks
+    .filter(t => norm(t.status) === 'for client review')
+    .map(t => ({
+      id: t.clickupTaskId,
+      title: t.title,
+      clientName: t.clientName,
+      amName: t.assignedAmName,
+      daysWaiting: daysAgo(t.dateUpdated),
+      frameLink: t.frameLink,
+    }))
+    .sort((a, b) => b.daysWaiting - a.daysWaiting);
+}
+
+function buildClients(tasks: MappedTask[]): ClientRow[] {
+  const map = new Map<string, { total: number; inReview: number; oldestDays: number }>();
+  for (const t of tasks) {
+    const name = t.clientName ?? 'Unknown';
+    if (!map.has(name)) map.set(name, { total: 0, inReview: 0, oldestDays: 0 });
+    const s = map.get(name)!;
+    s.total++;
+    if (norm(t.status) === 'for client review') {
+      s.inReview++;
+      const d = daysAgo(t.dateUpdated);
+      if (d > s.oldestDays) s.oldestDays = d;
+    }
+  }
+  return Array.from(map.entries())
+    .map(([name, s]) => ({ name, ...s }))
+    .sort((a, b) => b.total - a.total);
+}
+
+function buildEditors(tasks: MappedTask[]): EditorRow[] {
+  const map = new Map<string, { active: number; approved: number; rework: number }>();
+  for (const t of tasks) {
+    const name = t.editorName;
+    if (!name) continue;
+    if (!map.has(name)) map.set(name, { active: 0, approved: 0, rework: 0 });
+    const s = map.get(name)!;
+    const st = norm(t.status);
+    if (st !== 'posted in socials') s.active++;
+    if (t.clientApproval?.toLowerCase() === 'approved') s.approved++;
+    if (st === 'in progress (corrections)') s.rework++;
+  }
+  return Array.from(map.entries())
+    .map(([name, s]) => {
+      const total = s.approved + s.rework;
+      const firstPassClean = total > 0 ? Math.round(s.approved / total * 100) : null;
+      return { name, ...s, firstPassClean };
+    })
+    .sort((a, b) => (b.firstPassClean ?? -1) - (a.firstPassClean ?? -1));
+}
+
+interface KpiProps {
+  label: string;
+  value: string | number;
+  dotColor: string;
+  sub?: string;
+  subTone?: 'warn' | 'muted';
+}
+
+function KpiCard({ label, value, dotColor, sub, subTone }: KpiProps) {
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, padding: '14px 15px', flex: '1 1 0', minWidth: 140, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontSize: 11.5, color: '#54616f', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+        {label}
+      </div>
+      <div style={{ fontSize: 26, fontWeight: 600, color: '#111c28', lineHeight: 1, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{value}</div>
+      {sub && (
+        <div style={{ fontSize: 11, fontWeight: 600, color: subTone === 'warn' ? '#a86a00' : '#8b97a4', display: 'flex', alignItems: 'center', gap: 4 }}>
+          {sub}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; member?: string; am?: string; client?: string; archived?: string; status?: string }>;
+  searchParams: Promise<{ range?: string }>;
 }) {
   if (!isConfigured()) {
     return (
@@ -127,11 +134,7 @@ export default async function DashboardPage({
     );
   }
 
-  const { range = 'all', member = '', am: amFilter = '', client: clientFilter = '', archived = '', status: statusFilter = '' } = await searchParams;
-  const includeArchived = archived === '1';
-
-  // Always prefer the master list (single source of truth) to avoid counting
-  // tasks multiple times when they are added to workflow lists in the folder.
+  const { range = 'all' } = await searchParams;
   const masterListId = process.env.CLICKUP_LIST_ID;
   const folderId     = process.env.CLICKUP_FOLDER_ID;
   let allTasks: MappedTask[] = [];
@@ -139,209 +142,152 @@ export default async function DashboardPage({
 
   try {
     if (masterListId) {
-      allTasks = await getTasksFromList(masterListId, includeArchived);
+      allTasks = await getTasksFromList(masterListId, false);
     } else if (folderId) {
-      allTasks = await getTasksFromFolder(folderId, includeArchived);
+      allTasks = await getTasksFromFolder(folderId, false);
     }
   } catch (e) {
     error = e instanceof Error ? e.message : 'Unknown error';
   }
 
-  // Build filter lists from ALL tasks (before filtering)
-  const allMembers = [...new Set(allTasks.map(t => t.editorName).filter(Boolean) as string[])].sort();
-  const allAMs     = [...new Set(allTasks.map(t => t.assignedAmName).filter(Boolean) as string[])].sort();
-  const allClients = [...new Set(allTasks.map(t => t.clientName).filter(Boolean) as string[])].sort();
-
-  // Apply filters
   const cutoff = rangeCutoff(range);
-  const tasks = allTasks.filter(t => {
-    if (cutoff > 0 && new Date(t.dateUpdated).getTime() < cutoff) return false;
-    if (member && t.editorName !== member) return false;
-    if (amFilter && t.assignedAmName !== amFilter) return false;
-    if (clientFilter && t.clientName !== clientFilter) return false;
-    return true;
-  });
+  const tasks = cutoff > 0
+    ? allTasks.filter(t => new Date(t.dateUpdated).getTime() >= cutoff)
+    : allTasks;
 
   const now = Date.now();
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
   const DAY_MS = 86_400_000;
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
 
-  // "In Production" = active tasks only (excludes posted, archived, discarded)
-  const POSTED_NORM = 'posted in socials';
-  const totalInProduction = tasks.filter(t => norm(t.status) !== POSTED_NORM).length;
-  const pendingApproval   = tasks.filter(t => norm(t.status) === 'for client review').length;
-  const readyToPost       = tasks.filter(t => norm(t.status) === 'ready to be posted').length;
-  const postedThisMonth   = tasks.filter(t => norm(t.status) === POSTED_NORM && new Date(t.dateUpdated).getTime() >= monthStart).length;
+  const POSTED = 'posted in socials';
+  const inProduction     = tasks.filter(t => norm(t.status) !== POSTED).length;
+  const reviewTasks      = tasks.filter(t => norm(t.status) === 'for client review');
+  const pendingApproval  = reviewTasks.length;
+  const overdueInReview  = reviewTasks.filter(t => (now - new Date(t.dateUpdated).getTime()) > 3 * DAY_MS);
+  const overdueCount     = overdueInReview.length;
 
-  const postedWithDue = tasks.filter(t => norm(t.status) === 'posted in socials' && t.dueDate);
-  const onTimePct = postedWithDue.length > 0
-    ? Math.round(postedWithDue.filter(t => new Date(t.dateUpdated) <= new Date(t.dueDate!)).length / postedWithDue.length * 100)
-    : null;
+  const clientApprovedTasks = tasks.filter(t => t.clientApproval?.toLowerCase() === 'approved');
+  const clientApproved      = clientApprovedTasks.length;
 
-  const stats         = pipelineStats(tasks);
-  const editorStats   = buildEditorStats(tasks);
-  const clientStats   = buildClientStats(tasks);
-  const approvalTasks = tasks.filter(t => norm(t.status) === 'for client review');
-  const maxPipeline   = Math.max(...PIPELINE_ORDER.map(s => stats[s] ?? 0), 1);
+  const inCorrectionsTasks = tasks.filter(t => norm(t.status) === 'in progress (corrections)');
+  const fpTotal = clientApproved + inCorrectionsTasks.length;
+  const firstPassCleanPct = fpTotal > 0 ? Math.round(clientApproved / fpTotal * 100) : null;
+
+  const postedThisMonth = tasks.filter(t => norm(t.status) === POSTED && new Date(t.dateUpdated).getTime() >= monthStart).length;
+
+  const pipeline   = buildPipeline(tasks);
+  const approvals  = buildApprovals(tasks);
+  const clients    = buildClients(tasks);
+  const editors    = buildEditors(tasks);
+
+  const attentionClients: AttentionClient[] = clients
+    .filter(c => c.inReview > 0 && c.oldestDays > 3)
+    .map(c => ({ name: c.name, daysWaiting: c.oldestDays }))
+    .sort((a, b) => b.daysWaiting - a.daysWaiting);
+
+  const topEditors: TopEditor[] = editors
+    .filter(e => e.firstPassClean !== null)
+    .slice(0, 3)
+    .map(e => ({ name: e.name, firstPassClean: e.firstPassClean! }));
+
+  const monthLabel = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+
+  const segRanges = [
+    { label: '30d', value: '30d' },
+    { label: '90d', value: '90d' },
+    { label: '1y',  value: '1y' },
+    { label: 'All', value: 'all' },
+  ];
 
   return (
-    <main style={{ padding: '28px 32px', maxWidth: 1400 }}>
-
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+    <main style={{ maxWidth: 1400 }}>
+      {/* Topbar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '15px 24px', borderBottom: '1px solid #e7ebef' }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111c28', margin: 0 }}>Production Overview</h1>
-          <p style={{ fontSize: 13, color: '#8b97a4', margin: '4px 0 0' }}>Live from ClickUp · click refresh for latest data</p>
-        </div>
-        <RefreshButton />
-      </div>
-
-      {/* Filters */}
-      <Suspense>
-        <FiltersBar members={allMembers} ams={allAMs} clients={allClients} />
-      </Suspense>
-
-      {error && (
-        <div style={{ background: '#fdedeb', border: '1px solid #f8d0cc', borderRadius: 8, padding: '12px 16px', marginBottom: 20, fontSize: 13, color: '#cf3f36' }}>
-          ClickUp error: {error}
-        </div>
-      )}
-
-      {/* KPI cards */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
-        <KpiCard label="Videos in Production" value={totalInProduction} sub="active tasks" />
-        <KpiCard label="Pending Approval"      value={pendingApproval}   sub="awaiting client review" />
-        <KpiCard label="Ready to Post"         value={readyToPost}       sub="scheduled or queued" />
-        <KpiCard label="Posted This Month"     value={postedThisMonth}   sub={new Date().toLocaleString('default', { month: 'long', year: 'numeric' })} />
-        {onTimePct !== null && (
-          <KpiCard label="On-Time Rate" value={`${onTimePct}%`} sub="completed before due date" />
-        )}
-      </div>
-
-      {/* Pipeline + Client breakdown */}
-      {/* Status donut + Pipeline funnel + Client breakdown */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, marginBottom: 24 }}>
-
-        {/* Status breakdown donut */}
-        <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, padding: '20px 24px' }}>
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Task Status Breakdown</h2>
-          <DonutChart
-            total={tasks.length}
-            segments={[
-              { label: 'To Do',          color: '#54616f', count: (stats['not ready'] ?? 0) + (stats['backlog'] ?? 0) + (stats['not assigned'] ?? 0) },
-              { label: 'In Progress',    color: '#2563eb', count: (stats['in progress (editor)'] ?? 0) + (stats['in progress (corrections)'] ?? 0) },
-              { label: 'Quality Check',  color: '#7c66c4', count: (stats['tc - qc (somu)'] ?? 0) + (stats['qc final - am'] ?? 0) },
-              { label: 'Client Review',  color: '#a86a00', count: stats['for client review'] ?? 0 },
-              { label: 'Ready to Post',  color: '#14805f', count: stats['ready to be posted'] ?? 0 },
-              { label: 'Posted',         color: '#14805f', count: stats['posted in socials'] ?? 0 },
-            ]}
-          />
-        </div>
-
-        {/* Pipeline funnel — clickable */}
-        <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, padding: '20px 24px' }}>
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 4px' }}>Pipeline Funnel</h2>
-          <p style={{ fontSize: 12, color: '#8b97a4', margin: '0 0 14px' }}>Click a stage to see its videos</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {PIPELINE_ORDER.map(stage => {
-              const count = stats[stage] ?? 0;
-              const pct = Math.round(count / maxPipeline * 100);
-              const active = statusFilter === stage;
-              const params = new URLSearchParams({ range, ...(member && { member }), ...(amFilter && { am: amFilter }), ...(clientFilter && { client: clientFilter }), ...(archived && { archived }) });
-              if (!active) params.set('status', stage);
-              return (
-                <a key={stage} href={`/dashboard?${params}`} style={{ textDecoration: 'none', display: 'block', padding: '6px 8px', borderRadius: 7, background: active ? '#fff4ee' : 'transparent', border: active ? '1px solid #ffd4b8' : '1px solid transparent', transition: 'background 0.15s' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                    <span style={{ fontSize: 12, color: active ? '#FF6000' : '#54616f', fontWeight: active ? 700 : 400 }}>{PIPELINE_LABELS[stage] ?? stage}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: active ? '#FF6000' : '#111c28', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{count}</span>
-                  </div>
-                  <div style={{ height: 7, background: '#e7ebef', borderRadius: 120, overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: active ? '#FF6000' : '#d4dbe2', borderRadius: 120 }} />
-                  </div>
-                </a>
-              );
-            })}
+          <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em' }}>Production Overview</div>
+          <div style={{ fontSize: 12.5, color: '#8b97a4', marginTop: 1, display: 'flex', alignItems: 'center', gap: 7 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: '#14805f', fontWeight: 600 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#14805f', display: 'inline-block' }} />
+              Live from ClickUp
+            </span>
+            · cached 60s
           </div>
         </div>
-
-        {/* Client breakdown */}
-        <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, padding: '20px 24px' }}>
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Client Breakdown</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #e7ebef' }}>
-                {['Client', 'Total', 'In Review', 'Status'].map(h => (
-                  <th key={h} style={{ textAlign: h === 'Client' ? 'left' : 'center', padding: '4px 8px', fontWeight: 600, color: '#8b97a4', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {clientStats.map(c => {
-                const stale = c.pending > 0 && c.oldestPendingMs > 3 * DAY_MS;
-                return (
-                  <tr key={c.name} style={{ borderBottom: '1px solid #f4f6f8' }}>
-                    <td style={{ padding: '8px 8px', fontWeight: 500, color: '#111c28' }}>{c.name}</td>
-                    <td style={{ textAlign: 'center', padding: '8px 8px', fontWeight: 600, color: '#111c28', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{c.total}</td>
-                    <td style={{ textAlign: 'center', padding: '8px 8px' }}>
-                      {c.pending > 0
-                        ? <span style={{ fontWeight: 600, color: stale ? '#a86a00' : '#2563eb', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{c.pending}</span>
-                        : <span style={{ color: '#8b97a4' }}>—</span>}
-                    </td>
-                    <td style={{ textAlign: 'center', padding: '8px 8px' }}>
-                      {c.pending === 0
-                        ? <span style={{ fontSize: 11, fontWeight: 600, color: '#14805f', background: '#e6f4ee', padding: '2px 8px', borderRadius: 6 }}>On Track</span>
-                        : stale
-                          ? <span style={{ fontSize: 11, fontWeight: 600, color: '#a86a00', background: '#fbf1dc', padding: '2px 8px', borderRadius: 6 }}>Needs Attention</span>
-                          : <span style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', background: '#eaf0ff', padding: '2px 8px', borderRadius: 6 }}>In Review</span>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Team Performance */}
-      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, padding: '20px 24px', marginBottom: 24 }}>
-        <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111c28', margin: '0 0 16px' }}>Team Performance</h2>
-        <TeamPerformance editors={editorStats} />
-      </div>
-
-      {/* Drill-down table when a pipeline stage is selected */}
-      {statusFilter && (() => {
-        const drillTasks = tasks.filter(t => norm(t.status) === statusFilter);
-        return (
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: 0 }}>{PIPELINE_LABELS[statusFilter] ?? statusFilter}</h2>
-                <p style={{ fontSize: 13, color: '#8b97a4', margin: '2px 0 0' }}>{drillTasks.length} video{drillTasks.length !== 1 ? 's' : ''} in this stage</p>
-              </div>
-              <a href={`/dashboard?${new URLSearchParams({ range, ...(member && { member }), ...(amFilter && { am: amFilter }), ...(clientFilter && { client: clientFilter }), ...(archived && { archived }) })}`} style={{ fontSize: 13, color: '#8b97a4', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:14,height:14}}><path d="M18 6 6 18M6 6l12 12"/></svg>
-                Clear
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'inline-flex', background: '#f5f7f9', border: '1px solid #e7ebef', borderRadius: 9, padding: 3, gap: 2 }}>
+            {segRanges.map(r => (
+              <a
+                key={r.value}
+                href={`/dashboard?range=${r.value}`}
+                style={{
+                  fontSize: 12.5, fontWeight: 600, borderRadius: 7, padding: '6px 11px', textDecoration: 'none',
+                  background: range === r.value ? '#fff' : 'transparent',
+                  color: range === r.value ? '#111c28' : '#54616f',
+                  boxShadow: range === r.value ? '0 1px 2px rgba(17,28,40,.08)' : 'none',
+                }}
+              >
+                {r.label}
               </a>
-            </div>
-            <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, overflow: 'hidden' }}>
-              <VideoTable tasks={drillTasks} />
-            </div>
+            ))}
           </div>
-        );
-      })()}
-
-      {/* Approval queue — always shown */}
-      <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: 0 }}>For Client Review</h2>
-          <p style={{ fontSize: 13, color: '#8b97a4', margin: '2px 0 0' }}>Videos awaiting client approval</p>
+          <RefreshButton />
         </div>
-        <StatusBadge tone="amber">{approvalTasks.length} pending</StatusBadge>
-      </div>
-      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, overflow: 'hidden' }}>
-        <VideoTable tasks={approvalTasks} />
       </div>
 
+      {/* Persistent glance zone */}
+      <div style={{ padding: '18px 24px 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {error && (
+          <div style={{ background: '#fdedeb', border: '1px solid #f8d0cc', borderRadius: 8, padding: '12px 16px', fontSize: 13, color: '#cf3f36' }}>
+            ClickUp error: {error}
+          </div>
+        )}
+
+        {/* Attention banner */}
+        {overdueCount > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 15px', borderRadius: 12, background: '#fdedeb', border: '1px solid #f6d6d3' }}>
+            <span style={{ width: 32, height: 32, borderRadius: 9, background: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, color: '#cf3f36' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:17,height:17}}><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+            </span>
+            <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#111c28' }}>
+              <span style={{ color: '#cf3f36' }}>{overdueCount} video{overdueCount !== 1 ? 's' : ''}</span> {overdueCount === 1 ? 'has' : 'have'} been awaiting client approval &gt; 3 days
+            </span>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: '#cf3f36', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+              Go to approvals
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:14,height:14}}><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </span>
+          </div>
+        )}
+
+        {/* KPI row */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 13 }}>
+          <KpiCard label="In production"    value={inProduction}    dotColor="#FF6000" />
+          <KpiCard
+            label="Pending approval"
+            value={pendingApproval}
+            dotColor="#a86a00"
+            sub={overdueCount > 0 ? `${overdueCount} overdue >3d` : undefined}
+            subTone={overdueCount > 0 ? 'warn' : undefined}
+          />
+          <KpiCard
+            label="First-pass clean"
+            value={firstPassCleanPct !== null ? `${firstPassCleanPct}%` : '—'}
+            dotColor="#14805f"
+          />
+          <KpiCard label="Client-approved"  value={clientApproved}  dotColor="#14805f" />
+          <KpiCard label="Posted this month" value={postedThisMonth} dotColor="#2563eb" sub={monthLabel} />
+        </div>
+      </div>
+
+      {/* Tabbed workspace */}
+      <DashboardTabs
+        approvals={approvals}
+        clients={clients}
+        editors={editors}
+        pipeline={pipeline}
+        attentionClients={attentionClients}
+        topEditors={topEditors}
+        defaultTab={overdueCount > 0 ? 'approvals' : 'overview'}
+      />
     </main>
   );
 }
