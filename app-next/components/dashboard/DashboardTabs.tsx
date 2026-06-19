@@ -202,7 +202,7 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
                         onMouseEnter={e => (e.currentTarget.style.background = '#f5f7f9')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
-                        <span style={{ width: 188, flexShrink: 0, fontSize: 13, fontWeight: 500, color: '#54616f', display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <span className="db-stage-label">
                           {stage.label}
                           {stage.isRework && <span style={{ fontSize: 9.5, fontWeight: 700, color: '#a86a00', background: '#fbf1dc', padding: '1px 6px', borderRadius: 5 }}>rework</span>}
                         </span>
@@ -220,7 +220,7 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
         </div>
 
         {/* 2-col: Needs attention + Top editors */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginTop: 18 }}>
+        <div className="db-ov2">
           {/* Needs attention */}
           <div style={{ border: '1px solid #e7ebef', borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid #e7ebef' }}>
@@ -284,7 +284,7 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
             </div>
             <SearchInput value={approvalSearch} onChange={setApprovalSearch} placeholder="Search videos…" />
           </div>
-          <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+          <div className="db-tscroll" style={{ maxHeight: 360 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr>
@@ -347,7 +347,7 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
             </div>
             <SearchInput value={clientSearch} onChange={setClientSearch} placeholder="Search clients…" />
           </div>
-          <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+          <div className="db-tscroll" style={{ maxHeight: 400 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr>
@@ -384,7 +384,7 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
             </div>
             <SearchInput value={editorSearch} onChange={setEditorSearch} placeholder="Search editors…" />
           </div>
-          <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+          <div className="db-tscroll" style={{ maxHeight: 420 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr>
