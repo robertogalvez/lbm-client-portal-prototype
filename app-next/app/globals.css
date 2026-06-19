@@ -398,3 +398,46 @@ body {
   }
   .vd-mobile-header { display: none; }
 }
+
+/* Dashboard responsive grids */
+.db-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 13px;
+}
+@media (max-width: 1100px) {
+  .db-kpi-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 750px) {
+  .db-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.db-ov2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 18px;
+}
+@media (max-width: 900px) {
+  .db-ov2 { grid-template-columns: 1fr; }
+}
+
+.db-stage-label {
+  width: 188px;
+  flex-shrink: 1;
+  min-width: 80px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #54616f;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.db-tscroll {
+  overflow-x: auto;
+  overflow-y: auto;
+}
+.db-tscroll table {
+  min-width: 560px;
+}

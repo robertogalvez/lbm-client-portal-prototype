@@ -259,7 +259,7 @@ export default async function DashboardPage({
         )}
 
         {/* KPI row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 13 }}>
+        <div className="db-kpi-grid">
           <KpiCard label="In production"    value={inProduction}    dotColor="#FF6000" />
           <KpiCard
             label="Pending approval"
