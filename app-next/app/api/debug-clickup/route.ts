@@ -81,12 +81,32 @@ export async function GET() {
       }
     }
 
+    // Tasks with no client assigned
+    const unknownClientTasks = allRaw
+      .filter(t => {
+        const cf = (t.custom_fields as { name: string; value: unknown }[]) ?? [];
+        const clientField = cf.find(f => f.name === 'Client Name (AM)');
+        return typeof clientField?.value !== 'number';
+      })
+      .map(t => ({
+        id: t.id,
+        name: t.name,
+        status: (t.status as { status: string })?.status ?? null,
+        assignees: ((t.assignees as { username: string }[]) ?? []).map(a => a.username),
+        due_date: t.due_date,
+        date_updated: t.date_updated,
+      }));
+
     return NextResponse.json({
       listId: targetListId,
       totalRawTasks: allRaw.length,
       statusBreakdown: statusSorted,
       clientNameOptions: clientOptions,
       samplesPerStatus: samples,
+      unknownClientTasks: {
+        count: unknownClientTasks.length,
+        tasks: unknownClientTasks,
+      },
     }, { status: 200 });
 
   } catch (e) {
