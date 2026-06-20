@@ -66,13 +66,13 @@ async function fetchAllTasksFromFolder(folderId: string, token: string) {
 
 export default async function handler() {
   const token = process.env.CLICKUP_API_TOKEN!;
-  const folderId = process.env.CLICKUP_FOLDER_ID!;
+  const listId = process.env.CLICKUP_LIST_ID!;
   const dbUrl = process.env.DATABASE_URL!;
 
   const sql = neon(dbUrl);
   const db = drizzle(sql, { schema: { videoCache } });
 
-  const rawTasks = await fetchAllTasksFromFolder(folderId, token);
+  const rawTasks = await fetchAllTasksFromList(listId, token);
   const activeTasks = rawTasks.filter((t: any) => !TERMINAL.includes(t.status?.status));
 
   // Extract option maps once from whichever task has type_config populated for each field.
