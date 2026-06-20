@@ -55,6 +55,20 @@ export async function POST(req: Request) {
     ? await fetchAllTasksFromList(masterListId, token)
     : await fetchAllTasksFromFolder(folderId!, token);
 
+  // Extract option maps once — ClickUp only includes type_config on some tasks, not all.
+  const fieldOptions: Record<string, any[]> = {};
+  for (const t of rawTasks) {
+    for (const f of (t.custom_fields ?? []) as any[]) {
+      if (!fieldOptions[f.name] && f.type_config?.options?.length) {
+        fieldOptions[f.name] = f.type_config.options;
+      }
+    }
+  }
+  const resolveOpt = (name: string, idx: number | null) =>
+    idx !== null ? (fieldOptions[name]?.[idx]?.name ?? null) : null;
+  const resolveOptId = (name: string, idx: number | null) =>
+    idx !== null ? (fieldOptions[name]?.[idx]?.id ?? null) : null;
+
   let synced = 0;
   let skipped = 0;
 
@@ -90,8 +104,8 @@ export async function POST(req: Request) {
     const amUsers    = amField?.value as { username?: string }[] | undefined;
     const amName     = amUsers?.[0]?.username ?? null;
     const editorName = (task.assignees as { username?: string }[])?.[0]?.username ?? null;
-    const clientName = clientField && clientIdx !== null ? resolveOptionName(clientField, clientIdx) : null;
-    const qualityCheck = qcField && qcIdx !== null ? resolveOptionName(qcField, qcIdx) : null;
+    const clientName   = resolveOpt('Client Name (AM)', clientIdx);
+    const qualityCheck = resolveOpt('QUALITY CHECK (Somu)', qcIdx);
 
     let dueDate: string | null = null;
     if (task.due_date) {
@@ -99,15 +113,13 @@ export async function POST(req: Request) {
       dueDate = isNaN(ms) ? task.due_date : new Date(ms).toISOString();
     }
 
-    await db.insert(videoCache).values({
-      clickupTaskId:    task.id,
-      clientId:         clientField && clientIdx !== null ? resolveOptionId(clientField, clientIdx) : null,
-      title:            task.name,
+    const row = {
       status:           task.status?.status ?? null,
-      clientApproval:   approvalField && approvalIdx !== null ? resolveOptionName(approvalField, approvalIdx) : null,
-      videoLevel:       levelField && levelIdx !== null ? resolveOptionName(levelField, levelIdx) : null,
+      clientId:         resolveOptId('Client Name (AM)', clientIdx),
+      clientApproval:   resolveOpt('CLIENT APPROVAL', approvalIdx),
+      videoLevel:       resolveOpt('Video Level (AM)', levelIdx),
       caption:          typeof captionField?.value === 'string' ? captionField.value : null,
-      publishingStatus: pubField && pubIdx !== null ? resolveOptionName(pubField, pubIdx) : null,
+      publishingStatus: resolveOpt('Publishing Status', pubIdx),
       frameioAssetId:   typeof frameField?.value === 'string' ? frameField.value : null,
       assignedAmName:   amName,
       editorName,
@@ -117,24 +129,12 @@ export async function POST(req: Request) {
       dueDate,
       lastSyncedAt:     new Date(),
       dirty:            false,
-    }).onConflictDoUpdate({
+    };
+
+    await db.insert(videoCache).values({ clickupTaskId: task.id, title: task.name, ...row })
+      .onConflictDoUpdate({
       target: videoCache.clickupTaskId,
-      set: {
-        status:           task.status?.status ?? null,
-        clientApproval:   approvalField && approvalIdx !== null ? resolveOptionName(approvalField, approvalIdx) : null,
-        videoLevel:       levelField && levelIdx !== null ? resolveOptionName(levelField, levelIdx) : null,
-        caption:          typeof captionField?.value === 'string' ? captionField.value : null,
-        publishingStatus: pubField && pubIdx !== null ? resolveOptionName(pubField, pubIdx) : null,
-        frameioAssetId:   typeof frameField?.value === 'string' ? frameField.value : null,
-        assignedAmName:   amName,
-        editorName,
-        clientName,
-        qualityCheck,
-        dateUpdated:      task.date_updated ?? null,
-        dueDate,
-        lastSyncedAt:     new Date(),
-        dirty:            false,
-      },
+      set: row,
     });
     synced++;
   }

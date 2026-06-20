@@ -75,6 +75,27 @@ export default async function handler() {
   const rawTasks = await fetchAllTasksFromFolder(folderId, token);
   const activeTasks = rawTasks.filter((t: any) => !TERMINAL.includes(t.status?.status));
 
+  // Extract option maps once from whichever task has type_config populated for each field.
+  // ClickUp only includes type_config on some tasks in the response, so we can't rely on it per-task.
+  const fieldOptions: Record<string, any[]> = {};
+  for (const t of rawTasks) {
+    for (const f of (t.custom_fields ?? []) as any[]) {
+      if (!fieldOptions[f.name] && f.type_config?.options?.length) {
+        fieldOptions[f.name] = f.type_config.options;
+      }
+    }
+  }
+
+  function resolveByName(fieldName: string, idx: number | null): string | null {
+    if (idx === null) return null;
+    return fieldOptions[fieldName]?.[idx]?.name ?? null;
+  }
+
+  function resolveIdByName(fieldName: string, idx: number | null): string | null {
+    if (idx === null) return null;
+    return fieldOptions[fieldName]?.[idx]?.id ?? null;
+  }
+
   let synced = 0;
   let skipped = 0;
 
@@ -115,46 +136,29 @@ export default async function handler() {
       dueDate = isNaN(ms) ? task.due_date : new Date(ms).toISOString();
     }
 
-    const clientName = clientField && clientIdx !== null ? resolveOptionName(clientField, clientIdx) : null;
-    const qualityCheck = qcField && qcIdx !== null ? resolveOptionName(qcField, qcIdx) : null;
+    const clientName   = resolveByName('Client Name (AM)', clientIdx);
+    const qualityCheck = resolveByName('QUALITY CHECK (Somu)', qcIdx);
 
-    await db.insert(videoCache).values({
-      clickupTaskId:    task.id,
-      clientId:         clientField && clientIdx !== null ? resolveOptionId(clientField, clientIdx) : null,
-      title:            task.name,
+    const row = {
       status:           task.status?.status ?? null,
-      clientApproval:   approvalField && approvalIdx !== null ? resolveOptionName(approvalField, approvalIdx) : null,
-      videoLevel:       levelField && levelIdx !== null ? resolveOptionName(levelField, levelIdx) : null,
+      clientId:         resolveIdByName('Client Name (AM)', clientIdx),
+      clientApproval:   resolveByName('CLIENT APPROVAL', approvalIdx),
+      videoLevel:       resolveByName('Video Level (AM)', levelIdx),
       caption:          typeof captionField?.value === 'string' ? captionField.value : null,
-      publishingStatus: pubField && pubIdx !== null ? resolveOptionName(pubField, pubIdx) : null,
+      publishingStatus: resolveByName('Publishing Status', pubIdx),
       frameioAssetId:   typeof frameField?.value === 'string' ? frameField.value : null,
       assignedAmName:   amName,
-      editorName:       editorName,
-      clientName:       clientName,
-      qualityCheck:     qualityCheck,
+      editorName,
+      clientName,
+      qualityCheck,
       dateUpdated:      task.date_updated ?? null,
-      dueDate:          dueDate,
+      dueDate,
       lastSyncedAt:     new Date(),
       dirty:            false,
-    }).onConflictDoUpdate({
-      target: videoCache.clickupTaskId,
-      set: {
-        status:           task.status?.status ?? null,
-        clientApproval:   approvalField && approvalIdx !== null ? resolveOptionName(approvalField, approvalIdx) : null,
-        videoLevel:       levelField && levelIdx !== null ? resolveOptionName(levelField, levelIdx) : null,
-        caption:          typeof captionField?.value === 'string' ? captionField.value : null,
-        publishingStatus: pubField && pubIdx !== null ? resolveOptionName(pubField, pubIdx) : null,
-        frameioAssetId:   typeof frameField?.value === 'string' ? frameField.value : null,
-        assignedAmName:   amName,
-        editorName:       editorName,
-        clientName:       clientName,
-        qualityCheck:     qualityCheck,
-        dateUpdated:      task.date_updated ?? null,
-        dueDate:          dueDate,
-        lastSyncedAt:     new Date(),
-        dirty:            false,
-      },
-    });
+    };
+
+    await db.insert(videoCache).values({ clickupTaskId: task.id, title: task.name, ...row })
+      .onConflictDoUpdate({ target: videoCache.clickupTaskId, set: row });
     synced++;
   }
 
