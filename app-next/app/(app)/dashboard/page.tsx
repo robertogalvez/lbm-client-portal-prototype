@@ -1,4 +1,5 @@
 import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask } from '@/lib/clickup';
+import { getTasksFromDB } from '@/lib/db/queries';
 import { RefreshButton } from '@/components/dashboard/RefreshButton';
 import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor } from '@/components/dashboard/DashboardTabs';
 
@@ -141,10 +142,14 @@ export default async function DashboardPage({
   let error: string | null = null;
 
   try {
-    if (masterListId) {
-      allTasks = await getTasksFromList(masterListId, false);
-    } else if (folderId) {
-      allTasks = await getTasksFromFolder(folderId, false);
+    allTasks = await getTasksFromDB();
+    // Fall back to live ClickUp if DB is empty
+    if (allTasks.length === 0) {
+      if (masterListId) {
+        allTasks = await getTasksFromList(masterListId, false);
+      } else if (folderId) {
+        allTasks = await getTasksFromFolder(folderId, false);
+      }
     }
   } catch (e) {
     error = e instanceof Error ? e.message : 'Unknown error';
