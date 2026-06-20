@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { videoCache } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+
 
 const BASE = 'https://api.clickup.com/api/v2';
 
@@ -56,16 +56,8 @@ export async function POST() {
     : await fetchAllTasksFromFolder(folderId!, token);
 
   let synced = 0;
-  let skipped = 0;
 
   for (const task of rawTasks) {
-    const existing = await db.select({ dirty: videoCache.dirty })
-      .from(videoCache)
-      .where(eq(videoCache.clickupTaskId, task.id))
-      .limit(1);
-
-    if (existing[0]?.dirty) { skipped++; continue; }
-
     const fields = task.custom_fields ?? [];
     const find = (name: string) => fields.find((f: any) => f.name === name);
 
@@ -136,5 +128,5 @@ export async function POST() {
     synced++;
   }
 
-  return NextResponse.json({ synced, skipped, total: rawTasks.length });
+  return NextResponse.json({ synced, total: rawTasks.length });
 }
