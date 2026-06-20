@@ -4,7 +4,6 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { videoCache } from '@/lib/db/schema';
 
-
 const BASE = 'https://api.clickup.com/api/v2';
 
 function resolveOptionName(field: any, valueIndex: number): string | null {
