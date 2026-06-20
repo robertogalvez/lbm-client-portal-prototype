@@ -19,6 +19,12 @@ const videoCache = pgTable('video_cache', {
   publishingStatus:  varchar('publishing_status', { length: 50 }),
   frameioAssetId:    varchar('frameio_asset_id', { length: 100 }),
   vistasocialPostId: varchar('vistasocial_post_id', { length: 100 }),
+  assignedAmName:    text('assigned_am_name'),
+  editorName:        text('editor_name'),
+  clientName:        text('client_name'),
+  qualityCheck:      varchar('quality_check', { length: 50 }),
+  dateUpdated:       text('date_updated'),
+  dueDate:           text('due_date'),
   lastSyncedAt:      timestamp('last_synced_at').defaultNow(),
   dirty:             boolean('dirty').default(false),
 });
@@ -90,11 +96,27 @@ export default async function handler() {
     const pubField      = find('Publishing Status');
     const captionField  = find('Captions');
     const frameField    = find('Updated Frame Link (Editor)');
+    const amField       = find('Account Manager (AM)');
+    const qcField       = find('QUALITY CHECK (Somu)');
 
     const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
     const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
     const approvalIdx = typeof approvalField?.value === 'number' ? approvalField.value : null;
     const pubIdx      = typeof pubField?.value === 'number' ? pubField.value : null;
+    const qcIdx       = typeof qcField?.value === 'number' ? qcField.value : null;
+
+    const amUsers    = amField?.value as { username?: string }[] | undefined;
+    const amName     = amUsers?.[0]?.username ?? null;
+    const editorName = (task.assignees as { username?: string }[])?.[0]?.username ?? null;
+
+    let dueDate: string | null = null;
+    if (task.due_date) {
+      const ms = Number(task.due_date);
+      dueDate = isNaN(ms) ? task.due_date : new Date(ms).toISOString();
+    }
+
+    const clientName = clientField && clientIdx !== null ? resolveOptionName(clientField, clientIdx) : null;
+    const qualityCheck = qcField && qcIdx !== null ? resolveOptionName(qcField, qcIdx) : null;
 
     await db.insert(videoCache).values({
       clickupTaskId:    task.id,
@@ -106,6 +128,12 @@ export default async function handler() {
       caption:          typeof captionField?.value === 'string' ? captionField.value : null,
       publishingStatus: pubField && pubIdx !== null ? resolveOptionName(pubField, pubIdx) : null,
       frameioAssetId:   typeof frameField?.value === 'string' ? frameField.value : null,
+      assignedAmName:   amName,
+      editorName:       editorName,
+      clientName:       clientName,
+      qualityCheck:     qualityCheck,
+      dateUpdated:      task.date_updated ?? null,
+      dueDate:          dueDate,
       lastSyncedAt:     new Date(),
       dirty:            false,
     }).onConflictDoUpdate({
@@ -117,6 +145,12 @@ export default async function handler() {
         caption:          typeof captionField?.value === 'string' ? captionField.value : null,
         publishingStatus: pubField && pubIdx !== null ? resolveOptionName(pubField, pubIdx) : null,
         frameioAssetId:   typeof frameField?.value === 'string' ? frameField.value : null,
+        assignedAmName:   amName,
+        editorName:       editorName,
+        clientName:       clientName,
+        qualityCheck:     qualityCheck,
+        dateUpdated:      task.date_updated ?? null,
+        dueDate:          dueDate,
         lastSyncedAt:     new Date(),
         dirty:            false,
       },

@@ -79,6 +79,12 @@ export const videoCache = pgTable('video_cache', {
   publishingStatus:  varchar('publishing_status', { length: 50 }),
   frameioAssetId:    varchar('frameio_asset_id', { length: 100 }),
   vistasocialPostId: varchar('vistasocial_post_id', { length: 100 }),
+  assignedAmName:    text('assigned_am_name'),
+  editorName:        text('editor_name'),
+  clientName:        text('client_name'),
+  qualityCheck:      varchar('quality_check', { length: 50 }),
+  dateUpdated:       text('date_updated'),
+  dueDate:           text('due_date'),
   lastSyncedAt:      timestamp('last_synced_at').defaultNow(),
   dirty:             boolean('dirty').default(false),
 });
