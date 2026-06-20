@@ -73,9 +73,6 @@ export async function POST(req: Request) {
   let skipped = 0;
 
   for (const task of rawTasks) {
-    // Skip subtasks — they don't have client/level fields set and aren't standalone videos
-    if (task.parent) { skipped++; continue; }
-
     const existing = await db.select({ dirty: videoCache.dirty })
       .from(videoCache)
       .where(eq(videoCache.clickupTaskId, task.id))
