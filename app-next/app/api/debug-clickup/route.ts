@@ -106,6 +106,8 @@ export async function GET() {
           assignees: ((t.assignees as { username: string }[]) ?? []).map((a: { username: string }) => a.username),
           clientFieldRawValue: clientField?.value ?? 'FIELD_MISSING',
           clientFieldPresent: !!clientField,
+          isSubtask: !!t.parent,
+          parentId: t.parent ?? null,
           due_date: t.due_date,
         };
       });

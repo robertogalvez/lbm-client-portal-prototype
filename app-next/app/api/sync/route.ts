@@ -18,7 +18,7 @@ async function fetchAllTasksFromList(listId: string, token: string) {
   let page = 0;
   while (true) {
     const res = await fetch(
-      `${BASE}/list/${listId}/task?subtasks=true&include_closed=true&custom_fields=true&page=${page}`,
+      `${BASE}/list/${listId}/task?include_closed=true&custom_fields=true&page=${page}`,
       { headers: { Authorization: token } },
     );
     const data = await res.json();
@@ -59,6 +59,9 @@ export async function POST(req: Request) {
   let skipped = 0;
 
   for (const task of rawTasks) {
+    // Skip subtasks — they don't have client/level fields set and aren't standalone videos
+    if (task.parent) { skipped++; continue; }
+
     const existing = await db.select({ dirty: videoCache.dirty })
       .from(videoCache)
       .where(eq(videoCache.clickupTaskId, task.id))
