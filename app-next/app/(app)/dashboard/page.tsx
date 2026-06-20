@@ -2,7 +2,7 @@ import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask } from '
 import { getTasksFromDB } from '@/lib/db/queries';
 import { RefreshButton } from '@/components/dashboard/RefreshButton';
 import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor } from '@/components/dashboard/DashboardTabs';
-import { Tooltip } from '@/components/ui/Tooltip';
+import { InfoPopover } from '@/components/ui/Tooltip';
 
 export const dynamic = 'force-dynamic';
 
@@ -109,7 +109,8 @@ function KpiCard({ label, tip, value, dotColor, sub, subTone }: KpiProps) {
     <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, padding: '14px 15px', flex: '1 1 0', minWidth: 140, display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ fontSize: 11.5, color: '#54616f', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-        <Tooltip tip={tip}>{label}</Tooltip>
+        {label}
+        <InfoPopover tip={tip} />
       </div>
       <div style={{ fontSize: 26, fontWeight: 600, color: '#111c28', lineHeight: 1, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{value}</div>
       {sub && (

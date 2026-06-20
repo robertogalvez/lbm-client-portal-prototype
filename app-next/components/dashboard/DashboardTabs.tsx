@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Tooltip } from '@/components/ui/Tooltip';
+import { InfoPopover } from '@/components/ui/Tooltip';
 
 export interface ApprovalRow {
   id: string;
@@ -180,9 +180,7 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
             <div>
               <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 6 }}>
                 Production pipeline
-                <Tooltip tip="Tasks grouped by phase. Each count shows how many videos are currently at that stage.">
-                  <span style={{ width: 15, height: 15, borderRadius: '50%', background: '#e7ebef', color: '#54616f', fontSize: 9.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'default', flexShrink: 0 }}>i</span>
-                </Tooltip>
+                <InfoPopover tip="Tasks grouped by phase. Each count shows how many videos are currently at that stage." />
               </h3>
               <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Click a stage to filter approvals</div>
             </div>
@@ -297,7 +295,7 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
                   <th style={thStyle}>Video</th>
                   <th style={thStyle}>Client</th>
                   <th style={thStyle}>AM</th>
-                  <th style={thNum}><Tooltip tip="Days since this video last changed status.">Waiting</Tooltip></th>
+                  <th style={thNum}>Waiting <InfoPopover tip="Days since this video last changed status." /></th>
                   <th style={{ ...thNum, textAlign: 'right', paddingRight: 18 }}>Action</th>
                 </tr>
               </thead>
@@ -359,9 +357,9 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
                 <tr>
                   <th style={thStyle}>Client</th>
                   <th style={thNum}>Total</th>
-                  <th style={thNum}><Tooltip tip="Videos currently in 'For Client Review' status, waiting for client response.">In review</Tooltip></th>
-                  <th style={thNum}><Tooltip tip="Days since the oldest unreviewed video last changed status.">Oldest wait</Tooltip></th>
-                  <th style={thNum}><Tooltip tip="On track = no pending reviews · In review = 1+ video awaiting client · Needs attention = waiting >3 days.">Status</Tooltip></th>
+                  <th style={thNum}>In review <InfoPopover tip="Videos currently in 'For Client Review' status, waiting for client response." /></th>
+                  <th style={thNum}>Oldest wait <InfoPopover tip="Days since the oldest unreviewed video last changed status." /></th>
+                  <th style={thNum}>Status <InfoPopover tip="On track = no pending reviews · In review = 1+ video awaiting client · Needs attention = waiting >3 days." /></th>
                 </tr>
               </thead>
               <tbody>
@@ -395,10 +393,10 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
               <thead>
                 <tr>
                   <th style={thStyle}>Editor</th>
-                  <th style={thNum}><Tooltip tip="Videos currently assigned to this editor that haven't been posted yet.">Active</Tooltip></th>
+                  <th style={thNum}>Active <InfoPopover tip="Videos currently assigned to this editor that haven't been posted yet." /></th>
                   <th style={thNum}>Approved</th>
-                  <th style={thNum}><Tooltip tip="Videos returned for corrections after client review.">Rework</Tooltip></th>
-                  <th style={thNum}><Tooltip tip="Approved ÷ (Approved + Rework). '—' when no completed videos yet.">First-pass clean</Tooltip></th>
+                  <th style={thNum}>Rework <InfoPopover tip="Videos returned for corrections after client review." /></th>
+                  <th style={thNum}>First-pass clean <InfoPopover tip="Approved ÷ (Approved + Rework). '—' when no completed videos yet." /></th>
                 </tr>
               </thead>
               <tbody>
