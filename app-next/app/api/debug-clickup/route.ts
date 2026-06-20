@@ -32,7 +32,7 @@ export async function GET() {
     const allRaw: Record<string, unknown>[] = [];
     let page = 0;
     while (true) {
-      const data = await get(`/list/${targetListId}/task?subtasks=true&include_closed=true&custom_fields=true&page=${page}`);
+      const data = await get(`/list/${targetListId}/task?subtasks=true&include_closed=true&page=${page}`);
       const tasks: Record<string, unknown>[] = data.tasks ?? [];
       allRaw.push(...tasks);
       if (tasks.length < 100) break;

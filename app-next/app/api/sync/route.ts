@@ -18,7 +18,7 @@ async function fetchAllTasksFromList(listId: string, token: string) {
   let page = 0;
   while (true) {
     const res = await fetch(
-      `${BASE}/list/${listId}/task?include_closed=true&custom_fields=true&page=${page}`,
+      `${BASE}/list/${listId}/task?include_closed=true&page=${page}`,
       { headers: { Authorization: token } },
     );
     const data = await res.json();
