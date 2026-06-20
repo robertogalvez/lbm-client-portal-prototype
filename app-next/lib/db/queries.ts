@@ -1,10 +1,10 @@
 import { db } from '@/lib/db';
-import { videoCache } from '@/lib/db/schema';
+import { videoCache, type VideoCache } from '@/lib/db/schema';
 import type { MappedTask } from '@/lib/clickup';
 
 export async function getTasksFromDB(): Promise<MappedTask[]> {
   const rows = await db.select().from(videoCache);
-  return rows.map(row => ({
+  return rows.map((row: VideoCache) => ({
     clickupTaskId:    row.clickupTaskId,
     title:            row.title ?? '',
     status:           row.status ?? '',
@@ -18,7 +18,7 @@ export async function getTasksFromDB(): Promise<MappedTask[]> {
     frameLink:        row.frameioAssetId ?? null,
     assignedAmName:   row.assignedAmName ?? null,
     editorName:       row.editorName ?? null,
-    dateUpdated:      row.dateUpdated ?? '',
+    dateUpdated:      row.dateUpdated ?? String(row.lastSyncedAt?.getTime() ?? Date.now()),
     dueDate:          row.dueDate ?? null,
   }));
 }
