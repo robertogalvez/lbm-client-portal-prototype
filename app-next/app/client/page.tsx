@@ -355,7 +355,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                     <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
                     <div style={{flex:1}}>
                       <div style={{fontWeight:600, fontSize:14}}>{t.title}</div>
-                      <div style={{fontSize:12, color:'#6b6455'}}>{t.assignee}</div>
+                      <div style={{fontSize:12, color:'#6b6455'}}>{t.assignedAmName}</div>
                     </div>
                     <span style={{background:'#ede9e0', color:'#6b6455', fontSize:12, padding:'3px 10px', borderRadius:12}}>{norm(t.status)}</span>
                   </div>
@@ -377,7 +377,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                       <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
                       <div style={{flex:1}}>
                         <div style={{fontWeight:600, fontSize:14}}>{t.title}</div>
-                        <div style={{fontSize:12, color:'#6b6455'}}>{t.assignee}</div>
+                        <div style={{fontSize:12, color:'#6b6455'}}>{t.assignedAmName}</div>
                       </div>
                       <span style={{fontSize:12, color:'#888'}}>{t.dateUpdated ? fmtDate(t.dateUpdated) : ''}</span>
                       <span style={{
