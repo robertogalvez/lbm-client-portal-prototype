@@ -32,12 +32,25 @@ async function fetchAllTasks(listId: string, token: string) {
   return all;
 }
 
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const secret = searchParams.get('secret');
+  if (secret !== process.env.MIGRATE_SECRET) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  return runReset();
+}
+
 export async function POST(req: Request) {
   const secret = req.headers.get('x-migrate-secret');
   if (secret !== process.env.MIGRATE_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  return runReset();
+}
+
+async function runReset() {
   const token = process.env.CLICKUP_API_TOKEN;
   const listId = process.env.CLICKUP_LIST_ID;
   if (!token) return NextResponse.json({ error: 'CLICKUP_API_TOKEN not set' }, { status: 500 });
