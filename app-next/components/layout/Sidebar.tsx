@@ -1,13 +1,13 @@
 import Link from 'next/link';
 
-const NAV = [
-  { label: 'Dashboard', href: '/dashboard', icon: '▦' },
-  { label: 'Clients', href: '/admin/clients', icon: '◎' },
-  { label: 'Publishing', href: '#', icon: '⬆', disabled: true },
-  { label: 'Settings', href: '/settings', icon: '⚙' },
-];
-
-export function Sidebar({ active }: { active?: string }) {
+export function Sidebar({ active, showClientPortal }: { active?: string; showClientPortal?: boolean }) {
+  const NAV = [
+    { label: 'Dashboard', href: '/dashboard', icon: '▦' },
+    { label: 'Clients', href: '/admin/clients', icon: '◎' },
+    { label: 'Publishing', href: '#', icon: '⬆', disabled: true },
+    ...(showClientPortal ? [{ label: 'My Client Portal', href: '/client', icon: '▤' }] : []),
+    { label: 'Settings', href: '/settings', icon: '⚙' },
+  ];
   return (
     <aside className="db-sidebar" style={{
       width: 220, flexShrink: 0, background: '#101a26',
