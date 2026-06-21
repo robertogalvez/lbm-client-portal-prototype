@@ -63,7 +63,7 @@ function findField(task: ClickUpTask, name: string): ClickUpField | undefined {
   return task.custom_fields.find(f => f.name === name);
 }
 
-export function mapTask(task: ClickUpTask): MappedTask {
+export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: string; name: string }[]> = {}): MappedTask {
   const clientField   = findField(task, 'Client Name (AM)');
   const levelField    = findField(task, 'Video Level (AM)');
   const approvalField = findField(task, 'CLIENT APPROVAL');
@@ -89,16 +89,25 @@ export function mapTask(task: ClickUpTask): MappedTask {
     dueDate = isNaN(ms) ? task.due_date : new Date(ms).toISOString();
   }
 
+  const resolve = (field: ClickUpField | undefined, idx: number | null): string | null => {
+    if (!field || idx === null) return null;
+    return field.type_config?.options?.[idx]?.name ?? sharedOptions[field.name]?.[idx]?.name ?? null;
+  };
+  const resolveId = (field: ClickUpField | undefined, idx: number | null): string | null => {
+    if (!field || idx === null) return null;
+    return field.type_config?.options?.[idx]?.id ?? sharedOptions[field.name]?.[idx]?.id ?? null;
+  };
+
   return {
     clickupTaskId:    task.id,
     title:            task.name,
     status:           task.status.status,
-    clientOptionId:   clientField && clientIdx !== null ? resolveOptionId(clientField, clientIdx) : null,
-    clientName:       clientField && clientIdx !== null ? resolveOptionName(clientField, clientIdx) : null,
-    videoLevel:       levelField && levelIdx !== null ? resolveOptionName(levelField, levelIdx) : null,
-    clientApproval:   approvalField && approvalIdx !== null ? resolveOptionName(approvalField, approvalIdx) : null,
-    publishingStatus: pubField && pubIdx !== null ? resolveOptionName(pubField, pubIdx) : null,
-    qualityCheck:     qcField && qcIdx !== null ? resolveOptionName(qcField, qcIdx) : null,
+    clientOptionId:   resolveId(clientField, clientIdx),
+    clientName:       resolve(clientField, clientIdx),
+    videoLevel:       resolve(levelField, levelIdx),
+    clientApproval:   resolve(approvalField, approvalIdx),
+    publishingStatus: resolve(pubField, pubIdx),
+    qualityCheck:     resolve(qcField, qcIdx),
     caption:          typeof captionField?.value === 'string' ? captionField.value : null,
     frameLink:        typeof frameLinkField?.value === 'string' ? frameLinkField.value : null,
     assignedAmName:   amName,
@@ -122,9 +131,20 @@ export async function getTasksFromList(listId: string, includeArchived = false):
     if (tasks.length < 100) break;
     page++;
   }
+
+  // Build shared options map — ClickUp only includes type_config on some tasks per response
+  const fieldOptions: Record<string, { id: string; name: string }[]> = {};
+  for (const t of all) {
+    for (const f of t.custom_fields) {
+      if (!fieldOptions[f.name] && f.type_config?.options?.length) {
+        fieldOptions[f.name] = f.type_config.options as { id: string; name: string }[];
+      }
+    }
+  }
+
   return all
     .filter(t => includeArchived ? true : !HIDDEN_STATUSES.includes(t.status.status.toLowerCase()))
-    .map(mapTask);
+    .map(t => mapTask(t, fieldOptions));
 }
 
 export async function getTasksFromFolder(folderId: string, includeArchived = false): Promise<MappedTask[]> {
