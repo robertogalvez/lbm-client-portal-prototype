@@ -226,19 +226,17 @@ export function SettingsPageClient({ users: initial, currentUserId }: Props) {
                   </td>
                   <td style={{ padding: '12px 16px', color: '#8b97a4', fontSize: 12 }}>{fmtDate(user.createdAt)}</td>
                   <td style={{ padding: '12px 16px' }}>
-                    {!isYou && (
-                      <button
-                        onClick={() => openEdit(user)}
-                        style={{
-                          fontSize: 12, fontWeight: 600, color: '#54616f',
-                          background: 'none', border: '1px solid #d4dbe2',
-                          borderRadius: 6, padding: '5px 10px', cursor: 'pointer',
-                          fontFamily: 'inherit',
-                        }}
-                      >
-                        Edit
-                      </button>
-                    )}
+                    <button
+                      onClick={() => openEdit(user)}
+                      style={{
+                        fontSize: 12, fontWeight: 600, color: '#54616f',
+                        background: 'none', border: '1px solid #d4dbe2',
+                        borderRadius: 6, padding: '5px 10px', cursor: 'pointer',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      Edit
+                    </button>
                   </td>
                 </tr>
               );
@@ -374,7 +372,7 @@ export function SettingsPageClient({ users: initial, currentUserId }: Props) {
                 {saving ? 'Saving…' : drawer.mode === 'invite' ? 'Send invite' : 'Save changes'}
               </button>
 
-              {drawer.mode === 'edit' && drawer.user && (
+              {drawer.mode === 'edit' && drawer.user && drawer.user.id !== currentUserId && (
                 <button
                   onClick={() => deactivate(drawer.user!)}
                   disabled={saving}

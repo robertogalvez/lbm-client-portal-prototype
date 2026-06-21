@@ -29,9 +29,11 @@ export async function POST(req: Request) {
 
   if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
 
-  // Prevent self-modification
-  if (userId === session.user.id) {
-    return NextResponse.json({ error: 'Cannot modify your own account' }, { status: 400 });
+  const isSelf = userId === session.user.id;
+
+  // Allow self-edits only for isAlsoClient/clientName — block role changes and deactivation on self
+  if (isSelf && (deactivate || role)) {
+    return NextResponse.json({ error: 'Cannot change your own role or deactivate yourself' }, { status: 400 });
   }
 
   // Prevent modifying client accounts via this endpoint
