@@ -5,6 +5,8 @@ import { db } from '@/lib/db';
 import { videoCache } from '@/lib/db/schema';
 import { sql } from 'drizzle-orm';
 
+export const maxDuration = 60;
+
 const BASE = 'https://api.clickup.com/api/v2';
 
 async function fetchAllTasksFromList(listId: string, token: string) {
