@@ -9,6 +9,7 @@ import type { MappedTask } from '@/lib/clickup';
 import { ApprovalButtons } from '@/components/client/ApprovalButtons';
 import { NotificationBell } from '@/components/client/NotificationBell';
 import { LogoutButton } from '@/components/client/LogoutButton';
+import { CalendarView } from '@/components/client/CalendarView';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -186,7 +187,16 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
           </>}
 
           {/* ── Calendar tab ── */}
-          {tab === 'calendar' && <CalendarView tasks={clientTasks} />}
+          {tab === 'calendar' && (
+            <CalendarView tasks={clientTasks.map(t => ({
+              clickupTaskId: t.clickupTaskId,
+              title: t.title,
+              status: t.status,
+              dueDate: t.dueDate,
+              clientApproval: t.clientApproval,
+              frameLink: t.frameLink,
+            }))} />
+          )}
 
           {/* ── Account tab ── */}
           {tab === 'account' && (
@@ -230,85 +240,6 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
         </nav>
       </div>
     </main>
-  );
-}
-
-function CalendarView({ tasks }: { tasks: MappedTask[] }) {
-  const now = Date.now();
-  const DAY = 86_400_000;
-  const WEEK = 7 * DAY;
-
-  // Build 5 weeks: last week + this week + next 3 weeks
-  const weekStart = now - ((new Date().getDay() || 7) - 1) * DAY; // Monday
-  const weeks = Array.from({ length: 5 }, (_, i) => weekStart - WEEK + i * WEEK);
-
-  // Tasks with a due date, sorted
-  const withDue = tasks
-    .filter(t => t.dueDate)
-    .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
-
-  const STATUS_COLOR: Record<string, { color: string; bg: string }> = {
-    'for client review': { color: '#b06f06', bg: '#fbeecf' },
-    'posted in socials':  { color: '#14805f', bg: '#e4f3ec' },
-    'ready to be posted': { color: '#1090e0', bg: '#e6f2fc' },
-  };
-
-  if (withDue.length === 0) {
-    return (
-      <div style={{ textAlign: 'center', padding: '48px 24px', color: '#9d9488' }}>
-        <div style={{ fontSize: 32, marginBottom: 10 }}>📅</div>
-        <p style={{ fontSize: 14, margin: 0, fontWeight: 500 }}>No scheduled videos yet.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {weeks.map(ws => {
-        const we = ws + WEEK;
-        const weekTasks = withDue.filter(t => {
-          const d = new Date(t.dueDate!).getTime();
-          return d >= ws && d < we;
-        });
-        const weekLabel = (() => {
-          const diff = Math.round((ws - weekStart) / WEEK);
-          if (diff === 0) return 'This week';
-          if (diff === -1) return 'Last week';
-          if (diff === 1) return 'Next week';
-          const d = new Date(ws);
-          return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' – ' +
-                 new Date(we - DAY).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        })();
-        if (weekTasks.length === 0) return null;
-        return (
-          <div key={ws}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 8 }}>{weekLabel}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {weekTasks.map(t => {
-                const due = new Date(t.dueDate!);
-                const style = STATUS_COLOR[norm(t.status)] ?? { color: '#54616f', bg: '#eef1f4' };
-                const isOverdue = due.getTime() < now && norm(t.status) !== 'posted in socials';
-                return (
-                  <div key={t.clickupTaskId} style={{ background: '#fff', border: '1px solid #ece4d8', borderRadius: 14, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ textAlign: 'center', minWidth: 36, flexShrink: 0 }}>
-                      <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1, color: isOverdue ? '#cf3f36' : '#221e18' }}>{due.getDate()}</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: '#9d9488', textTransform: 'uppercase' as const }}>{due.toLocaleString('en-US', { month: 'short' })}</div>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: '#221e18', lineHeight: 1.25, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</div>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: style.color, background: style.bg, padding: '2px 7px', borderRadius: 6, marginTop: 4 }}>
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: style.color }} />
-                        {norm(t.status) === 'for client review' ? 'Awaiting review' : t.status}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-    </div>
   );
 }
 

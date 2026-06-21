@@ -46,6 +46,15 @@ export interface TopEditor {
   firstPassClean: number;
 }
 
+export interface StatusTask {
+  id: string;
+  title: string;
+  clientName: string | null;
+  amName: string | null;
+  status: string;
+  frameLink: string | null;
+}
+
 interface Props {
   approvals: ApprovalRow[];
   clients: ClientRow[];
@@ -53,6 +62,7 @@ interface Props {
   pipeline: PipelineStage[];
   attentionClients: AttentionClient[];
   topEditors: TopEditor[];
+  statusTasks: StatusTask[];
   defaultTab?: string;
 }
 
@@ -122,13 +132,14 @@ const tdNum: React.CSSProperties = { ...td, textAlign: 'center', fontFamily: 'va
 
 const PIPELINE_GROUPS = ['To do', 'In progress', 'Quality check', 'Review & ship'];
 
-export function DashboardTabs({ approvals, clients, editors, pipeline, attentionClients, topEditors, defaultTab }: Props) {
+export function DashboardTabs({ approvals, clients, editors, pipeline, attentionClients, topEditors, statusTasks, defaultTab }: Props) {
   const [activeTab, setActiveTab] = useState<'overview' | 'approvals' | 'clients' | 'editors'>(
     (defaultTab as 'approvals') ?? 'overview'
   );
   const [approvalSearch, setApprovalSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
   const [editorSearch, setEditorSearch] = useState('');
+  const [drillStage, setDrillStage] = useState<PipelineStage | null>(null);
 
   const maxPipeline = Math.max(...pipeline.map(s => s.count), 1);
 
@@ -158,8 +169,60 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
     color: tone === 'amber' ? '#a86a00' : '#54616f',
   });
 
+  const drillTasks = drillStage
+    ? statusTasks.filter(t => t.status.toLowerCase().replace(/\s+/g, ' ').trim() === drillStage.key)
+    : [];
+
   return (
     <div>
+      {/* Pipeline drill-down slide-over */}
+      {drillStage && (
+        <>
+          <div onClick={() => setDrillStage(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(17,28,40,0.35)', zIndex: 400 }} />
+          <div style={{
+            position: 'fixed', right: 0, top: 0, bottom: 0,
+            width: 420, maxWidth: '92vw',
+            background: '#fff', zIndex: 401,
+            display: 'flex', flexDirection: 'column',
+            boxShadow: '-4px 0 32px rgba(0,0,0,0.15)',
+            animation: 'db-slide-in 180ms ease',
+          }}>
+            {/* Header */}
+            <div style={{ padding: '16px 18px', borderBottom: '1px solid #e7ebef', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+              <div style={{ width: 10, height: 10, borderRadius: 3, background: drillStage.barColor, flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#111c28' }}>{drillStage.label}</div>
+                <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 1 }}>{drillTasks.length} video{drillTasks.length !== 1 ? 's' : ''}</div>
+              </div>
+              <button onClick={() => setDrillStage(null)} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #e7ebef', background: '#f5f7f9', cursor: 'pointer', display: 'grid', placeItems: 'center', color: '#54616f', fontSize: 16, fontFamily: 'inherit' }}>×</button>
+            </div>
+
+            {/* Task list */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {drillTasks.length === 0 ? (
+                <div style={{ padding: '40px 0', textAlign: 'center', color: '#8b97a4', fontSize: 13 }}>No videos in this stage</div>
+              ) : drillTasks.map(t => (
+                <div key={t.id} style={{ background: '#f8fafc', border: '1px solid #e7ebef', borderRadius: 10, padding: '11px 14px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ width: 34, height: 22, borderRadius: 5, flexShrink: 0, display: 'grid', placeItems: 'center', background: 'linear-gradient(135deg,#2c3540,#4a5562)', marginTop: 2 }}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" style={{width:11,height:11,opacity:.8}}><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111c28', lineHeight: 1.3, marginBottom: 3 }}>{t.title}</div>
+                    <div style={{ fontSize: 11.5, color: '#8b97a4', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {t.clientName && <span>{t.clientName}</span>}
+                      {t.amName && <span>· {t.amName}</span>}
+                    </div>
+                  </div>
+                  {t.frameLink && (
+                    <a href={t.frameLink} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 600, color: '#5b6bff', textDecoration: 'none', flexShrink: 0, marginTop: 2 }}>Frame.io ↗</a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 2, padding: '0 24px', borderBottom: '1px solid #e7ebef', marginTop: 16 }}>
         {(['overview', 'approvals', 'clients', 'editors'] as const).map(t => (
@@ -182,7 +245,7 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
                 Production pipeline
                 <InfoPopover tip="Tasks grouped by phase. Each count shows how many videos are currently at that stage." />
               </h3>
-              <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Click a stage to filter approvals</div>
+              <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Click a stage to see videos in that status</div>
             </div>
             <span style={{ fontSize: 10.5, fontWeight: 700, color: '#8b97a4', background: '#f5f7f9', border: '1px solid #e7ebef', padding: '3px 8px', borderRadius: 7, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
               <span style={{ width: 6, height: 6, borderRadius: 2, background: '#7B68EE', display: 'inline-block' }} />
@@ -201,9 +264,9 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
                     return (
                       <button
                         key={stage.key}
-                        onClick={() => setActiveTab('approvals')}
-                        style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '7px 9px', borderRadius: 8, border: '1px solid transparent', background: 'transparent', width: '100%', cursor: 'pointer', textAlign: 'left', transition: 'background 130ms', fontFamily: 'inherit' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = '#f5f7f9')}
+                        onClick={() => setDrillStage(stage)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '7px 9px', borderRadius: 8, border: '1px solid transparent', background: 'transparent', width: '100%', cursor: stage.count > 0 ? 'pointer' : 'default', textAlign: 'left', transition: 'background 130ms', fontFamily: 'inherit' }}
+                        onMouseEnter={e => { if (stage.count > 0) e.currentTarget.style.background = '#f5f7f9'; }}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
                         <span className="db-stage-label">
