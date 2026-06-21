@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface User {
   id: string;
@@ -40,6 +41,113 @@ function initials(name: string) {
 function fmtDate(d: Date | null) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+const SYNC_COOLDOWN_MS = 2 * 60 * 1000;
+type SyncState = 'idle' | 'syncing' | 'success' | 'error' | 'cooldown';
+
+function ForceSyncSection() {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  const [syncState, setSyncState] = useState<SyncState>('idle');
+  const [syncedCount, setSyncedCount] = useState(0);
+  const [lastSync, setLastSync] = useState(0);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('lbm_last_sync');
+    const elapsed = stored ? Date.now() - Number(stored) : Infinity;
+    if (elapsed < SYNC_COOLDOWN_MS) {
+      setSyncState('cooldown');
+      setLastSync(Number(stored));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (syncState !== 'cooldown') return;
+    const id = setInterval(() => {
+      if (Date.now() - lastSync >= SYNC_COOLDOWN_MS) setSyncState('idle');
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [syncState, lastSync]);
+
+  const handleSync = useCallback(async () => {
+    if (syncState !== 'idle') return;
+    setSyncState('syncing');
+    try {
+      const res = await fetch('/api/sync-now', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) { setSyncState('error'); setTimeout(() => setSyncState('idle'), 5_000); return; }
+      setSyncedCount(data.synced ?? 0);
+      const now = Date.now();
+      localStorage.setItem('lbm_last_sync', now.toString());
+      setLastSync(now);
+      setSyncState('success');
+      startTransition(() => router.refresh());
+      setTimeout(() => setSyncState('cooldown'), 5_000);
+    } catch {
+      setSyncState('error');
+      setTimeout(() => setSyncState('idle'), 5_000);
+    }
+  }, [syncState, router, startTransition]);
+
+  const minsAgo = lastSync ? Math.floor((Date.now() - lastSync) / 60_000) : 0;
+  const agoLabel = minsAgo < 1 ? 'just now' : `${minsAgo}m ago`;
+  const isDisabled = syncState === 'syncing' || syncState === 'cooldown';
+
+  const btnColor = syncState === 'success' ? '#14805f' : syncState === 'error' ? '#cf3f36' : '#54616f';
+
+  return (
+    <div style={{ marginTop: 32 }}>
+      <h2 style={{ fontSize: 15, fontWeight: 700, color: '#111c28', margin: '0 0 4px' }}>Data sync</h2>
+      <p style={{ fontSize: 13, color: '#8b97a4', margin: '0 0 16px', lineHeight: 1.6 }}>
+        ClickUp changes sync automatically via webhook in real time — this button is a recovery tool only.
+        Use it if the webhook was down, you just reconfigured ClickUp, or you suspect the database is out of sync.
+      </p>
+      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#111c28' }}>Force full resync from ClickUp</div>
+          <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 3 }}>
+            Fetches every task in the configured ClickUp list and upserts them all into the database.
+          </div>
+        </div>
+        <button
+          onClick={handleSync}
+          disabled={isDisabled}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '9px 16px', borderRadius: 8,
+            border: '1px solid #d4dbe2', background: '#fff',
+            fontSize: 13, fontWeight: 600, color: btnColor,
+            cursor: isDisabled ? 'not-allowed' : 'pointer',
+            opacity: syncState === 'cooldown' ? 0.55 : 1,
+            flexShrink: 0, whiteSpace: 'nowrap',
+            transition: 'opacity 0.2s, color 0.2s',
+            fontFamily: 'inherit',
+          }}
+        >
+          {syncState === 'syncing' ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14, animation: 'lbm-spin 0.8s linear infinite' }}>
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>
+            </svg>
+          ) : syncState === 'success' ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><polyline points="20 6 9 17 4 12"/></svg>
+          ) : syncState === 'error' ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}>
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>
+            </svg>
+          )}
+          {syncState === 'idle' && 'Run full resync'}
+          {syncState === 'syncing' && 'Syncing…'}
+          {syncState === 'success' && `Synced ${syncedCount} tasks`}
+          {syncState === 'error' && 'Sync failed — retry'}
+          {syncState === 'cooldown' && `Synced ${agoLabel}`}
+        </button>
+      </div>
+      <style>{`@keyframes lbm-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
 }
 
 export function SettingsPageClient({ users: initial, currentUserId }: Props) {
@@ -258,6 +366,8 @@ export function SettingsPageClient({ users: initial, currentUserId }: Props) {
           </tbody>
         </table>
       </div>
+
+      <ForceSyncSection />
 
       {/* Drawer overlay */}
       {drawer && (

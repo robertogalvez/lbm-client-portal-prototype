@@ -1,6 +1,5 @@
 import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask } from '@/lib/clickup';
 import { getTasksFromDB } from '@/lib/db/queries';
-import { RefreshButton } from '@/components/dashboard/RefreshButton';
 import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask } from '@/components/dashboard/DashboardTabs';
 import { InfoPopover } from '@/components/ui/Tooltip';
 
@@ -246,7 +245,6 @@ export default async function DashboardPage({
               </a>
             ))}
           </div>
-          <RefreshButton />
         </div>
       </div>
 
