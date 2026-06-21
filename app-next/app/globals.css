@@ -528,10 +528,7 @@ body {
 }
 .db-info-btn:hover { background: #d8dde3; }
 .db-info-bubble {
-  position: absolute;
-  bottom: calc(100% + 7px);
-  left: 50%;
-  transform: translateX(-50%);
+  position: fixed;
   background: #1a2535;
   color: #e8edf2;
   font-size: 12px;
@@ -544,7 +541,7 @@ body {
   max-width: 230px;
   min-width: 160px;
   pointer-events: none;
-  z-index: 300;
+  z-index: 9999;
   box-shadow: 0 4px 16px rgba(0,0,0,0.22);
   animation: db-info-in 100ms ease;
 }
