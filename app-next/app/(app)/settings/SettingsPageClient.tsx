@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface User {
   id: string;
@@ -48,6 +48,14 @@ export function SettingsPageClient({ users: initial, currentUserId }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [clientOptions, setClientOptions] = useState<{ name: string }[]>([]);
+
+  useEffect(() => {
+    fetch('/api/admin/clickup-clients')
+      .then(r => r.ok ? r.json() : [])
+      .then((data: { name: string }[]) => setClientOptions(data))
+      .catch(() => {});
+  }, []);
 
   // Form state
   const [form, setForm] = useState({ name: '', email: '', role: 'account_manager', isAlsoClient: false, clientName: '' });
@@ -331,13 +339,17 @@ export function SettingsPageClient({ users: initial, currentUserId }: Props) {
                   </label>
                   {form.isAlsoClient && (
                     <div style={{ marginTop: 10 }}>
-                      <label style={labelStyle}>Client name (must match ClickUp client name exactly)</label>
-                      <input
-                        style={inputStyle}
+                      <label style={labelStyle}>Client name</label>
+                      <select
+                        style={{ ...inputStyle, cursor: 'pointer' }}
                         value={form.clientName}
                         onChange={e => setForm(f => ({ ...f, clientName: e.target.value }))}
-                        placeholder="e.g. Hector Ramirez"
-                      />
+                      >
+                        <option value="">— select client —</option>
+                        {clientOptions.map(c => (
+                          <option key={c.name} value={c.name}>{c.name}</option>
+                        ))}
+                      </select>
                     </div>
                   )}
                 </div>

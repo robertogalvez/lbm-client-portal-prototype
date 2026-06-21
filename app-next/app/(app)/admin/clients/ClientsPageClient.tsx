@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface PortalUser {
   id: string;
@@ -49,6 +49,14 @@ const label: React.CSSProperties = {
 export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[] }) {
   const [clients, setClients] = useState<ClientRecord[]>(initial);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [clickupOptions, setClickupOptions] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    fetch('/api/admin/clickup-clients')
+      .then(r => r.ok ? r.json() : [])
+      .then((data: { id: string; name: string }[]) => setClickupOptions(data))
+      .catch(() => {});
+  }, []);
   const [selected, setSelected] = useState<ClientRecord | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -337,8 +345,16 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
               {/* ClickUp */}
               <div>
                 <span style={label}>ClickUp client name</span>
-                <input value={fClickup} onChange={e => setFClickup(e.target.value)} placeholder="Ohr Shlomo" style={inp} />
-                <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 4 }}>Must match the "Client Name (AM)" dropdown option in ClickUp exactly.</div>
+                <select
+                  value={fClickup}
+                  onChange={e => setFClickup(e.target.value)}
+                  style={{ ...inp, cursor: 'pointer' }}
+                >
+                  <option value="">— select from ClickUp —</option>
+                  {clickupOptions.map(o => (
+                    <option key={o.id} value={o.name}>{o.name}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Frame.io */}
