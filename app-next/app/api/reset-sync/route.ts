@@ -69,14 +69,9 @@ async function runReset() {
     }
   }
 
-  // 3. Truncate video_cache
-  await db.execute(sql`TRUNCATE TABLE video_cache`);
-
-  // 4. Re-insert all tasks from the list
-  let inserted = 0;
+  // 3. Build rows
   let nullClient = 0;
-
-  for (const task of rawTasks) {
+  const rows = rawTasks.map((task: any) => {
     const fields = (task.custom_fields ?? []) as any[];
     const find = (name: string) => fields.find((f: any) => f.name === name);
 
@@ -109,7 +104,7 @@ async function runReset() {
       dueDate = isNaN(ms) ? task.due_date : new Date(ms).toISOString();
     }
 
-    await db.insert(videoCache).values({
+    return {
       clickupTaskId:    task.id,
       title:            task.name,
       status:           task.status?.status ?? null,
@@ -127,11 +122,14 @@ async function runReset() {
       dueDate,
       lastSyncedAt:     new Date(),
       dirty:            false,
-    });
-    inserted++;
-  }
+    };
+  });
 
-  return NextResponse.json({ inserted, nullClient, total: rawTasks.length });
+  // 4. Truncate and batch insert in one shot
+  await db.execute(sql`TRUNCATE TABLE video_cache`);
+  await db.insert(videoCache).values(rows);
+
+  return NextResponse.json({ inserted: rows.length, nullClient, total: rawTasks.length });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
   }
