@@ -6,20 +6,12 @@ import { videoCache } from '@/lib/db/schema';
 
 const BASE = 'https://api.clickup.com/api/v2';
 
-function resolveOptionName(field: any, valueIndex: number): string | null {
-  return field?.type_config?.options?.[valueIndex]?.name ?? null;
-}
-
-function resolveOptionId(field: any, valueIndex: number): string | null {
-  return field?.type_config?.options?.[valueIndex]?.id ?? null;
-}
-
 async function fetchAllTasksFromList(listId: string, token: string) {
   const all: any[] = [];
   let page = 0;
   while (true) {
     const res = await fetch(
-      `${BASE}/list/${listId}/task?subtasks=true&include_closed=true&custom_fields=true&page=${page}`,
+      `${BASE}/list/${listId}/task?include_closed=true&page=${page}`,
       { headers: { Authorization: token } },
     );
     const data = await res.json();
@@ -31,28 +23,31 @@ async function fetchAllTasksFromList(listId: string, token: string) {
   return all;
 }
 
-async function fetchAllTasksFromFolder(folderId: string, token: string) {
-  const res = await fetch(`${BASE}/folder/${folderId}/list`, { headers: { Authorization: token } });
-  const data = await res.json();
-  const lists: any[] = data.lists ?? [];
-  const results = await Promise.all(lists.map((l: any) => fetchAllTasksFromList(l.id, token)));
-  return results.flat();
-}
-
 export async function POST() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const token = process.env.CLICKUP_API_TOKEN;
-  const masterListId = process.env.CLICKUP_LIST_ID;
-  const folderId = process.env.CLICKUP_FOLDER_ID;
+  const listId = process.env.CLICKUP_LIST_ID;
 
   if (!token) return NextResponse.json({ error: 'CLICKUP_API_TOKEN not set' }, { status: 500 });
-  if (!masterListId && !folderId) return NextResponse.json({ error: 'No ClickUp list/folder configured' }, { status: 500 });
+  if (!listId) return NextResponse.json({ error: 'CLICKUP_LIST_ID not set' }, { status: 500 });
 
-  const rawTasks = masterListId
-    ? await fetchAllTasksFromList(masterListId, token)
-    : await fetchAllTasksFromFolder(folderId!, token);
+  const rawTasks = await fetchAllTasksFromList(listId, token);
+
+  // Extract option maps once — ClickUp only includes type_config on some tasks, not all.
+  const fieldOptions: Record<string, any[]> = {};
+  for (const t of rawTasks) {
+    for (const f of (t.custom_fields ?? []) as any[]) {
+      if (!fieldOptions[f.name] && f.type_config?.options?.length) {
+        fieldOptions[f.name] = f.type_config.options;
+      }
+    }
+  }
+  const resolveOpt = (name: string, idx: number | null) =>
+    idx !== null ? (fieldOptions[name]?.[idx]?.name ?? null) : null;
+  const resolveOptId = (name: string, idx: number | null) =>
+    idx !== null ? (fieldOptions[name]?.[idx]?.id ?? null) : null;
 
   let synced = 0;
 
@@ -78,8 +73,6 @@ export async function POST() {
     const amUsers    = amField?.value as { username?: string }[] | undefined;
     const amName     = amUsers?.[0]?.username ?? null;
     const editorName = (task.assignees as { username?: string }[])?.[0]?.username ?? null;
-    const clientName = clientField && clientIdx !== null ? resolveOptionName(clientField, clientIdx) : null;
-    const qualityCheck = qcField && qcIdx !== null ? resolveOptionName(qcField, qcIdx) : null;
 
     let dueDate: string | null = null;
     if (task.due_date) {
@@ -87,43 +80,26 @@ export async function POST() {
       dueDate = isNaN(ms) ? task.due_date : new Date(ms).toISOString();
     }
 
-    await db.insert(videoCache).values({
-      clickupTaskId:    task.id,
-      clientId:         clientField && clientIdx !== null ? resolveOptionId(clientField, clientIdx) : null,
-      title:            task.name,
+    const row = {
       status:           task.status?.status ?? null,
-      clientApproval:   approvalField && approvalIdx !== null ? resolveOptionName(approvalField, approvalIdx) : null,
-      videoLevel:       levelField && levelIdx !== null ? resolveOptionName(levelField, levelIdx) : null,
+      clientId:         resolveOptId('Client Name (AM)', clientIdx),
+      clientApproval:   resolveOpt('CLIENT APPROVAL', approvalIdx),
+      videoLevel:       resolveOpt('Video Level (AM)', levelIdx),
       caption:          typeof captionField?.value === 'string' ? captionField.value : null,
-      publishingStatus: pubField && pubIdx !== null ? resolveOptionName(pubField, pubIdx) : null,
+      publishingStatus: resolveOpt('Publishing Status', pubIdx),
       frameioAssetId:   typeof frameField?.value === 'string' ? frameField.value : null,
       assignedAmName:   amName,
       editorName,
-      clientName,
-      qualityCheck,
+      clientName:       resolveOpt('Client Name (AM)', clientIdx),
+      qualityCheck:     resolveOpt('QUALITY CHECK (Somu)', qcIdx),
       dateUpdated:      task.date_updated ?? null,
       dueDate,
       lastSyncedAt:     new Date(),
       dirty:            false,
-    }).onConflictDoUpdate({
-      target: videoCache.clickupTaskId,
-      set: {
-        status:           task.status?.status ?? null,
-        clientApproval:   approvalField && approvalIdx !== null ? resolveOptionName(approvalField, approvalIdx) : null,
-        videoLevel:       levelField && levelIdx !== null ? resolveOptionName(levelField, levelIdx) : null,
-        caption:          typeof captionField?.value === 'string' ? captionField.value : null,
-        publishingStatus: pubField && pubIdx !== null ? resolveOptionName(pubField, pubIdx) : null,
-        frameioAssetId:   typeof frameField?.value === 'string' ? frameField.value : null,
-        assignedAmName:   amName,
-        editorName,
-        clientName,
-        qualityCheck,
-        dateUpdated:      task.date_updated ?? null,
-        dueDate,
-        lastSyncedAt:     new Date(),
-        dirty:            false,
-      },
-    });
+    };
+
+    await db.insert(videoCache).values({ clickupTaskId: task.id, title: task.name, ...row })
+      .onConflictDoUpdate({ target: videoCache.clickupTaskId, set: row });
     synced++;
   }
 
