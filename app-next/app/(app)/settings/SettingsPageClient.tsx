@@ -111,7 +111,13 @@ export function SettingsPageClient({ users: initial, currentUserId }: Props) {
       const res = await fetch('/api/admin/update-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: drawer.user.id, role: form.role, isAlsoClient: form.isAlsoClient, clientName: form.clientName }),
+        body: JSON.stringify({
+          userId: drawer.user.id,
+          // don't send role when editing yourself — API blocks self role changes
+          ...(drawer.user.id !== currentUserId && { role: form.role }),
+          isAlsoClient: form.isAlsoClient,
+          clientName: form.clientName,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed');
