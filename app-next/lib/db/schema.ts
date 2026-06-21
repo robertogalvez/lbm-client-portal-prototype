@@ -13,6 +13,7 @@ export const authUsers = pgTable('auth_user', {
   role:          varchar('role', { length: 30 }).notNull().default('account_manager'),
   amName:        text('am_name'),
   clientName:    text('client_name'),
+  isAlsoClient:  boolean('is_also_client').default(false),
 });
 
 export const authSessions = pgTable('auth_session', {

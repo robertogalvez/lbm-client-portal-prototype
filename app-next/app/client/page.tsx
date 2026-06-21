@@ -51,13 +51,13 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   if (!session) redirect('/login');
 
   const rows = await db
-    .select({ role: authUsers.role, clientName: authUsers.clientName, name: authUsers.name })
+    .select({ role: authUsers.role, clientName: authUsers.clientName, name: authUsers.name, isAlsoClient: authUsers.isAlsoClient })
     .from(authUsers)
     .where(eq(authUsers.id, session.user.id))
     .limit(1);
 
   const userRow = rows[0];
-  if (!userRow || userRow.role !== 'client') redirect('/dashboard');
+  if (!userRow || (userRow.role !== 'client' && !userRow.isAlsoClient)) redirect('/dashboard');
 
   const { clientName, name } = userRow;
   if (!clientName) {
