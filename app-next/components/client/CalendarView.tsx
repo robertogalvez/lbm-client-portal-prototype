@@ -64,6 +64,12 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
     setSelectedDay(null);
   }
 
+  // Upcoming sidebar: next 6 tasks due after today, sorted by date
+  const upcomingTasks = tasks
+    .filter(t => t.dueDate && new Date(t.dueDate).getTime() > now.getTime())
+    .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
+    .slice(0, 6);
+
   // ── List view ─────────────────────────────────────────────
   if (view === 'list') {
     const DAY = 86_400_000;
@@ -96,18 +102,20 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                   const due = new Date(t.dueDate!);
                   const overdue = due.getTime() < now.getTime() && norm(t.status) !== 'posted in socials';
                   return (
-                    <div key={t.clickupTaskId} style={{ background: '#fff', border: '1px solid #ece4d8', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ textAlign: 'center', minWidth: 32, flexShrink: 0 }}>
-                        <div style={{ fontSize: 17, fontWeight: 800, lineHeight: 1, color: overdue ? '#cf3f36' : '#221e18' }}>{due.getDate()}</div>
-                        <div style={{ fontSize: 10, fontWeight: 600, color: '#9d9488', textTransform: 'uppercase' }}>{due.toLocaleString('en-US', { month: 'short' })}</div>
+                    <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                      <div style={{ background: '#fff', border: '1px solid #ece4d8', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ textAlign: 'center', minWidth: 32, flexShrink: 0 }}>
+                          <div style={{ fontSize: 17, fontWeight: 800, lineHeight: 1, color: overdue ? '#cf3f36' : '#221e18' }}>{due.getDate()}</div>
+                          <div style={{ fontSize: 10, fontWeight: 600, color: '#9d9488', textTransform: 'uppercase' }}>{due.toLocaleString('en-US', { month: 'short' })}</div>
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#221e18', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color, background: bg, padding: '2px 6px', borderRadius: 5, marginTop: 3 }}>
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: color }} />{label}
+                          </span>
+                        </div>
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#221e18', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color, background: bg, padding: '2px 6px', borderRadius: 5, marginTop: 3 }}>
-                          <span style={{ width: 5, height: 5, borderRadius: '50%', background: color }} />{label}
-                        </span>
-                      </div>
-                    </div>
+                    </a>
                   );
                 })}
               </div>
@@ -136,69 +144,110 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
         <ViewToggle view={view} setView={setView} />
       </div>
 
-      {/* Day-of-week headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
-        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
-          <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: '#9d9488', padding: '2px 0 4px', letterSpacing: '0.03em' }}>{d}</div>
-        ))}
-      </div>
+      {/* Two-column layout on desktop: calendar + upcoming sidebar */}
+      <div className="cal-layout">
+        <div className="cal-main">
+          {/* Day-of-week headers */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+              <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: '#9d9488', padding: '2px 0 4px', letterSpacing: '0.03em' }}>{d}</div>
+            ))}
+          </div>
 
-      {/* Calendar grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
-        {cells.map(cell => {
-          const isSelected = selectedDay === cell.key;
-          return (
-            <div
-              key={cell.key}
-              onClick={() => setSelectedDay(isSelected ? null : cell.key)}
-              style={{
-                minHeight: 56, padding: '4px 4px 2px', borderRadius: 8, cursor: 'pointer',
-                background: cell.isToday ? '#221e18' : isSelected ? '#fff1e8' : cell.isCurrentMonth ? '#fff' : '#faf6f0',
-                border: `1px solid ${isSelected ? '#FF6000' : '#ece4d8'}`,
-                transition: 'background 100ms',
-              }}
-            >
-              <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 2, color: cell.isToday ? '#fff' : cell.isCurrentMonth ? '#221e18' : '#c4bbb0' }}>
-                {cell.date.getDate()}
-              </div>
-              {cell.tasks.slice(0, 2).map(t => {
-                const { color, bg } = statusStyle(t);
-                return (
-                  <div key={t.clickupTaskId} style={{ fontSize: 9, fontWeight: 700, color, background: bg, padding: '1px 3px', borderRadius: 3, marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }}>
-                    {t.title}
+          {/* Calendar grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+            {cells.map(cell => {
+              const isSelected = selectedDay === cell.key;
+              return (
+                <div
+                  key={cell.key}
+                  onClick={() => setSelectedDay(isSelected ? null : cell.key)}
+                  style={{
+                    minHeight: 70, padding: '4px 4px 2px', borderRadius: 8, cursor: 'pointer',
+                    background: cell.isToday ? '#221e18' : isSelected ? '#fff1e8' : cell.isCurrentMonth ? '#fff' : '#faf6f0',
+                    border: `1px solid ${isSelected ? '#FF6000' : '#ece4d8'}`,
+                    transition: 'background 100ms',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 2, color: cell.isToday ? '#fff' : cell.isCurrentMonth ? '#221e18' : '#c4bbb0' }}>
+                    {cell.date.getDate()}
                   </div>
+                  <div style={{ overflow: 'hidden' }}>
+                    {cell.tasks.slice(0, 2).map(t => {
+                      const { color, bg } = statusStyle(t);
+                      return (
+                        <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}`} style={{ textDecoration: 'none', color: 'inherit' }} onClick={e => e.stopPropagation()}>
+                          <div style={{ fontSize: 9, fontWeight: 700, color, background: bg, padding: '1px 3px', borderRadius: 3, marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }}>
+                            {t.title}
+                          </div>
+                        </a>
+                      );
+                    })}
+                    {cell.tasks.length > 2 && (
+                      <div style={{ fontSize: 9, color: '#9d9488', fontWeight: 600 }}>+{cell.tasks.length - 2}</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Selected day detail */}
+          {selectedDay && (
+            <div style={{ background: '#fff', border: '1px solid #ece4d8', borderRadius: 14, padding: '14px 14px', marginTop: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#221e18', marginBottom: selectedTasks.length ? 10 : 0 }}>
+                {selectedDate?.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+              </div>
+              {selectedTasks.length === 0 ? (
+                <div style={{ fontSize: 12, color: '#9d9488', marginTop: 6 }}>No videos scheduled for this day.</div>
+              ) : selectedTasks.map(t => {
+                const { color, bg, label } = statusStyle(t);
+                return (
+                  <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid #f0e8df' }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                        <span style={{ fontSize: 10.5, fontWeight: 700, color, background: bg, padding: '1px 6px', borderRadius: 5 }}>{label}</span>
+                      </div>
+                    </div>
+                  </a>
                 );
               })}
-              {cell.tasks.length > 2 && (
-                <div style={{ fontSize: 9, color: '#9d9488', fontWeight: 600 }}>+{cell.tasks.length - 2}</div>
-              )}
             </div>
-          );
-        })}
-      </div>
-
-      {/* Selected day detail */}
-      {selectedDay && (
-        <div style={{ background: '#fff', border: '1px solid #ece4d8', borderRadius: 14, padding: '14px 14px', marginTop: 2 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#221e18', marginBottom: selectedTasks.length ? 10 : 0 }}>
-            {selectedDate?.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </div>
-          {selectedTasks.length === 0 ? (
-            <div style={{ fontSize: 12, color: '#9d9488', marginTop: 6 }}>No videos scheduled for this day.</div>
-          ) : selectedTasks.map(t => {
-            const { color, bg, label } = statusStyle(t);
-            return (
-              <div key={t.clickupTaskId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid #f0e8df' }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
-                  <span style={{ fontSize: 10.5, fontWeight: 700, color, background: bg, padding: '1px 6px', borderRadius: 5 }}>{label}</span>
-                </div>
-              </div>
-            );
-          })}
+          )}
         </div>
-      )}
+
+        {/* Upcoming sidebar */}
+        <div className="cal-sidebar">
+          <div style={{ background: '#fff', border: '1px solid #ece4d8', borderRadius: 14, padding: '16px' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#221e18', marginBottom: 12 }}>Upcoming</div>
+            {upcomingTasks.length === 0 ? (
+              <div style={{ fontSize: 12, color: '#9d9488' }}>No upcoming videos.</div>
+            ) : upcomingTasks.map(t => {
+              const { color, bg, label } = statusStyle(t);
+              const due = new Date(t.dueDate!);
+              return (
+                <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderTop: '1px solid #f0e8df' }}>
+                    <div style={{ textAlign: 'center', minWidth: 28, flexShrink: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1, color: '#221e18' }}>{due.getDate()}</div>
+                      <div style={{ fontSize: 9, fontWeight: 600, color: '#9d9488', textTransform: 'uppercase' }}>{due.toLocaleString('en-US', { month: 'short' })}</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, color, background: bg, padding: '1px 5px', borderRadius: 4, marginTop: 2 }}>
+                        <span style={{ width: 4, height: 4, borderRadius: '50%', background: color }} />{label}
+                      </span>
+                    </div>
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
