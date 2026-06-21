@@ -28,6 +28,8 @@ export default async function SettingsPage() {
       role: authUsers.role,
       emailVerified: authUsers.emailVerified,
       createdAt: authUsers.createdAt,
+      isAlsoClient: authUsers.isAlsoClient,
+      clientName: authUsers.clientName,
     })
     .from(authUsers)
     .where(ne(authUsers.role, 'client'))

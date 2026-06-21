@@ -5,23 +5,24 @@ import { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import Link from 'next/link';
 
-const NAV = [
-  { label: 'Dashboard', href: '/dashboard', icon: '▦' },
-  { label: 'Clients', href: '/admin/clients', icon: '◎' },
-  { label: 'Publishing', href: '#', icon: '⬆', disabled: true },
-  { label: 'Settings', href: '/settings', icon: '⚙' },
-];
-
-export function LayoutShell({ children }: { children: React.ReactNode }) {
+export function LayoutShell({ children, showClientPortal }: { children: React.ReactNode; showClientPortal?: boolean }) {
   const pathname = usePathname();
   const noShell = pathname.startsWith('/client') || pathname.startsWith('/login');
   const [open, setOpen] = useState(false);
 
   if (noShell) return <>{children}</>;
 
+  const nav = [
+    { label: 'Dashboard', href: '/dashboard', icon: '▦' },
+    { label: 'Clients', href: '/admin/clients', icon: '◎' },
+    { label: 'Publishing', href: '#', icon: '⬆', disabled: true },
+    ...(showClientPortal ? [{ label: 'My Client Portal', href: '/client', icon: '▤' }] : []),
+    { label: 'Settings', href: '/settings', icon: '⚙' },
+  ];
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#eceef1' }}>
-      <Sidebar active={pathname} />
+      <Sidebar active={pathname} showClientPortal={showClientPortal} />
 
       {/* Hamburger button — visible only when sidebar is hidden (≤860px) */}
       <button
@@ -66,7 +67,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
 
           {/* Nav */}
           <nav style={{ padding: '12px 10px', flex: 1 }}>
-            {NAV.map(item => {
+            {nav.map(item => {
               const isActive = pathname === item.href;
               return (
                 <Link

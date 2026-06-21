@@ -9,6 +9,8 @@ interface User {
   role: string;
   emailVerified: boolean;
   createdAt: Date | null;
+  isAlsoClient: boolean | null;
+  clientName: string | null;
 }
 
 interface Props {
@@ -48,17 +50,17 @@ export function SettingsPageClient({ users: initial, currentUserId }: Props) {
   const [success, setSuccess] = useState('');
 
   // Form state
-  const [form, setForm] = useState({ name: '', email: '', role: 'account_manager' });
+  const [form, setForm] = useState({ name: '', email: '', role: 'account_manager', isAlsoClient: false, clientName: '' });
 
   function openInvite() {
-    setForm({ name: '', email: '', role: 'account_manager' });
+    setForm({ name: '', email: '', role: 'account_manager', isAlsoClient: false, clientName: '' });
     setError('');
     setSuccess('');
     setDrawer({ mode: 'invite' });
   }
 
   function openEdit(user: User) {
-    setForm({ name: user.name, email: user.email, role: user.role });
+    setForm({ name: user.name, email: user.email, role: user.role, isAlsoClient: user.isAlsoClient ?? false, clientName: user.clientName ?? '' });
     setError('');
     setSuccess('');
     setDrawer({ mode: 'edit', user });
@@ -101,12 +103,12 @@ export function SettingsPageClient({ users: initial, currentUserId }: Props) {
       const res = await fetch('/api/admin/update-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: drawer.user.id, role: form.role }),
+        body: JSON.stringify({ userId: drawer.user.id, role: form.role, isAlsoClient: form.isAlsoClient, clientName: form.clientName }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed');
-      setUsers(prev => prev.map(u => u.id === drawer.user!.id ? { ...u, role: form.role } : u));
-      setSuccess('Role updated');
+      setUsers(prev => prev.map(u => u.id === drawer.user!.id ? { ...u, role: form.role, isAlsoClient: form.isAlsoClient, clientName: form.clientName } : u));
+      setSuccess('Saved');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
     } finally {
@@ -317,6 +319,31 @@ export function SettingsPageClient({ users: initial, currentUserId }: Props) {
                     : 'Access to their AM dashboard, client portal, and assigned tasks.'}
                 </p>
               </div>
+
+              {drawer.mode === 'edit' && (
+                <div>
+                  <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={form.isAlsoClient}
+                      onChange={e => setForm(f => ({ ...f, isAlsoClient: e.target.checked }))}
+                      style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#FF6000' }}
+                    />
+                    Also a client (can access client portal)
+                  </label>
+                  {form.isAlsoClient && (
+                    <div style={{ marginTop: 10 }}>
+                      <label style={labelStyle}>Client name (must match ClickUp client name exactly)</label>
+                      <input
+                        style={inputStyle}
+                        value={form.clientName}
+                        onChange={e => setForm(f => ({ ...f, clientName: e.target.value }))}
+                        placeholder="e.g. Hector Ramirez"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               {error && (
                 <div style={{ fontSize: 13, color: '#cf3f36', background: '#fdedeb', border: '1px solid #f8d0cc', borderRadius: 8, padding: '10px 14px' }}>
