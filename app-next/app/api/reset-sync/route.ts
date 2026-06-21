@@ -1,0 +1,125 @@
+import { NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { videoCache } from '@/lib/db/schema';
+import { sql } from 'drizzle-orm';
+
+const BASE = 'https://api.clickup.com/api/v2';
+
+function resolveOpt(options: any[], idx: number | null): string | null {
+  if (idx === null || !options[idx]) return null;
+  return options[idx].name ?? null;
+}
+
+function resolveOptId(options: any[], idx: number | null): string | null {
+  if (idx === null || !options[idx]) return null;
+  return options[idx].id ?? null;
+}
+
+async function fetchAllTasks(listId: string, token: string) {
+  const all: any[] = [];
+  let page = 0;
+  while (true) {
+    const res = await fetch(`${BASE}/list/${listId}/task?include_closed=true&page=${page}`, {
+      headers: { Authorization: token },
+      cache: 'no-store',
+    });
+    const data = await res.json();
+    const tasks = data.tasks ?? [];
+    all.push(...tasks);
+    if (tasks.length < 100) break;
+    page++;
+  }
+  return all;
+}
+
+export async function POST(req: Request) {
+  const secret = req.headers.get('x-migrate-secret');
+  if (secret !== process.env.MIGRATE_SECRET) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const token = process.env.CLICKUP_API_TOKEN;
+  const listId = process.env.CLICKUP_LIST_ID;
+  if (!token) return NextResponse.json({ error: 'CLICKUP_API_TOKEN not set' }, { status: 500 });
+  if (!listId) return NextResponse.json({ error: 'CLICKUP_LIST_ID not set' }, { status: 500 });
+
+  // 1. Fetch all tasks from the list first — bail before touching DB if this fails
+  const rawTasks = await fetchAllTasks(listId, token);
+  if (rawTasks.length === 0) {
+    return NextResponse.json({ error: 'No tasks returned from ClickUp — aborting to avoid data loss' }, { status: 500 });
+  }
+
+  // 2. Build option maps once across all tasks
+  const fieldOptions: Record<string, any[]> = {};
+  for (const t of rawTasks) {
+    for (const f of (t.custom_fields ?? []) as any[]) {
+      if (!fieldOptions[f.name] && f.type_config?.options?.length) {
+        fieldOptions[f.name] = f.type_config.options;
+      }
+    }
+  }
+
+  // 3. Truncate video_cache
+  await db.execute(sql`TRUNCATE TABLE video_cache`);
+
+  // 4. Re-insert all tasks from the list
+  let inserted = 0;
+  let nullClient = 0;
+
+  for (const task of rawTasks) {
+    const fields = (task.custom_fields ?? []) as any[];
+    const find = (name: string) => fields.find((f: any) => f.name === name);
+
+    const clientField   = find('Client Name (AM)');
+    const levelField    = find('Video Level (AM)');
+    const approvalField = find('CLIENT APPROVAL');
+    const pubField      = find('Publishing Status');
+    const captionField  = find('Captions');
+    const frameField    = find('Updated Frame Link (Editor)');
+    const amField       = find('Account Manager (AM)');
+    const qcField       = find('QUALITY CHECK (Somu)');
+
+    const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
+    const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
+    const approvalIdx = typeof approvalField?.value === 'number' ? approvalField.value : null;
+    const pubIdx      = typeof pubField?.value === 'number' ? pubField.value : null;
+    const qcIdx       = typeof qcField?.value === 'number' ? qcField.value : null;
+
+    const opts = (name: string) => fieldOptions[name] ?? [];
+    const clientName = resolveOpt(opts('Client Name (AM)'), clientIdx);
+    if (!clientName) nullClient++;
+
+    const amUsers    = amField?.value as { username?: string }[] | undefined;
+    const amName     = amUsers?.[0]?.username ?? null;
+    const editorName = (task.assignees as { username?: string }[])?.[0]?.username ?? null;
+
+    let dueDate: string | null = null;
+    if (task.due_date) {
+      const ms = Number(task.due_date);
+      dueDate = isNaN(ms) ? task.due_date : new Date(ms).toISOString();
+    }
+
+    await db.insert(videoCache).values({
+      clickupTaskId:    task.id,
+      title:            task.name,
+      status:           task.status?.status ?? null,
+      clientId:         resolveOptId(opts('Client Name (AM)'), clientIdx),
+      clientName,
+      clientApproval:   resolveOpt(opts('CLIENT APPROVAL'), approvalIdx),
+      videoLevel:       resolveOpt(opts('Video Level (AM)'), levelIdx),
+      caption:          typeof captionField?.value === 'string' ? captionField.value : null,
+      publishingStatus: resolveOpt(opts('Publishing Status'), pubIdx),
+      frameioAssetId:   typeof frameField?.value === 'string' ? frameField.value : null,
+      assignedAmName:   amName,
+      editorName,
+      qualityCheck:     resolveOpt(opts('QUALITY CHECK (Somu)'), qcIdx),
+      dateUpdated:      task.date_updated ?? null,
+      dueDate,
+      lastSyncedAt:     new Date(),
+      dirty:            false,
+    });
+    inserted++;
+  }
+
+  return NextResponse.json({ inserted, nullClient, total: rawTasks.length });
+}
