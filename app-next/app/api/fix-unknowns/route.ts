@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { headers } from 'next/headers';
+import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { videoCache } from '@/lib/db/schema';
 import { isNull, eq } from 'drizzle-orm';
@@ -6,11 +8,9 @@ import { isNull, eq } from 'drizzle-orm';
 const BASE = 'https://api.clickup.com/api/v2';
 
 // POST: fetch each null-clientName task individually from ClickUp and patch the DB
-export async function POST(req: Request) {
-  const secret = req.headers.get('x-migrate-secret');
-  if (secret !== process.env.MIGRATE_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+export async function POST() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const token = process.env.CLICKUP_API_TOKEN;
   if (!token) return NextResponse.json({ error: 'CLICKUP_API_TOKEN not set' }, { status: 500 });
