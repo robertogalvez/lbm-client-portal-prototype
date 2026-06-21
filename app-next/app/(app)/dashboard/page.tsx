@@ -1,7 +1,7 @@
 import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask } from '@/lib/clickup';
 import { getTasksFromDB } from '@/lib/db/queries';
 import { RefreshButton } from '@/components/dashboard/RefreshButton';
-import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor } from '@/components/dashboard/DashboardTabs';
+import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask } from '@/components/dashboard/DashboardTabs';
 import { InfoPopover } from '@/components/ui/Tooltip';
 
 export const dynamic = 'force-dynamic';
@@ -183,10 +183,18 @@ export default async function DashboardPage({
 
   const postedThisMonth = tasks.filter(t => norm(t.status) === POSTED && new Date(t.dateUpdated).getTime() >= monthStart).length;
 
-  const pipeline   = buildPipeline(tasks);
-  const approvals  = buildApprovals(tasks);
-  const clients    = buildClients(tasks);
-  const editors    = buildEditors(tasks);
+  const pipeline    = buildPipeline(tasks);
+  const approvals   = buildApprovals(tasks);
+  const clients     = buildClients(tasks);
+  const editors     = buildEditors(tasks);
+  const statusTasks: StatusTask[] = tasks.map(t => ({
+    id: t.clickupTaskId,
+    title: t.title,
+    clientName: t.clientName,
+    amName: t.assignedAmName,
+    status: t.status,
+    frameLink: t.frameLink,
+  }));
 
   const attentionClients: AttentionClient[] = clients
     .filter(c => c.inReview > 0 && c.oldestDays > 3)
@@ -296,6 +304,7 @@ export default async function DashboardPage({
         pipeline={pipeline}
         attentionClients={attentionClients}
         topEditors={topEditors}
+        statusTasks={statusTasks}
         defaultTab={overdueCount > 0 ? 'approvals' : 'overview'}
       />
     </main>

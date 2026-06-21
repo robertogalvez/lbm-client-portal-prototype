@@ -218,23 +218,8 @@ body {
 }
 
 /* ============================================================
-   Desktop Client Portal — full-width layout
+   Desktop Client Portal — full-width layout (reserved for future use)
    ============================================================ */
-.cd-mobile { display: block; }
-.cd-desktop { display: none; }
-
-@media (min-width: 768px) {
-  .cd-mobile { display: none !important; }
-  .cd-desktop {
-    display: block;
-    min-height: 100vh;
-    background: #faf6f0;
-    font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
-    color: #221e18;
-    font-size: 15px;
-    -webkit-font-smoothing: antialiased;
-  }
-}
 
 /* Top navigation */
 .cd-nav {
@@ -323,46 +308,28 @@ body {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* Video detail desktop */
-.vd-desktop { display: none; }
-@media (min-width: 768px) {
-  .vd-desktop {
-    display: flex; flex-direction: column; height: 100vh;
-    background: #faf6f0;
-    font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
-    color: #221e18; -webkit-font-smoothing: antialiased;
-  }
-  /* Hide mobile vd-shell on desktop */
-  .vd-shell { display: none !important; }
-  .vd-mobile-header { display: none !important; }
-}
-.vd-desktop-meta {
-  padding: 16px 48px 18px; border-bottom: 1px solid #ece4d8;
-  background: #fff; flex-shrink: 0;
-}
-.vd-desktop-embed { flex: 1; min-height: 0; background: #111; }
-.vd-desktop-embed iframe { width: 100%; height: 100%; border: none; display: block; }
-
-/* Video detail — desktop */
+/* Video detail — desktop two-column */
 @media (min-width: 768px) {
   .vd-shell {
     flex-direction: row;
     height: 100vh;
     overflow: hidden;
   }
+  .vd-mobile-header { display: none !important; }
   .vd-left {
     flex: 1;
     display: flex;
     flex-direction: column;
     min-width: 0;
     background: #111;
+    position: relative;
   }
   .vd-left-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 16px 20px;
-    background: rgba(0,0,0,0.6);
+    background: rgba(0,0,0,0.55);
     backdrop-filter: blur(8px);
     position: absolute;
     top: 0; left: 0; right: 0;
@@ -370,7 +337,7 @@ body {
   }
   .vd-player { flex: 1; }
   .vd-right {
-    width: 360px;
+    width: 380px;
     flex-shrink: 0;
     background: #faf6f0;
     border-left: 1px solid #ece4d8;
@@ -382,21 +349,18 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 18px 20px 14px;
+    padding: 16px 20px 12px;
     border-bottom: 1px solid #ece4d8;
     flex-shrink: 0;
   }
-  .vd-meta {
-    padding: 20px;
-    flex: 1;
-  }
+  .vd-meta { padding: 20px; flex: 1; }
   .vd-dock {
     position: static;
     padding: 16px 20px;
     border-top: 1px solid #ece4d8;
     flex-shrink: 0;
+    background: #fff;
   }
-  .vd-mobile-header { display: none; }
 }
 
 /* Dashboard responsive grids */

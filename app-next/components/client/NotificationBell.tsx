@@ -8,9 +8,31 @@ interface ReviewTask {
   dateUpdated: string;
 }
 
+const STORAGE_KEY = 'lbm-dismissed-notifs';
+
+function loadDismissed(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
 export function NotificationBell({ tasks }: { tasks: ReviewTask[] }) {
   const [open, setOpen] = useState(false);
-  const count = tasks.length;
+  const [dismissed, setDismissed] = useState<Set<string>>(loadDismissed);
+
+  const visible = tasks.filter(t => !dismissed.has(t.clickupTaskId));
+  const count = visible.length;
+
+  function clearAll() {
+    const next = new Set([...dismissed, ...tasks.map(t => t.clickupTaskId)]);
+    setDismissed(next);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...next])); } catch { /* */ }
+    setOpen(false);
+  }
 
   function timeAgo(dateUpdated: string) {
     const ts = Number(dateUpdated);
@@ -51,35 +73,39 @@ export function NotificationBell({ tasks }: { tasks: ReviewTask[] }) {
 
       {open && (
         <>
-          {/* Backdrop */}
           <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 200 }} />
 
-          {/* Panel */}
           <div style={{
             position: 'absolute', top: 48, right: 0,
-            width: 280, background: '#fff',
+            width: 290, background: '#fff',
             border: '1px solid #ece4d8', borderRadius: 16,
             boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
             zIndex: 201, overflow: 'hidden',
           }}>
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid #ece4d8', fontSize: 12, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Notifications
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid #ece4d8', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notifications</span>
+              {count > 0 && (
+                <button onClick={clearAll} style={{ fontSize: 11.5, fontWeight: 700, color: '#B23E00', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
+                  Clear all
+                </button>
+              )}
             </div>
+
             {count === 0 ? (
               <div style={{ padding: '24px 16px', textAlign: 'center', fontSize: 13, color: '#9d9488' }}>
                 No pending reviews
               </div>
             ) : (
-              tasks.map(t => (
+              visible.map(t => (
                 <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}`} onClick={() => setOpen(false)} style={{
                   display: 'flex', alignItems: 'flex-start', gap: 10,
-                  padding: '12px 16px', borderBottom: '1px solid #f7f2ea',
+                  padding: '11px 14px', borderBottom: '1px solid #f7f2ea',
                   textDecoration: 'none', color: 'inherit',
                 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#FF6000', flexShrink: 0, marginTop: 4 }} />
+                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#FF6000', flexShrink: 0, marginTop: 4 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#221e18', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</div>
-                    <div style={{ fontSize: 11, color: '#9d9488', marginTop: 2 }}>Awaiting your review · {timeAgo(t.dateUpdated)}</div>
+                    <div style={{ fontSize: 11, color: '#9d9488', marginTop: 2 }}>Awaiting review · {timeAgo(t.dateUpdated)}</div>
                   </div>
                 </a>
               ))
