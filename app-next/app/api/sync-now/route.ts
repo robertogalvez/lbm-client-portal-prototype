@@ -131,6 +131,8 @@ export async function POST() {
 
     return NextResponse.json({ synced: rows.length, total: rawTasks.length });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
+    const msg   = e instanceof Error ? e.message : String(e);
+    const cause = e instanceof Error ? String((e as any).cause ?? '') : '';
+    return NextResponse.json({ error: msg, cause }, { status: 500 });
   }
 }
