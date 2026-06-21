@@ -47,6 +47,7 @@ export async function POST() {
 }
 
 async function runReset() {
+  try {
   const token = process.env.CLICKUP_API_TOKEN;
   const listId = process.env.CLICKUP_LIST_ID;
   if (!token) return NextResponse.json({ error: 'CLICKUP_API_TOKEN not set' }, { status: 500 });
@@ -131,4 +132,7 @@ async function runReset() {
   }
 
   return NextResponse.json({ inserted, nullClient, total: rawTasks.length });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
+  }
 }
