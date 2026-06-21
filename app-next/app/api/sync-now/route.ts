@@ -5,6 +5,8 @@ import { db } from '@/lib/db';
 import { videoCache } from '@/lib/db/schema';
 import { sql } from 'drizzle-orm';
 
+export const maxDuration = 60;
+
 const BASE = 'https://api.clickup.com/api/v2';
 
 async function fetchAllTasksFromList(listId: string, token: string) {
@@ -102,29 +104,32 @@ export async function POST() {
       };
     });
 
-    // Single batch upsert
-    await db.insert(videoCache)
-      .values(rows)
-      .onConflictDoUpdate({
-        target: videoCache.clickupTaskId,
-        set: {
-          title:            sql`excluded.title`,
-          status:           sql`excluded.status`,
-          clientId:         sql`excluded.client_id`,
-          clientName:       sql`excluded.client_name`,
-          clientApproval:   sql`excluded.client_approval`,
-          videoLevel:       sql`excluded.video_level`,
-          caption:          sql`excluded.caption`,
-          publishingStatus: sql`excluded.publishing_status`,
-          frameioAssetId:   sql`excluded.frameio_asset_id`,
-          assignedAmName:   sql`excluded.assigned_am_name`,
-          editorName:       sql`excluded.editor_name`,
-          qualityCheck:     sql`excluded.quality_check`,
-          dateUpdated:      sql`excluded.date_updated`,
-          dueDate:          sql`excluded.due_date`,
-          lastSyncedAt:     sql`excluded.last_synced_at`,
-        },
-      });
+    // Upsert in chunks of 100 to stay well under query size limits
+    const CHUNK = 100;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      await db.insert(videoCache)
+        .values(rows.slice(i, i + CHUNK))
+        .onConflictDoUpdate({
+          target: videoCache.clickupTaskId,
+          set: {
+            title:            sql`excluded.title`,
+            status:           sql`excluded.status`,
+            clientId:         sql`excluded.client_id`,
+            clientName:       sql`excluded.client_name`,
+            clientApproval:   sql`excluded.client_approval`,
+            videoLevel:       sql`excluded.video_level`,
+            caption:          sql`excluded.caption`,
+            publishingStatus: sql`excluded.publishing_status`,
+            frameioAssetId:   sql`excluded.frameio_asset_id`,
+            assignedAmName:   sql`excluded.assigned_am_name`,
+            editorName:       sql`excluded.editor_name`,
+            qualityCheck:     sql`excluded.quality_check`,
+            dateUpdated:      sql`excluded.date_updated`,
+            dueDate:          sql`excluded.due_date`,
+            lastSyncedAt:     sql`excluded.last_synced_at`,
+          },
+        });
+    }
 
     return NextResponse.json({ synced: rows.length, total: rawTasks.length });
   } catch (e) {

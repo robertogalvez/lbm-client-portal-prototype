@@ -12,5 +12,8 @@
   POSTMARK_API_KEY    = ""
   FRAMEIO_API_TOKEN   = ""
 
+[functions]
+  timeout = 60
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
