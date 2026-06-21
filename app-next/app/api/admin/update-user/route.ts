@@ -19,10 +19,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { userId, role, deactivate } = await req.json() as {
+  const { userId, role, deactivate, isAlsoClient, clientName } = await req.json() as {
     userId?: string;
     role?: string;
     deactivate?: boolean;
+    isAlsoClient?: boolean;
+    clientName?: string;
   };
 
   if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
@@ -47,14 +49,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, action: 'deleted' });
   }
 
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+
   if (role) {
-    const validRole = role === 'admin' ? 'admin' : 'account_manager';
-    await db
-      .update(authUsers)
-      .set({ role: validRole, updatedAt: new Date() })
-      .where(eq(authUsers.id, userId));
-    return NextResponse.json({ ok: true, action: 'updated', role: validRole });
+    updates.role = role === 'admin' ? 'admin' : 'account_manager';
+  }
+  if (isAlsoClient !== undefined) {
+    updates.isAlsoClient = isAlsoClient;
+  }
+  if (clientName !== undefined) {
+    updates.clientName = clientName || null;
   }
 
-  return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
+  if (Object.keys(updates).length === 1) {
+    return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
+  }
+
+  await db.update(authUsers).set(updates).where(eq(authUsers.id, userId));
+  return NextResponse.json({ ok: true, action: 'updated', ...updates });
 }
