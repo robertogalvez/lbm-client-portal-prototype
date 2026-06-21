@@ -105,8 +105,38 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     { label: 'Account', href: '/client?tab=account', badge: 0, active: tab === 'account', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg> },
   ];
 
+  const DesktopVideoCard = ({ t }: { t: (typeof clientTasks)[0] }) => {
+    const thumb = thumbnails[t.clickupTaskId];
+    return (
+      <div style={{background:'#fff', borderRadius:16, overflow:'hidden', boxShadow:'0 2px 8px #0001'}}>
+        {/* 16:9 thumbnail */}
+        <div style={{position:'relative', paddingTop:'56.25%', background:'#1a1714'}}>
+          {thumb ? (
+            <img src={thumb} alt={t.title} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}} />
+          ) : (
+            <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:36}}>🎬</div>
+          )}
+          {t.frameLink && (
+            <span style={{position:'absolute',top:8,right:8,background:'#0f6fec',color:'#fff',fontSize:11,padding:'3px 8px',borderRadius:6,fontWeight:600}}>Frame.io</span>
+          )}
+        </div>
+        <div style={{padding:16}}>
+          <div style={{fontWeight:700, fontSize:15, marginBottom:10, lineHeight:1.3}}>{t.title}</div>
+          <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
+            <div style={{width:28,height:28,borderRadius:'50%',background:'#f97316',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#fff'}}>{initials(t.assignedAmName||'AM')}</div>
+            <span style={{fontSize:12, color:'#6b6455'}}>{t.assignedAmName}</span>
+          </div>
+          <div style={{background:'#fef3c7', color:'#92400e', textAlign:'center', padding:'6px', borderRadius:8, fontSize:12, fontWeight:600, marginBottom:12}}>⏳ Awaiting your review</div>
+          <a href={`/client/videos/${t.clickupTaskId}`} style={{display:'block', textAlign:'center', padding:'10px', background:'#f97316', color:'#fff', borderRadius:10, fontWeight:600, fontSize:14, textDecoration:'none', marginBottom:10}}>Watch &amp; review</a>
+          <ApprovalButtons taskId={t.clickupTaskId} currentApproval={t.clientApproval} />
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <main className="cp-shell">
+    <>
+    <main className="cp-shell client-mobile">
       <div className="cp-frame">
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px 12px', flexShrink: 0 }}>
@@ -240,6 +270,157 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
         </nav>
       </div>
     </main>
+
+    {/* ─── Desktop layout (≥900px) ─── */}
+    <div className="client-desktop">
+      {/* Nav */}
+      <nav className="cd-nav">
+        <div className="cd-nav-inner">
+          <span className="cd-logo"><em>LEGACY MEDIA</em></span>
+          <div className="cd-tabs">
+            <a href="/client?tab=reviews" className={`cd-tab${tab === 'reviews' ? ' cd-active' : ''}`}>
+              Reviews {reviewTasks.length > 0 && <span className="cd-tab-badge">{reviewTasks.length}</span>}
+            </a>
+            <a href="/client?tab=calendar" className={`cd-tab${tab === 'calendar' ? ' cd-active' : ''}`}>Calendar</a>
+            <a href="/client?tab=account" className={`cd-tab${tab === 'account' ? ' cd-active' : ''}`}>Account</a>
+          </div>
+          <div className="cd-nav-right">
+            <NotificationBell tasks={reviewTasks.map(t => ({ clickupTaskId: t.clickupTaskId, title: t.title, dateUpdated: t.dateUpdated }))} />
+            <span className="cd-client-name">{clientName} / Client workspace</span>
+            <div className="cd-avatar">{initials(name ?? clientName ?? 'C')}</div>
+          </div>
+        </div>
+      </nav>
+
+      <div style={{padding: '32px 40px', maxWidth: 1280, margin: '0 auto'}}>
+        {/* Welcome */}
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:28}}>
+          <div>
+            <h1 style={{fontSize:28, fontWeight:700, margin:0}}>Welcome back, {(name ?? clientName ?? 'Client').split(' ')[0]}</h1>
+            <p style={{margin:'6px 0 0', color:'#6b6455', fontSize:15}}>Here&apos;s your content overview</p>
+          </div>
+          <span style={{background:'#d4edda', color:'#1a6b35', padding:'6px 14px', borderRadius:20, fontSize:13, fontWeight:600}}>🔒 Secure client access</span>
+        </div>
+
+        {/* Pipeline stats banner */}
+        <div style={{background:'#1a1714', borderRadius:16, padding:'24px 32px', marginBottom:28, display:'flex', alignItems:'center', gap:32, color:'#fff'}}>
+          {/* Conic progress ring */}
+          <div style={{position:'relative', width:72, height:72, flexShrink:0}}>
+            <svg width="72" height="72" viewBox="0 0 72 72">
+              <circle cx="36" cy="36" r="30" fill="none" stroke="#333" strokeWidth="8"/>
+              <circle cx="36" cy="36" r="30" fill="none" stroke="#f97316" strokeWidth="8"
+                strokeDasharray={`${pct * 1.885} 188.5`} strokeLinecap="round"
+                transform="rotate(-90 36 36)"/>
+            </svg>
+            <span style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700}}>{postedTasks.length}/{clientTasks.length}</span>
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11, letterSpacing:2, color:'#888', fontWeight:600, marginBottom:4}}>
+              {new Date().toLocaleString('default',{month:'long'}).toUpperCase()} CONTENT PACKAGE
+            </div>
+            <div style={{fontSize:20, fontWeight:700}}>{clientTasks.length} videos this month</div>
+          </div>
+          {/* Stat columns */}
+          {[
+            {label:'Awaiting you', val: reviewTasks.length, color:'#f59e0b'},
+            {label:'Published', val: postedTasks.length, color:'#22c55e'},
+            {label:'In production', val: inProgress.length, color:'#60a5fa'},
+          ].map(s => (
+            <div key={s.label} style={{textAlign:'center', minWidth:80}}>
+              <div style={{fontSize:32, fontWeight:800, color: s.color}}>{s.val}</div>
+              <div style={{fontSize:12, color:'#aaa', marginTop:2}}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        {tab === 'reviews' && (
+          <div>
+            {/* Needs your review */}
+            {reviewTasks.length > 0 && (
+              <section style={{marginBottom:36}}>
+                <h2 style={{fontSize:18, fontWeight:700, marginBottom:16}}>Needs your review</h2>
+                <div className="cd-review-grid">
+                  {reviewTasks.map(t => <DesktopVideoCard key={t.clickupTaskId} t={t} />)}
+                </div>
+              </section>
+            )}
+
+            {/* In production */}
+            {inProgress.length > 0 && (
+              <section style={{marginBottom:36}}>
+                <h2 style={{fontSize:18, fontWeight:700, marginBottom:12}}>In production</h2>
+                {inProgress.map(t => (
+                  <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
+                    <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:600, fontSize:14}}>{t.title}</div>
+                      <div style={{fontSize:12, color:'#6b6455'}}>{t.assignedAmName}</div>
+                    </div>
+                    <span style={{background:'#ede9e0', color:'#6b6455', fontSize:12, padding:'3px 10px', borderRadius:12}}>{norm(t.status)}</span>
+                  </div>
+                ))}
+              </section>
+            )}
+
+            {/* Recently reviewed */}
+            {(() => {
+              const reviewed = clientTasks
+                .filter(t => t.clientApproval === 'approved' || t.clientApproval === 'changes_requested')
+                .sort((a,b) => (Number(b.dateUpdated)||0) - (Number(a.dateUpdated)||0))
+                .slice(0, 6);
+              return reviewed.length > 0 ? (
+                <section>
+                  <h2 style={{fontSize:18, fontWeight:700, marginBottom:12}}>Recently reviewed</h2>
+                  {reviewed.map(t => (
+                    <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
+                      <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:600, fontSize:14}}>{t.title}</div>
+                        <div style={{fontSize:12, color:'#6b6455'}}>{t.assignedAmName}</div>
+                      </div>
+                      <span style={{fontSize:12, color:'#888'}}>{t.dateUpdated ? fmtDate(t.dateUpdated) : ''}</span>
+                      <span style={{
+                        background: t.clientApproval === 'approved' ? '#d4edda' : '#fde8d0',
+                        color: t.clientApproval === 'approved' ? '#1a6b35' : '#c2410c',
+                        fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:600
+                      }}>{t.clientApproval === 'approved' ? 'Approved' : 'Changes requested'}</span>
+                      <a href={`/client/videos/${t.clickupTaskId}`} style={{fontSize:13, color:'#f97316', fontWeight:600}}>View →</a>
+                    </div>
+                  ))}
+                </section>
+              ) : null;
+            })()}
+          </div>
+        )}
+
+        {tab === 'calendar' && <CalendarView tasks={clientTasks.map(t => ({
+          clickupTaskId: t.clickupTaskId,
+          title: t.title,
+          status: t.status,
+          dueDate: t.dueDate,
+          clientApproval: t.clientApproval,
+          frameLink: t.frameLink,
+        }))} />}
+
+        {tab === 'account' && (
+          <div style={{maxWidth:480}}>
+            <h2 style={{fontSize:22, fontWeight:700, marginBottom:20}}>Account</h2>
+            <div style={{background:'#fff', borderRadius:16, padding:24, boxShadow:'0 1px 4px #0001'}}>
+              <div style={{display:'flex', alignItems:'center', gap:16, marginBottom:20}}>
+                <div className="cd-avatar" style={{width:56,height:56,fontSize:22}}>{initials(name ?? clientName ?? 'C')}</div>
+                <div>
+                  <div style={{fontWeight:700, fontSize:18}}>{name ?? clientName}</div>
+                  <div style={{color:'#6b6455', fontSize:14}}>{clientName}</div>
+                </div>
+              </div>
+              <a href="/api/auth/signout" style={{display:'block', textAlign:'center', padding:'12px', background:'#1a1714', color:'#fff', borderRadius:10, fontWeight:600, textDecoration:'none'}}>Sign out</a>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+    </>
   );
 }
 

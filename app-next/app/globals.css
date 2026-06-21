@@ -218,8 +218,45 @@ body {
 }
 
 /* ============================================================
-   Desktop Client Portal — full-width layout (reserved for future use)
+   Desktop Client Portal — full-width layout
    ============================================================ */
+
+/* Mobile/desktop visibility toggle */
+.client-mobile { }
+.client-desktop {
+  display: none;
+  background: #f5f0e8;
+  min-height: 100vh;
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  color: #221e18;
+  -webkit-font-smoothing: antialiased;
+}
+@media (min-width: 900px) {
+  .client-mobile { display: none !important; }
+  .client-desktop { display: block; }
+}
+
+/* Desktop review card grid */
+.cd-review-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+@media (max-width: 1100px) {
+  .cd-review-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 780px) {
+  .cd-review-grid { grid-template-columns: 1fr; }
+}
+
+/* Calendar desktop two-column layout */
+.cal-layout { display: flex; flex-direction: column; gap: 16px; }
+.cal-main { flex: 1; min-width: 0; }
+.cal-sidebar { display: none; }
+@media (min-width: 900px) {
+  .cal-layout { flex-direction: row; align-items: flex-start; gap: 24px; }
+  .cal-sidebar { display: block; width: 268px; flex-shrink: 0; }
+}
 
 /* Top navigation */
 .cd-nav {
@@ -306,6 +343,22 @@ body {
   display: block; padding: 2px 6px; border-radius: 4px; margin-bottom: 2px;
   font-size: 10.5px; font-weight: 600;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Mobile/desktop layout switching */
+.client-desktop { display: none; background: #f5f0e8; min-height: 100vh; font-family: "Plus Jakarta Sans", system-ui, sans-serif; color: #221e18; -webkit-font-smoothing: antialiased; }
+@media (min-width: 900px) {
+  .client-mobile { display: none !important; }
+  .client-desktop { display: block; }
+}
+.cd-review-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+@media (max-width: 1100px) { .cd-review-grid { grid-template-columns: repeat(2, 1fr); } }
+.cal-layout { display: flex; flex-direction: column; gap: 16px; }
+.cal-sidebar { display: none; }
+@media (min-width: 900px) {
+  .cal-layout { flex-direction: row; align-items: flex-start; gap: 24px; }
+  .cal-main { flex: 1; }
+  .cal-sidebar { display: block; width: 280px; flex-shrink: 0; }
 }
 
 /* Video detail — desktop two-column */
