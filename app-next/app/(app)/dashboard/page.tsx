@@ -1,7 +1,6 @@
 import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask } from '@/lib/clickup';
 import { getTasksFromDB } from '@/lib/db/queries';
-import { RefreshButton } from '@/components/dashboard/RefreshButton';
-import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask } from '@/components/dashboard/DashboardTabs';
+import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask, EDITOR_PHASE_COLS } from '@/components/dashboard/DashboardTabs';
 import { InfoPopover } from '@/components/ui/Tooltip';
 
 export const dynamic = 'force-dynamic';
@@ -75,16 +74,18 @@ function buildClients(tasks: MappedTask[]): ClientRow[] {
 }
 
 function buildEditors(tasks: MappedTask[]): EditorRow[] {
-  const map = new Map<string, { active: number; approved: number; rework: number }>();
+  const phaseKeys = new Set(EDITOR_PHASE_COLS.map(p => p.key));
+  const map = new Map<string, { active: number; approved: number; rework: number; phases: Record<string, number> }>();
   for (const t of tasks) {
     const name = t.editorName;
     if (!name) continue;
-    if (!map.has(name)) map.set(name, { active: 0, approved: 0, rework: 0 });
+    if (!map.has(name)) map.set(name, { active: 0, approved: 0, rework: 0, phases: {} });
     const s = map.get(name)!;
     const st = norm(t.status);
     if (st !== 'posted in socials') s.active++;
     if (t.clientApproval?.toLowerCase() === 'approved') s.approved++;
     if (st === 'in progress (corrections)') s.rework++;
+    if (phaseKeys.has(st)) s.phases[st] = (s.phases[st] ?? 0) + 1;
   }
   return Array.from(map.entries())
     .map(([name, s]) => {
@@ -246,7 +247,6 @@ export default async function DashboardPage({
               </a>
             ))}
           </div>
-          <RefreshButton />
         </div>
       </div>
 

@@ -25,7 +25,17 @@ export interface EditorRow {
   approved: number;
   rework: number;
   firstPassClean: number | null;
+  phases: Record<string, number>;
 }
+
+export const EDITOR_PHASE_COLS: { key: string; label: string }[] = [
+  { key: 'backlog',                label: 'Backlog' },
+  { key: 'in progress (editor)',   label: 'In Progress (Editor)' },
+  { key: 'qc final - am',         label: 'QC Final – AM' },
+  { key: 'for client review',      label: 'For Client Review' },
+  { key: 'ready to be posted',     label: 'Ready to Be Posted' },
+  { key: 'posted in socials',      label: 'Posted in Socials' },
+];
 
 export interface PipelineStage {
   key: string;
@@ -456,8 +466,9 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
               <thead>
                 <tr>
                   <th style={thStyle}>Editor</th>
-                  <th style={thNum}>Active <InfoPopover tip="Videos currently assigned to this editor that haven't been posted yet." /></th>
-                  <th style={thNum}>Approved</th>
+                  {EDITOR_PHASE_COLS.map(p => (
+                    <th key={p.key} style={thNum}>{p.label}</th>
+                  ))}
                   <th style={thNum}>Rework <InfoPopover tip="Videos returned for corrections after client review." /></th>
                   <th style={thNum}>First-pass clean <InfoPopover tip="Approved ÷ (Approved + Rework). '—' when no completed videos yet." /></th>
                 </tr>
@@ -471,14 +482,24 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
                         {e.name}
                       </div>
                     </td>
-                    <td style={tdNum}>{e.active}</td>
-                    <td style={tdNum}><span style={{ fontWeight: 600, color: '#14805f' }}>{e.approved}</span></td>
+                    {EDITOR_PHASE_COLS.map(p => {
+                      const count = e.phases[p.key] ?? 0;
+                      const isPosted = p.key === 'posted in socials';
+                      const isReview = p.key === 'for client review';
+                      return (
+                        <td key={p.key} style={tdNum}>
+                          {count > 0
+                            ? <span style={{ fontWeight: 600, color: isPosted ? '#14805f' : isReview ? '#a86a00' : '#111c28' }}>{count}</span>
+                            : <span style={{ color: '#d4dbe2' }}>—</span>}
+                        </td>
+                      );
+                    })}
                     <td style={tdNum}>{e.rework > 0 ? <span style={{ fontWeight: 600, color: '#cf3f36' }}>{e.rework}</span> : <span style={{ color: '#8b97a4' }}>0</span>}</td>
                     <td style={tdNum}>{e.firstPassClean !== null ? <CleanBar pct={e.firstPassClean} /> : <span style={{ color: '#8b97a4' }}>—</span>}</td>
                   </tr>
                 ))}
                 {filteredEditors.length === 0 && (
-                  <tr><td colSpan={5} style={{ padding: '24px 18px', color: '#8b97a4', textAlign: 'center' }}>No editors found</td></tr>
+                  <tr><td colSpan={2 + EDITOR_PHASE_COLS.length} style={{ padding: '24px 18px', color: '#8b97a4', textAlign: 'center' }}>No editors found</td></tr>
                 )}
               </tbody>
             </table>
