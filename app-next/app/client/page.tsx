@@ -60,6 +60,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   if (!userRow || (userRow.role !== 'client' && !userRow.isAlsoClient)) redirect('/dashboard');
 
   const { clientName, name } = userRow;
+  const isAdminClient = userRow.isAlsoClient && userRow.role !== 'client';
   if (!clientName) {
     return (
       <main style={{ minHeight: '100vh', background: '#faf6f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}>
@@ -147,7 +148,15 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.1 }}>{displayName}</div>
             </div>
           </div>
-          <NotificationBell tasks={reviewTasks.map(t => ({ clickupTaskId: t.clickupTaskId, title: t.title, dateUpdated: t.dateUpdated }))} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {isAdminClient && (
+              <Link href="/dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#54616f', background: '#f5f7f9', border: '1px solid #e7ebef', borderRadius: 8, padding: '6px 10px', textDecoration: 'none' }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 13, height: 13 }}><path d="M15 18l-6-6 6-6"/></svg>
+                Dashboard
+              </Link>
+            )}
+            <NotificationBell tasks={reviewTasks.map(t => ({ clickupTaskId: t.clickupTaskId, title: t.title, dateUpdated: t.dateUpdated }))} />
+          </div>
         </div>
 
         {/* Scrollable body */}
@@ -285,6 +294,12 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
             <a href="/client?tab=account" className={`cd-tab${tab === 'account' ? ' cd-active' : ''}`}>Account</a>
           </div>
           <div className="cd-nav-right">
+            {isAdminClient && (
+              <Link href="/dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 700, color: '#54616f', background: '#f5f7f9', border: '1px solid #e7ebef', borderRadius: 8, padding: '6px 12px', textDecoration: 'none' }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 13, height: 13 }}><path d="M15 18l-6-6 6-6"/></svg>
+                Dashboard
+              </Link>
+            )}
             <NotificationBell tasks={reviewTasks.map(t => ({ clickupTaskId: t.clickupTaskId, title: t.title, dateUpdated: t.dateUpdated }))} />
             <span className="cd-client-name">{clientName} / Client workspace</span>
             <div className="cd-avatar">{initials(name ?? clientName ?? 'C')}</div>
