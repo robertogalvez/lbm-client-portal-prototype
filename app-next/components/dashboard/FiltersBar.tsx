@@ -14,9 +14,10 @@ interface Props {
   members: string[];
   ams: string[];
   clients: string[];
+  hideDateRange?: boolean;
 }
 
-export function FiltersBar({ members, ams, clients }: Props) {
+export function FiltersBar({ members, ams, clients, hideDateRange }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -40,15 +41,15 @@ export function FiltersBar({ members, ams, clients }: Props) {
     cursor: 'pointer', outline: 'none',
   };
 
-  const hasFilters = range !== 'all' || member || am || client || archived;
+  const hasFilters = (hideDateRange ? false : range !== 'all') || member || am || client || archived;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 24 }}>
-      <span style={{ fontSize: 12, fontWeight: 600, color: '#8b97a4', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Filter</span>
-
-      <select style={selectStyle} value={range} onChange={e => set('range', e.target.value)}>
-        {DATE_RANGES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-      </select>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      {!hideDateRange && (
+        <select style={selectStyle} value={range} onChange={e => set('range', e.target.value)}>
+          {DATE_RANGES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+        </select>
+      )}
 
       <select style={selectStyle} value={member} onChange={e => set('member', e.target.value)}>
         <option value="">All editors</option>
