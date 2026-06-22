@@ -1,7 +1,9 @@
+import { Suspense } from 'react';
 import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask } from '@/lib/clickup';
 import { getTasksFromDB } from '@/lib/db/queries';
 import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask } from '@/components/dashboard/DashboardTabs';
 import { EDITOR_PHASE_COLS } from '@/components/dashboard/editor-phases';
+import { FiltersBar } from '@/components/dashboard/FiltersBar';
 import { InfoPopover } from '@/components/ui/Tooltip';
 
 export const dynamic = 'force-dynamic';
@@ -22,6 +24,8 @@ function rangeCutoff(range: string): number {
   if (range === '1y')   return Date.now() - 365 * 86_400_000;
   return 0;
 }
+
+const parseDate = (s: string) => { const n = Number(s); return isNaN(n) ? new Date(s).getTime() : n; };
 
 const PIPELINE_STAGES: { key: string; label: string; group: string; barColor: string; isRework: boolean }[] = [
   { key: 'not ready',                 label: 'Not Ready',                  group: 'To do',          barColor: '#aeb9c6', isRework: false },
@@ -127,7 +131,7 @@ function KpiCard({ label, tip, value, dotColor, sub, subTone }: KpiProps) {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; member?: string; am?: string; client?: string }>;
 }) {
   if (!isConfigured()) {
     return (
@@ -140,7 +144,7 @@ export default async function DashboardPage({
     );
   }
 
-  const { range = 'all' } = await searchParams;
+  const { range = 'all', member = '', am = '', client: clientFilter = '' } = await searchParams;
   const masterListId = process.env.CLICKUP_LIST_ID;
   const folderId     = process.env.CLICKUP_FOLDER_ID;
   let allTasks: MappedTask[] = [];
@@ -161,9 +165,18 @@ export default async function DashboardPage({
   }
 
   const cutoff = rangeCutoff(range);
-  const tasks = cutoff > 0
-    ? allTasks.filter(t => new Date(t.dateUpdated).getTime() >= cutoff)
-    : allTasks;
+
+  // Build dropdown lists from the full unfiltered set
+  const unique = (arr: (string | null)[]) => [...new Set(arr.filter(Boolean))].sort() as string[];
+  const allEditors = unique(allTasks.map(t => t.editorName));
+  const allAMs     = unique(allTasks.map(t => t.assignedAmName));
+  const allClients = unique(allTasks.map(t => t.clientName));
+
+  const tasks = allTasks
+    .filter(t => cutoff === 0 || parseDate(t.dateUpdated) >= cutoff)
+    .filter(t => !member       || t.editorName     === member)
+    .filter(t => !am           || t.assignedAmName === am)
+    .filter(t => !clientFilter || t.clientName     === clientFilter);
 
   const now = Date.now();
   const DAY_MS = 86_400_000;
@@ -173,7 +186,7 @@ export default async function DashboardPage({
   const inProduction     = tasks.filter(t => norm(t.status) !== POSTED).length;
   const reviewTasks      = tasks.filter(t => norm(t.status) === 'for client review');
   const pendingApproval  = reviewTasks.length;
-  const overdueInReview  = reviewTasks.filter(t => (now - new Date(t.dateUpdated).getTime()) > 3 * DAY_MS);
+  const overdueInReview  = reviewTasks.filter(t => (now - parseDate(t.dateUpdated)) > 3 * DAY_MS);
   const overdueCount     = overdueInReview.length;
 
   const clientApprovedTasks = tasks.filter(t => t.clientApproval?.toLowerCase() === 'approved');
@@ -183,7 +196,7 @@ export default async function DashboardPage({
   const fpTotal = clientApproved + inCorrectionsTasks.length;
   const firstPassCleanPct = fpTotal > 0 ? Math.round(clientApproved / fpTotal * 100) : null;
 
-  const postedThisMonth = tasks.filter(t => norm(t.status) === POSTED && new Date(t.dateUpdated).getTime() >= monthStart).length;
+  const postedThisMonth = tasks.filter(t => norm(t.status) === POSTED && parseDate(t.dateUpdated) >= monthStart).length;
 
   const pipeline    = buildPipeline(tasks);
   const approvals   = buildApprovals(tasks);
@@ -233,21 +246,27 @@ export default async function DashboardPage({
         </div>
         <div className="db-topbar-right">
           <div style={{ display: 'inline-flex', background: '#f5f7f9', border: '1px solid #e7ebef', borderRadius: 9, padding: 3, gap: 2 }}>
-            {segRanges.map(r => (
-              <a
-                key={r.value}
-                href={`/dashboard?range=${r.value}`}
-                style={{
-                  fontSize: 12.5, fontWeight: 600, borderRadius: 7, padding: '6px 11px', textDecoration: 'none',
-                  background: range === r.value ? '#fff' : 'transparent',
-                  color: range === r.value ? '#111c28' : '#54616f',
-                  boxShadow: range === r.value ? '0 1px 2px rgba(17,28,40,.08)' : 'none',
-                }}
-              >
-                {r.label}
-              </a>
-            ))}
+            {segRanges.map(r => {
+              const params = new URLSearchParams({ range: r.value, ...(member && { member }), ...(am && { am }), ...(clientFilter && { client: clientFilter }) });
+              return (
+                <a
+                  key={r.value}
+                  href={`/dashboard?${params}`}
+                  style={{
+                    fontSize: 12.5, fontWeight: 600, borderRadius: 7, padding: '6px 11px', textDecoration: 'none',
+                    background: range === r.value ? '#fff' : 'transparent',
+                    color: range === r.value ? '#111c28' : '#54616f',
+                    boxShadow: range === r.value ? '0 1px 2px rgba(17,28,40,.08)' : 'none',
+                  }}
+                >
+                  {r.label}
+                </a>
+              );
+            })}
           </div>
+          <Suspense fallback={null}>
+            <FiltersBar members={allEditors} ams={allAMs} clients={allClients} hideDateRange />
+          </Suspense>
         </div>
       </div>
 
