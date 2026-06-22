@@ -1,7 +1,8 @@
 import { Suspense } from 'react';
 import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask } from '@/lib/clickup';
 import { getTasksFromDB } from '@/lib/db/queries';
-import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask, EDITOR_PHASE_COLS } from '@/components/dashboard/DashboardTabs';
+import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask } from '@/components/dashboard/DashboardTabs';
+import { EDITOR_PHASE_COLS } from '@/components/dashboard/editor-phases';
 import { FiltersBar } from '@/components/dashboard/FiltersBar';
 import { InfoPopover } from '@/components/ui/Tooltip';
 
@@ -23,6 +24,8 @@ function rangeCutoff(range: string): number {
   if (range === '1y')   return Date.now() - 365 * 86_400_000;
   return 0;
 }
+
+const parseDate = (s: string) => { const n = Number(s); return isNaN(n) ? new Date(s).getTime() : n; };
 
 const PIPELINE_STAGES: { key: string; label: string; group: string; barColor: string; isRework: boolean }[] = [
   { key: 'not ready',                 label: 'Not Ready',                  group: 'To do',          barColor: '#aeb9c6', isRework: false },
@@ -162,7 +165,6 @@ export default async function DashboardPage({
   }
 
   const cutoff = rangeCutoff(range);
-  const parseDate = (s: string) => { const n = Number(s); return isNaN(n) ? new Date(s).getTime() : n; };
 
   // Build dropdown lists from the full unfiltered set
   const unique = (arr: (string | null)[]) => [...new Set(arr.filter(Boolean))].sort() as string[];
@@ -172,9 +174,9 @@ export default async function DashboardPage({
 
   const tasks = allTasks
     .filter(t => cutoff === 0 || parseDate(t.dateUpdated) >= cutoff)
-    .filter(t => !member       || t.editorName      === member)
-    .filter(t => !am           || t.assignedAmName  === am)
-    .filter(t => !clientFilter || t.clientName      === clientFilter);
+    .filter(t => !member       || t.editorName     === member)
+    .filter(t => !am           || t.assignedAmName === am)
+    .filter(t => !clientFilter || t.clientName     === clientFilter);
 
   const now = Date.now();
   const DAY_MS = 86_400_000;
