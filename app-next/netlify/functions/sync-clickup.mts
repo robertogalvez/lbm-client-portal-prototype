@@ -1,7 +1,7 @@
 import type { Config } from '@netlify/functions';
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
-import { eq } from 'drizzle-orm';
+import { eq, notInArray, and } from 'drizzle-orm';
 
 // Inline schema to avoid bundling the full app
 const { pgTable, varchar, text, timestamp, boolean } = await import('drizzle-orm/pg-core');
@@ -162,8 +162,17 @@ export default async function handler() {
     synced++;
   }
 
-  console.log(`ClickUp sync complete: ${synced} synced, ${skipped} skipped (dirty)`);
-  return new Response(JSON.stringify({ synced, skipped, total: activeTasks.length }), {
+  // Delete rows that no longer exist in ClickUp (webhook may have missed deletions)
+  const allClickupIds = rawTasks.map((t: any) => t.id as string);
+  let deleted = 0;
+  if (allClickupIds.length > 0) {
+    const result = await db.delete(videoCache)
+      .where(and(notInArray(videoCache.clickupTaskId, allClickupIds), eq(videoCache.dirty, false)));
+    deleted = result.rowCount ?? 0;
+  }
+
+  console.log(`ClickUp sync complete: ${synced} synced, ${skipped} skipped (dirty), ${deleted} deleted (orphans)`);
+  return new Response(JSON.stringify({ synced, skipped, deleted, total: activeTasks.length }), {
     headers: { 'Content-Type': 'application/json' },
   });
 }

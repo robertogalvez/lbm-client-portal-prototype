@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { videoCache } from '@/lib/db/schema';
-import { sql } from 'drizzle-orm';
+import { sql, notInArray, and, eq } from 'drizzle-orm';
 
 const BASE = 'https://api.clickup.com/api/v2';
 
@@ -129,7 +129,16 @@ export async function POST() {
         });
     }
 
-    return NextResponse.json({ synced: rows.length, total: rawTasks.length });
+    // Delete rows that no longer exist in ClickUp (webhook may have missed deletions)
+    const clickupIds = rawTasks.map((t: any) => t.id as string);
+    let deleted = 0;
+    if (clickupIds.length > 0) {
+      const result = await db.delete(videoCache)
+        .where(and(notInArray(videoCache.clickupTaskId, clickupIds), eq(videoCache.dirty, false)));
+      deleted = result.rowCount ?? 0;
+    }
+
+    return NextResponse.json({ synced: rows.length, total: rawTasks.length, deleted });
   } catch (e) {
     const msg   = e instanceof Error ? e.message : String(e);
     const cause = e instanceof Error ? String((e as any).cause ?? '') : '';
