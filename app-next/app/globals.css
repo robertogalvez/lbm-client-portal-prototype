@@ -205,6 +205,7 @@ body {
 .vd-player { flex: 1; position: relative; background: #1a1e24; min-height: 0; }
 .vd-player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; display: block; }
 .vd-meta { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.vd-comments { padding: 12px 16px; border-top: 1px solid #ece4d8; display: flex; flex-direction: column; gap: 12px; }
 .vd-dock {
   position: fixed;
   bottom: 0; left: 0; right: 0;
@@ -406,7 +407,8 @@ body {
     border-bottom: 1px solid #ece4d8;
     flex-shrink: 0;
   }
-  .vd-meta { padding: 20px; flex: 1; }
+  .vd-meta { padding: 20px 20px 0; }
+  .vd-comments { padding: 16px 20px; flex: 1; overflow-y: auto; }
   .vd-dock {
     position: static;
     padding: 16px 20px;

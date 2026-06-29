@@ -12,12 +12,13 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const [user] = await db
-    .select({ role: authUsers.role, clientName: authUsers.clientName, name: authUsers.name })
+    .select({ role: authUsers.role, clientName: authUsers.clientName, name: authUsers.name, isAlsoClient: authUsers.isAlsoClient })
     .from(authUsers)
     .where(eq(authUsers.id, session.user.id))
     .limit(1);
 
-  if (!user || user.role !== 'client') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const canComment = user?.role === 'client' || user?.isAlsoClient;
+  if (!user || !canComment) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const { taskId, frameioAssetId, text, timestampSeconds } = await req.json() as {
     taskId: string;

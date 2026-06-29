@@ -6,6 +6,7 @@ import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getTasksFromList } from '@/lib/clickup';
 import { ApprovalButtons } from '@/components/client/ApprovalButtons';
+import { FrameioComments } from '@/components/client/FrameioComments';
 import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
@@ -167,6 +168,12 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
         </div>
 
         <div className="vd-meta">{metaPanel}</div>
+
+        {task.frameLink && (
+          <div className="vd-comments">
+            <FrameioComments frameLink={task.frameLink} taskId={task.clickupTaskId} />
+          </div>
+        )}
 
         {isReview && (
           <div className="vd-dock">
