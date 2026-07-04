@@ -49,6 +49,7 @@ export interface MappedTask {
   clientName: string | null;
   videoLevel: string | null;
   clientApproval: string | null;
+  captionApproval: string | null;
   publishingStatus: string | null;
   qualityCheck: string | null;
   caption: string | null;
@@ -68,14 +69,16 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
   const levelField    = findField(task, 'Video Level (AM)');
   const approvalField = findField(task, 'CLIENT APPROVAL');
   const pubField      = findField(task, 'Publishing Status');
-  const captionField  = findField(task, 'Captions');
+  const captionField        = findField(task, 'Captions');
+  const captionApprovalField = findField(task, 'CAPTION APPROVAL');
   const frameLinkField = findField(task, 'Updated Frame Link (Editor)');
   const amField       = findField(task, 'Account Manager (AM)');
   const qcField       = findField(task, 'QUALITY CHECK (Somu)');
 
   const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
   const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
-  const approvalIdx = typeof approvalField?.value === 'number' ? approvalField.value : null;
+  const approvalIdx        = typeof approvalField?.value === 'number' ? approvalField.value : null;
+  const captionApprovalIdx = typeof captionApprovalField?.value === 'number' ? captionApprovalField.value : null;
   const pubIdx      = typeof pubField?.value === 'number' ? pubField.value : null;
   const qcIdx       = typeof qcField?.value === 'number' ? qcField.value : null;
 
@@ -106,6 +109,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     clientName:       resolve(clientField, clientIdx),
     videoLevel:       resolve(levelField, levelIdx),
     clientApproval:   resolve(approvalField, approvalIdx),
+    captionApproval:  resolve(captionApprovalField, captionApprovalIdx),
     publishingStatus: resolve(pubField, pubIdx),
     qualityCheck:     resolve(qcField, qcIdx),
     caption:          typeof captionField?.value === 'string' ? captionField.value : null,
