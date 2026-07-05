@@ -10,6 +10,8 @@ import { ApprovalButtons } from '@/components/client/ApprovalButtons';
 import { NotificationBell } from '@/components/client/NotificationBell';
 import { LogoutButton } from '@/components/client/LogoutButton';
 import { CalendarView } from '@/components/client/CalendarView';
+import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
+import { getViewAsClient } from '@/lib/view-as';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -57,10 +59,13 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     .limit(1);
 
   const userRow = rows[0];
-  if (!userRow || (userRow.role !== 'client' && !userRow.isAlsoClient)) redirect('/dashboard');
+  const isStaff = userRow?.role === 'admin' || userRow?.role === 'account_manager';
+  const viewAsClient = isStaff ? await getViewAsClient() : null;
+  if (!userRow || (userRow.role !== 'client' && !userRow.isAlsoClient && !viewAsClient)) redirect('/dashboard');
 
-  const { clientName, name } = userRow;
-  const isAdminClient = userRow.isAlsoClient && userRow.role !== 'client';
+  const clientName = viewAsClient ? viewAsClient.clickupOptionId : userRow.clientName;
+  const name = viewAsClient ? null : userRow.name;
+  const isAdminClient = !viewAsClient && userRow.isAlsoClient && userRow.role !== 'client';
   if (!clientName) {
     return (
       <main style={{ minHeight: '100vh', background: '#faf6f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}>
@@ -137,6 +142,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
 
   return (
     <>
+    {viewAsClient && <ViewAsBanner clientName={viewAsClient.name} />}
     <main className="cp-shell client-mobile">
       <div className="cp-frame">
         {/* Header */}

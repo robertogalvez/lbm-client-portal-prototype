@@ -170,6 +170,22 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
     }
   }
 
+  const [viewingAs, setViewingAs] = useState<string | null>(null);
+
+  async function viewAsClient(c: ClientRecord, e: React.MouseEvent) {
+    e.stopPropagation();
+    setViewingAs(c.id);
+    try {
+      const res = await fetch('/api/admin/view-as', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId: c.id }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to start client view');
+      window.location.assign('/client');
+    } catch (err) {
+      setViewingAs(null);
+      alert(err instanceof Error ? err.message : 'Error');
+    }
+  }
+
   async function resendInvite(u: PortalUser) {
     if (!selected) return;
     try {
@@ -287,7 +303,20 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                         {c.portalUsers.length > 3 && <span style={{ fontSize: 11, color: '#8b97a4', marginLeft: 6 }}>+{c.portalUsers.length - 3}</span>}
                       </div>
                     </td>
-                    <td style={{ padding: '12px 16px' }}><span style={{ fontSize: 13, color: '#FF6000', fontWeight: 600 }}>Edit →</span></td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <button
+                          onClick={e => viewAsClient(c, e)}
+                          disabled={viewingAs === c.id}
+                          title="View the portal exactly as this client sees it"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: '#54616f', fontWeight: 600, background: 'none', border: 'none', cursor: viewingAs === c.id ? 'default' : 'pointer', padding: 0, fontFamily: 'inherit' }}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+                          {viewingAs === c.id ? 'Opening…' : 'View portal'}
+                        </button>
+                        <span style={{ fontSize: 13, color: '#FF6000', fontWeight: 600 }}>Edit →</span>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
