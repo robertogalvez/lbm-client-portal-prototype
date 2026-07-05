@@ -7,6 +7,8 @@ import { eq } from 'drizzle-orm';
 import { getTasksFromList } from '@/lib/clickup';
 import { ApprovalButtons } from '@/components/client/ApprovalButtons';
 import { CaptionApprovalButtons } from '@/components/client/CaptionApprovalButtons';
+import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
+import { getViewAsClient } from '@/lib/view-as';
 import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
@@ -51,12 +53,16 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
     .limit(1);
 
   const userRow = rows[0];
-  const canAccess = userRow?.role === 'client' || userRow?.isAlsoClient;
+  const isStaff = userRow?.role === 'admin' || userRow?.role === 'account_manager';
+  const viewAsClient = isStaff ? await getViewAsClient() : null;
+  const canAccess = userRow?.role === 'client' || userRow?.isAlsoClient || !!viewAsClient;
   if (!userRow || !canAccess) redirect('/dashboard');
-  if (!userRow.clientName) redirect('/client');
+
+  const effectiveClientName = viewAsClient ? viewAsClient.clickupOptionId : userRow.clientName;
+  if (!effectiveClientName) redirect('/client');
 
   const allTasks = await getTasksFromList(process.env.CLICKUP_LIST_ID!, false);
-  const task = allTasks.find(t => t.clickupTaskId === id && t.clientName === userRow.clientName);
+  const task = allTasks.find(t => t.clickupTaskId === id && t.clientName === effectiveClientName);
   if (!task) {
     const anyTask = allTasks.find(t => t.clickupTaskId === id);
     if (anyTask) {
@@ -65,7 +71,7 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
           <div style={{ background: '#fff', borderRadius: 16, padding: '32px 28px', maxWidth: 420, border: '1px solid #ece4d8' }}>
             <h2 style={{ fontSize: 17, fontWeight: 700, color: '#221e18', margin: '0 0 10px' }}>Access mismatch</h2>
             <p style={{ fontSize: 13, color: '#6c6357', lineHeight: 1.6, margin: '0 0 16px' }}>
-              Your account is linked to client <strong>{userRow.clientName ?? '(none)'}</strong>, but this video belongs to client <strong>{anyTask.clientName ?? '(none)'}</strong>.
+              {viewAsClient ? "You're viewing" : 'Your account is linked to'} client <strong>{effectiveClientName ?? '(none)'}</strong>, but this video belongs to client <strong>{anyTask.clientName ?? '(none)'}</strong>.
             </p>
             <p style={{ fontSize: 12, color: '#9d9488', margin: 0 }}>Contact your account manager to fix your portal access.</p>
           </div>
@@ -135,6 +141,8 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
   );
 
   return (
+    <>
+    {viewAsClient && <ViewAsBanner clientName={viewAsClient.name} />}
     <main className="vd-shell">
       {/* Mobile-only header */}
       <div className="vd-mobile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px', background: '#faf6f0', flexShrink: 0 }}>
@@ -184,5 +192,6 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
         )}
       </div>
     </main>
+    </>
   );
 }
