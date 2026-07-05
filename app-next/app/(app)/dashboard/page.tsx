@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
-import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask } from '@/lib/clickup';
+import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask, getClientQuotas, ClientQuota } from '@/lib/clickup';
 import { getTasksFromDB } from '@/lib/db/queries';
-import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask } from '@/components/dashboard/DashboardTabs';
+import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask, AgreedDeliveredRow } from '@/components/dashboard/DashboardTabs';
 import { EDITOR_PHASE_COLS } from '@/components/dashboard/editor-phases';
 import { FiltersBar } from '@/components/dashboard/FiltersBar';
 import { InfoPopover } from '@/components/ui/Tooltip';
@@ -23,6 +23,17 @@ function rangeCutoff(range: string): number {
   if (range === '90d')  return Date.now() - 90  * 86_400_000;
   if (range === '1y')   return Date.now() - 365 * 86_400_000;
   return 0;
+}
+
+function monthsInRange(range: string, allTasks: MappedTask[]): number {
+  if (range === '30d') return 1;
+  if (range === '90d') return 3;
+  if (range === '1y')  return 12;
+  const dates = allTasks.map(t => parseDate(t.dateUpdated)).filter(d => !isNaN(d));
+  if (dates.length === 0) return 1;
+  const earliest = Math.min(...dates);
+  const days = (Date.now() - earliest) / 86_400_000;
+  return Math.max(1, Math.round(days / 30));
 }
 
 const parseDate = (s: string) => { const n = Number(s); return isNaN(n) ? new Date(s).getTime() : n; };
@@ -76,6 +87,24 @@ function buildClients(tasks: MappedTask[]): ClientRow[] {
   return Array.from(map.entries())
     .map(([name, s]) => ({ name, ...s }))
     .sort((a, b) => b.total - a.total);
+}
+
+function buildAgreedVsDelivered(tasks: MappedTask[], quotas: ClientQuota[], months: number): AgreedDeliveredRow[] {
+  const delivered = new Map<string, number>();
+  for (const t of tasks) {
+    if (norm(t.status) !== 'posted in socials' || !t.clientName) continue;
+    const key = norm(t.clientName);
+    delivered.set(key, (delivered.get(key) ?? 0) + 1);
+  }
+
+  return quotas
+    .filter(q => q.agreedPerMonth > 0)
+    .map(q => ({
+      name: q.name,
+      agreed: q.agreedPerMonth * months,
+      delivered: delivered.get(norm(q.name)) ?? 0,
+    }))
+    .sort((a, b) => b.agreed - a.agreed);
 }
 
 function buildEditors(tasks: MappedTask[]): EditorRow[] {
@@ -164,6 +193,8 @@ export default async function DashboardPage({
     error = e instanceof Error ? e.message : 'Unknown error';
   }
 
+  const clientQuotas = await getClientQuotas().catch(() => [] as ClientQuota[]);
+
   const cutoff = rangeCutoff(range);
 
   // Build dropdown lists from the full unfiltered set
@@ -198,10 +229,12 @@ export default async function DashboardPage({
 
   const postedThisMonth = tasks.filter(t => norm(t.status) === POSTED && parseDate(t.dateUpdated) >= monthStart).length;
 
+  const months = monthsInRange(range, allTasks);
   const pipeline    = buildPipeline(tasks);
   const approvals   = buildApprovals(tasks);
   const clients     = buildClients(tasks);
   const editors     = buildEditors(tasks);
+  const agreedVsDelivered = buildAgreedVsDelivered(tasks, clientQuotas, months);
   const statusTasks: StatusTask[] = tasks.map(t => ({
     id: t.clickupTaskId,
     title: t.title,
@@ -222,6 +255,9 @@ export default async function DashboardPage({
     .map(e => ({ name: e.name, firstPassClean: e.firstPassClean! }));
 
   const monthLabel = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+
+  const rangeLabels: Record<string, string> = { '30d': 'Last 30 days', '90d': 'Last 90 days', '1y': 'Last year', all: 'All time' };
+  const periodLabel = `${rangeLabels[range] ?? 'All time'} (≈${months} month${months === 1 ? '' : 's'})`;
 
   const segRanges = [
     { label: '30d', value: '30d' },
@@ -325,6 +361,8 @@ export default async function DashboardPage({
         attentionClients={attentionClients}
         topEditors={topEditors}
         statusTasks={statusTasks}
+        agreedVsDelivered={agreedVsDelivered}
+        periodLabel={periodLabel}
         defaultTab={overdueCount > 0 ? 'approvals' : 'overview'}
       />
     </main>

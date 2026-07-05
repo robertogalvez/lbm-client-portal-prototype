@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { InfoPopover } from '@/components/ui/Tooltip';
 import { EDITOR_PHASE_COLS } from './editor-phases';
+import { AgreedVsDeliveredChart } from './AgreedVsDeliveredChart';
 export { EDITOR_PHASE_COLS } from './editor-phases';
 
 export interface ApprovalRow {
@@ -59,6 +60,12 @@ export interface StatusTask {
   frameLink: string | null;
 }
 
+export interface AgreedDeliveredRow {
+  name: string;
+  agreed: number;
+  delivered: number;
+}
+
 interface Props {
   approvals: ApprovalRow[];
   clients: ClientRow[];
@@ -67,6 +74,8 @@ interface Props {
   attentionClients: AttentionClient[];
   topEditors: TopEditor[];
   statusTasks: StatusTask[];
+  agreedVsDelivered: AgreedDeliveredRow[];
+  periodLabel: string;
   defaultTab?: string;
 }
 
@@ -136,7 +145,7 @@ const tdNum: React.CSSProperties = { ...td, textAlign: 'center', fontFamily: 'va
 
 const PIPELINE_GROUPS = ['To do', 'In progress', 'Quality check', 'Review & ship'];
 
-export function DashboardTabs({ approvals, clients, editors, pipeline, attentionClients, topEditors, statusTasks, defaultTab }: Props) {
+export function DashboardTabs({ approvals, clients, editors, pipeline, attentionClients, topEditors, statusTasks, agreedVsDelivered, periodLabel, defaultTab }: Props) {
   const [activeTab, setActiveTab] = useState<'overview' | 'approvals' | 'clients' | 'editors'>(
     (defaultTab as 'approvals') ?? 'overview'
   );
@@ -288,6 +297,11 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
               );
             })}
           </div>
+        </div>
+
+        {/* Agreed vs. Delivered */}
+        <div style={{ marginTop: 14 }}>
+          <AgreedVsDeliveredChart rows={agreedVsDelivered} periodLabel={periodLabel} />
         </div>
 
         {/* 2-col: Needs attention + Top editors */}

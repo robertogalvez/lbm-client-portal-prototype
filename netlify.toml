@@ -7,6 +7,7 @@
   NODE_VERSION        = "22"
   CLICKUP_FOLDER_ID   = ""
   CLICKUP_LIST_ID     = ""
+  CLICKUP_CLIENTS_LIST_ID = ""
   CLICKUP_API_TOKEN   = ""
   DATABASE_URL        = ""
   POSTMARK_API_KEY    = ""
