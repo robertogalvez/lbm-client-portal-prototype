@@ -1,7 +1,7 @@
 import { createHmac } from 'crypto';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { videoCache } from '@/lib/db/schema';
+import { videoCache, clients } from '@/lib/db/schema';
 import { mapTask } from '@/lib/clickup';
 import { eq } from 'drizzle-orm';
 
@@ -67,6 +67,7 @@ export async function POST(req: Request) {
       title:             mapped.title,
       status:            mapped.status,
       clientApproval:    mapped.clientApproval,
+      captionApproval:   mapped.captionApproval,
       videoLevel:        mapped.videoLevel,
       caption:           mapped.caption,
       publishingStatus:  mapped.publishingStatus,
@@ -87,6 +88,7 @@ export async function POST(req: Request) {
         title:             mapped.title,
         status:            mapped.status,
         clientApproval:    mapped.clientApproval,
+        captionApproval:   mapped.captionApproval,
         videoLevel:        mapped.videoLevel,
         caption:           mapped.caption,
         publishingStatus:  mapped.publishingStatus,
@@ -100,6 +102,29 @@ export async function POST(req: Request) {
         lastSyncedAt:      new Date(),
       },
     });
+
+  // Advisory: warn if task moved to "for client review" without a caption (non-one-time clients)
+  if (mapped.status.toLowerCase().includes('client review') && !mapped.caption && mapped.clientName) {
+    const clientRows = await db
+      .select({ type: clients.type })
+      .from(clients)
+      .where(eq(clients.name, mapped.clientName))
+      .limit(1);
+    const clientType = clientRows[0]?.type ?? '';
+    if (clientType !== 'one-time') {
+      await fetch(
+        `https://api.clickup.com/api/v2/task/${task_id}/comment`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: process.env.CLICKUP_API_TOKEN ?? '',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ comment_text: '⚠️ Caption is missing — please add a caption before the client reviews this video.' }),
+        }
+      );
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

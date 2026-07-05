@@ -23,6 +23,7 @@ const videoCache = pgTable('video_cache', {
   editorName:        text('editor_name'),
   clientName:        text('client_name'),
   qualityCheck:      varchar('quality_check', { length: 50 }),
+  captionApproval:   varchar('caption_approval', { length: 50 }),
   dateUpdated:       text('date_updated'),
   dueDate:           text('due_date'),
   lastSyncedAt:      timestamp('last_synced_at').defaultNow(),
@@ -115,14 +116,16 @@ export default async function handler() {
     const levelField    = find('Video Level (AM)');
     const approvalField = find('CLIENT APPROVAL');
     const pubField      = find('Publishing Status');
-    const captionField  = find('Captions');
+    const captionField         = find('Captions');
+    const captionApprovalField = find('CAPTION APPROVAL');
     const frameField    = find('Updated Frame Link (Editor)');
     const amField       = find('Account Manager (AM)');
     const qcField       = find('QUALITY CHECK (Somu)');
 
     const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
     const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
-    const approvalIdx = typeof approvalField?.value === 'number' ? approvalField.value : null;
+    const approvalIdx        = typeof approvalField?.value === 'number' ? approvalField.value : null;
+    const captionApprovalIdx = typeof captionApprovalField?.value === 'number' ? captionApprovalField.value : null;
     const pubIdx      = typeof pubField?.value === 'number' ? pubField.value : null;
     const qcIdx       = typeof qcField?.value === 'number' ? qcField.value : null;
 
@@ -143,6 +146,7 @@ export default async function handler() {
       status:           task.status?.status ?? null,
       clientId:         resolveIdByName('Client Name (AM)', clientIdx),
       clientApproval:   resolveByName('CLIENT APPROVAL', approvalIdx),
+      captionApproval:  resolveByName('CAPTION APPROVAL', captionApprovalIdx),
       videoLevel:       resolveByName('Video Level (AM)', levelIdx),
       caption:          typeof captionField?.value === 'string' ? captionField.value : null,
       publishingStatus: resolveByName('Publishing Status', pubIdx),

@@ -6,6 +6,7 @@ import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getTasksFromList } from '@/lib/clickup';
 import { ApprovalButtons } from '@/components/client/ApprovalButtons';
+import { CaptionApprovalButtons } from '@/components/client/CaptionApprovalButtons';
 import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
@@ -170,6 +171,14 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
 
         {isReview && (
           <div className="vd-dock">
+            {task.caption && (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Caption</div>
+                <CaptionApprovalButtons taskId={task.clickupTaskId} currentApproval={task.captionApproval ?? null} />
+                <hr style={{ border: 'none', borderTop: '1px solid #ece4d8', margin: '12px 0' }} />
+              </>
+            )}
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Video</div>
             <ApprovalButtons taskId={task.clickupTaskId} currentApproval={task.clientApproval} />
           </div>
         )}
