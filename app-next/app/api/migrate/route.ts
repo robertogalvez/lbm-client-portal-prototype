@@ -75,6 +75,7 @@ export async function POST(req: Request) {
       )`,
       sql`ALTER TABLE auth_user ADD COLUMN IF NOT EXISTS am_name text`,
       sql`ALTER TABLE auth_user ADD COLUMN IF NOT EXISTS client_name text`,
+      sql`ALTER TABLE auth_user ADD COLUMN IF NOT EXISTS is_also_client boolean DEFAULT false`,
       sql`CREATE TABLE IF NOT EXISTS "video_cache" (
         "clickup_task_id"     varchar(50) PRIMARY KEY NOT NULL,
         "client_id"           varchar(100),
@@ -91,6 +92,14 @@ export async function POST(req: Request) {
         "last_synced_at"      timestamp DEFAULT now(),
         "dirty"               boolean DEFAULT false
       )`,
+      sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS assigned_am_name text`,
+      sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS editor_name text`,
+      sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS client_name text`,
+      sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS quality_check varchar(50)`,
+      sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS date_updated text`,
+      sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS due_date text`,
+      sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS caption_approval varchar(50)`,
+      sql`ALTER TABLE video_cache ALTER COLUMN frameio_asset_id TYPE text`,
     ]);
 
     const rows = await sql`
