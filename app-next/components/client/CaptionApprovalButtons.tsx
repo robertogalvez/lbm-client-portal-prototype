@@ -7,34 +7,65 @@ interface Props {
   currentApproval: string | null;
 }
 
-type State = 'idle' | 'loading' | 'done' | 'error';
+type State = 'idle' | 'revising' | 'loading' | 'done' | 'error';
 
 export function CaptionApprovalButtons({ taskId, currentApproval }: Props) {
   const [state, setState] = useState<State>('idle');
   const [result, setResult] = useState<string | null>(currentApproval);
+  const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
 
-  async function act(action: 'approve' | 'changes') {
+  async function approve() {
     setState('loading');
     setError('');
     try {
       const res = await fetch('/api/client/approve-caption', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId, action }),
+        body: JSON.stringify({ taskId, action: 'approve' }),
       });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error ?? 'Request failed');
       }
-      setResult(action === 'approve' ? 'Approved' : 'Changes Requested');
+      setResult('Approved');
       setState('done');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
-      setState('error');
+      setState('idle');
     }
   }
 
+  async function submitRevision() {
+    if (!feedback.trim()) return;
+    setState('loading');
+    setError('');
+    try {
+      // Mark caption as needing changes in ClickUp
+      const approveRes = await fetch('/api/client/approve-caption', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, action: 'changes' }),
+      });
+      if (!approveRes.ok) {
+        const data = await approveRes.json();
+        throw new Error(data.error ?? 'Request failed');
+      }
+      // Post the feedback as a ClickUp comment so the AM knows what to fix
+      await fetch('/api/client/comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, text: `📝 Caption feedback: ${feedback.trim()}` }),
+      });
+      setResult('Changes Requested');
+      setState('done');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong');
+      setState('revising');
+    }
+  }
+
+  // Already decided — show badge
   if (state === 'done' || (result && state === 'idle')) {
     const approved = result?.toLowerCase().includes('approv') && !result?.toLowerCase().includes('changes');
     return (
@@ -56,12 +87,64 @@ export function CaptionApprovalButtons({ taskId, currentApproval }: Props) {
     );
   }
 
+  // Revision flow — text area + submit
+  if (state === 'revising') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {error && <div style={{ fontSize: 12, color: '#cf3f36' }}>{error}</div>}
+        <textarea
+          autoFocus
+          placeholder="What needs to change in the caption?"
+          value={feedback}
+          onChange={e => setFeedback(e.target.value)}
+          rows={3}
+          style={{
+            width: '100%', boxSizing: 'border-box' as const,
+            padding: '10px 12px', borderRadius: 10,
+            border: '1px solid #e0d8ce', background: '#faf6f0',
+            fontSize: 13, color: '#221e18', lineHeight: 1.5,
+            fontFamily: 'inherit', resize: 'vertical' as const,
+            outline: 'none',
+          }}
+        />
+        <div style={{ display: 'flex', gap: 9 }}>
+          <button
+            onClick={() => { setState('idle'); setFeedback(''); setError(''); }}
+            style={{
+              flex: 1, padding: '11px 14px', borderRadius: 13,
+              border: '1px solid #ece4d8', background: '#fff',
+              color: '#6c6357', fontWeight: 600, fontSize: 13,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={submitRevision}
+            disabled={!feedback.trim()}
+            style={{
+              flex: 2, padding: '11px 14px', borderRadius: 13, border: 'none',
+              background: feedback.trim() ? '#cf3f36' : '#f5f2ef',
+              color: feedback.trim() ? '#fff' : '#9d9488',
+              fontWeight: 700, fontSize: 13,
+              cursor: feedback.trim() ? 'pointer' : 'not-allowed',
+              fontFamily: 'inherit',
+            }}
+          >
+            Send caption feedback
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Default — two action buttons
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {error && <div style={{ fontSize: 12, color: '#cf3f36' }}>{error}</div>}
       <div style={{ display: 'flex', gap: 9 }}>
         <button
-          onClick={() => act('changes')}
+          onClick={() => setState('revising')}
           disabled={state === 'loading'}
           style={{
             flex: 1, padding: '12px 14px', borderRadius: 13,
@@ -78,7 +161,7 @@ export function CaptionApprovalButtons({ taskId, currentApproval }: Props) {
           Revise caption
         </button>
         <button
-          onClick={() => act('approve')}
+          onClick={approve}
           disabled={state === 'loading'}
           style={{
             flex: 1, padding: '12px 14px', borderRadius: 13, border: 'none',
