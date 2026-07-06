@@ -12,6 +12,7 @@ export async function getTasksFromDB(): Promise<MappedTask[]> {
     clientName:       row.clientName ?? null,
     videoLevel:       row.videoLevel ?? null,
     clientApproval:   row.clientApproval ?? null,
+    captionApproval:  row.captionApproval ?? null,
     publishingStatus: row.publishingStatus ?? null,
     qualityCheck:     row.qualityCheck ?? null,
     caption:          row.caption ?? null,
