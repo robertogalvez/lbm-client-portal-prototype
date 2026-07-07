@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask, getClientQuotas, ClientQuota } from '@/lib/clickup';
 import { getTasksFromDB } from '@/lib/db/queries';
-import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask, AgreedDeliveredRow } from '@/components/dashboard/DashboardTabs';
+import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask, AgreedDeliveredRow, BacklogRow } from '@/components/dashboard/DashboardTabs';
 import { EDITOR_PHASE_COLS } from '@/components/dashboard/editor-phases';
 import { FiltersBar } from '@/components/dashboard/FiltersBar';
 import { InfoPopover } from '@/components/ui/Tooltip';
@@ -55,6 +55,21 @@ function buildPipeline(tasks: MappedTask[]): PipelineStage[] {
   const counts: Record<string, number> = {};
   for (const t of tasks) counts[norm(t.status)] = (counts[norm(t.status)] ?? 0) + 1;
   return PIPELINE_STAGES.map(s => ({ ...s, count: counts[s.key] ?? 0 }));
+}
+
+const BACKLOG_STATUSES = new Set(PIPELINE_STAGES.filter(s => s.group === 'To do').map(s => s.key));
+const LOW_BACKLOG_THRESHOLD = 2;
+
+function buildBacklog(tasks: MappedTask[]): BacklogRow[] {
+  const map = new Map<string, number>();
+  for (const t of tasks) {
+    const name = t.clientName ?? 'Unknown';
+    if (!map.has(name)) map.set(name, 0);
+    if (BACKLOG_STATUSES.has(norm(t.status))) map.set(name, map.get(name)! + 1);
+  }
+  return Array.from(map.entries())
+    .map(([name, backlogCount]) => ({ name, backlogCount }))
+    .sort((a, b) => a.backlogCount - b.backlogCount);
 }
 
 function buildApprovals(tasks: MappedTask[]): ApprovalRow[] {
@@ -235,6 +250,8 @@ export default async function DashboardPage({
   const clients     = buildClients(tasks);
   const editors     = buildEditors(tasks);
   const agreedVsDelivered = buildAgreedVsDelivered(tasks, clientQuotas, months);
+  const backlogRows = buildBacklog(allTasks);
+  const lowBacklogClients = backlogRows.filter(b => b.backlogCount <= LOW_BACKLOG_THRESHOLD);
   const statusTasks: StatusTask[] = tasks.map(t => ({
     id: t.clickupTaskId,
     title: t.title,
@@ -330,6 +347,22 @@ export default async function DashboardPage({
           </div>
         )}
 
+        {/* Low-backlog banner */}
+        {lowBacklogClients.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 15px', borderRadius: 12, background: '#fbf1dc', border: '1px solid #f3dfb0' }}>
+            <span style={{ width: 32, height: 32, borderRadius: 9, background: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, color: '#a86a00' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:17,height:17}}><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+            </span>
+            <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#111c28' }}>
+              <span style={{ color: '#a86a00' }}>{lowBacklogClients.length} client{lowBacklogClients.length !== 1 ? 's' : ''}</span> running low on backlog footage — {lowBacklogClients.map(c => `${c.name} (${c.backlogCount} left)`).join(', ')}
+            </span>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: '#a86a00', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+              Go to clients
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:14,height:14}}><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </span>
+          </div>
+        )}
+
         {/* KPI row */}
         <div className="db-kpi-grid">
           <KpiCard label="In production"    value={inProduction}    dotColor="#FF6000"  tip="All tasks not yet posted — across every stage from To Do through QC and Review." />
@@ -363,6 +396,7 @@ export default async function DashboardPage({
         statusTasks={statusTasks}
         agreedVsDelivered={agreedVsDelivered}
         periodLabel={periodLabel}
+        backlogRows={backlogRows}
         defaultTab={overdueCount > 0 ? 'approvals' : 'overview'}
       />
     </main>
