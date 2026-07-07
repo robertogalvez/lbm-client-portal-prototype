@@ -125,7 +125,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
 // "posted in socials" stays visible always so the pipeline funnel shows the full picture.
 const HIDDEN_STATUSES = ['archived', 'not posted - discarded'];
 
-export async function getTasksFromList(listId: string, includeArchived = false): Promise<MappedTask[]> {
+async function fetchRawTasks(listId: string): Promise<ClickUpTask[]> {
   const all: ClickUpTask[] = [];
   let page = 0;
   while (true) {
@@ -135,6 +135,11 @@ export async function getTasksFromList(listId: string, includeArchived = false):
     if (tasks.length < 100) break;
     page++;
   }
+  return all;
+}
+
+export async function getTasksFromList(listId: string, includeArchived = false): Promise<MappedTask[]> {
+  const all = await fetchRawTasks(listId);
 
   // Build shared options map — ClickUp only includes type_config on some tasks per response
   const fieldOptions: Record<string, { id: string; name: string }[]> = {};
@@ -166,6 +171,25 @@ export async function getTasksFromFolder(folderId: string, includeArchived = fal
     if (seen.has(t.clickupTaskId)) return false;
     seen.add(t.clickupTaskId);
     return true;
+  });
+}
+
+export interface ClientQuota {
+  name: string;
+  agreedPerMonth: number;
+}
+
+export async function getClientQuotas(): Promise<ClientQuota[]> {
+  const listId = process.env.CLICKUP_CLIENTS_LIST_ID;
+  if (!listId) return [];
+
+  const tasks = await fetchRawTasks(listId);
+  return tasks.map(t => {
+    const reels = findField(t, 'Reels / mo');
+    const yt    = findField(t, 'YT videos / mo');
+    const reelsCount = typeof reels?.value === 'number' ? reels.value : Number(reels?.value ?? 0) || 0;
+    const ytCount    = typeof yt?.value === 'number' ? yt.value : Number(yt?.value ?? 0) || 0;
+    return { name: t.name, agreedPerMonth: reelsCount + ytCount };
   });
 }
 

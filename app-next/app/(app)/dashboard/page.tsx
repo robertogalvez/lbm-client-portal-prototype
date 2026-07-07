@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
-import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask } from '@/lib/clickup';
+import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask, getClientQuotas, ClientQuota } from '@/lib/clickup';
 import { getTasksFromDB } from '@/lib/db/queries';
-import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask } from '@/components/dashboard/DashboardTabs';
+import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask, AgreedDeliveredRow, BacklogRow } from '@/components/dashboard/DashboardTabs';
 import { EDITOR_PHASE_COLS } from '@/components/dashboard/editor-phases';
 import { FiltersBar } from '@/components/dashboard/FiltersBar';
 import { InfoPopover } from '@/components/ui/Tooltip';
@@ -25,6 +25,17 @@ function rangeCutoff(range: string): number {
   return 0;
 }
 
+function monthsInRange(range: string, allTasks: MappedTask[]): number {
+  if (range === '30d') return 1;
+  if (range === '90d') return 3;
+  if (range === '1y')  return 12;
+  const dates = allTasks.map(t => parseDate(t.dateUpdated)).filter(d => !isNaN(d));
+  if (dates.length === 0) return 1;
+  const earliest = Math.min(...dates);
+  const days = (Date.now() - earliest) / 86_400_000;
+  return Math.max(1, Math.round(days / 30));
+}
+
 const parseDate = (s: string) => { const n = Number(s); return isNaN(n) ? new Date(s).getTime() : n; };
 
 const PIPELINE_STAGES: { key: string; label: string; group: string; barColor: string; isRework: boolean }[] = [
@@ -44,6 +55,21 @@ function buildPipeline(tasks: MappedTask[]): PipelineStage[] {
   const counts: Record<string, number> = {};
   for (const t of tasks) counts[norm(t.status)] = (counts[norm(t.status)] ?? 0) + 1;
   return PIPELINE_STAGES.map(s => ({ ...s, count: counts[s.key] ?? 0 }));
+}
+
+const BACKLOG_STATUSES = new Set(PIPELINE_STAGES.filter(s => s.group === 'To do').map(s => s.key));
+const LOW_BACKLOG_THRESHOLD = 2;
+
+function buildBacklog(tasks: MappedTask[]): BacklogRow[] {
+  const map = new Map<string, number>();
+  for (const t of tasks) {
+    const name = t.clientName ?? 'Unknown';
+    if (!map.has(name)) map.set(name, 0);
+    if (BACKLOG_STATUSES.has(norm(t.status))) map.set(name, map.get(name)! + 1);
+  }
+  return Array.from(map.entries())
+    .map(([name, backlogCount]) => ({ name, backlogCount }))
+    .sort((a, b) => a.backlogCount - b.backlogCount);
 }
 
 function buildApprovals(tasks: MappedTask[]): ApprovalRow[] {
@@ -76,6 +102,24 @@ function buildClients(tasks: MappedTask[]): ClientRow[] {
   return Array.from(map.entries())
     .map(([name, s]) => ({ name, ...s }))
     .sort((a, b) => b.total - a.total);
+}
+
+function buildAgreedVsDelivered(tasks: MappedTask[], quotas: ClientQuota[], months: number): AgreedDeliveredRow[] {
+  const delivered = new Map<string, number>();
+  for (const t of tasks) {
+    if (norm(t.status) !== 'posted in socials' || !t.clientName) continue;
+    const key = norm(t.clientName);
+    delivered.set(key, (delivered.get(key) ?? 0) + 1);
+  }
+
+  return quotas
+    .filter(q => q.agreedPerMonth > 0)
+    .map(q => ({
+      name: q.name,
+      agreed: q.agreedPerMonth * months,
+      delivered: delivered.get(norm(q.name)) ?? 0,
+    }))
+    .sort((a, b) => b.agreed - a.agreed);
 }
 
 function buildEditors(tasks: MappedTask[]): EditorRow[] {
@@ -164,6 +208,8 @@ export default async function DashboardPage({
     error = e instanceof Error ? e.message : 'Unknown error';
   }
 
+  const clientQuotas = await getClientQuotas().catch(() => [] as ClientQuota[]);
+
   const cutoff = rangeCutoff(range);
 
   // Build dropdown lists from the full unfiltered set
@@ -198,10 +244,14 @@ export default async function DashboardPage({
 
   const postedThisMonth = tasks.filter(t => norm(t.status) === POSTED && parseDate(t.dateUpdated) >= monthStart).length;
 
+  const months = monthsInRange(range, allTasks);
   const pipeline    = buildPipeline(tasks);
   const approvals   = buildApprovals(tasks);
   const clients     = buildClients(tasks);
   const editors     = buildEditors(tasks);
+  const agreedVsDelivered = buildAgreedVsDelivered(tasks, clientQuotas, months);
+  const backlogRows = buildBacklog(allTasks);
+  const lowBacklogClients = backlogRows.filter(b => b.backlogCount <= LOW_BACKLOG_THRESHOLD);
   const statusTasks: StatusTask[] = tasks.map(t => ({
     id: t.clickupTaskId,
     title: t.title,
@@ -222,6 +272,9 @@ export default async function DashboardPage({
     .map(e => ({ name: e.name, firstPassClean: e.firstPassClean! }));
 
   const monthLabel = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+
+  const rangeLabels: Record<string, string> = { '30d': 'Last 30 days', '90d': 'Last 90 days', '1y': 'Last year', all: 'All time' };
+  const periodLabel = `${rangeLabels[range] ?? 'All time'} (≈${months} month${months === 1 ? '' : 's'})`;
 
   const segRanges = [
     { label: '30d', value: '30d' },
@@ -294,6 +347,22 @@ export default async function DashboardPage({
           </div>
         )}
 
+        {/* Low-backlog banner */}
+        {lowBacklogClients.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 15px', borderRadius: 12, background: '#fbf1dc', border: '1px solid #f3dfb0' }}>
+            <span style={{ width: 32, height: 32, borderRadius: 9, background: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, color: '#a86a00' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:17,height:17}}><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+            </span>
+            <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#111c28' }}>
+              <span style={{ color: '#a86a00' }}>{lowBacklogClients.length} client{lowBacklogClients.length !== 1 ? 's' : ''}</span> running low on backlog footage — {lowBacklogClients.map(c => `${c.name} (${c.backlogCount} left)`).join(', ')}
+            </span>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: '#a86a00', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+              Go to clients
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:14,height:14}}><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </span>
+          </div>
+        )}
+
         {/* KPI row */}
         <div className="db-kpi-grid">
           <KpiCard label="In production"    value={inProduction}    dotColor="#FF6000"  tip="All tasks not yet posted — across every stage from To Do through QC and Review." />
@@ -325,6 +394,9 @@ export default async function DashboardPage({
         attentionClients={attentionClients}
         topEditors={topEditors}
         statusTasks={statusTasks}
+        agreedVsDelivered={agreedVsDelivered}
+        periodLabel={periodLabel}
+        backlogRows={backlogRows}
         defaultTab={overdueCount > 0 ? 'approvals' : 'overview'}
       />
     </main>

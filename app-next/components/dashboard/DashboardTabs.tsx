@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { InfoPopover } from '@/components/ui/Tooltip';
 import { EDITOR_PHASE_COLS } from './editor-phases';
+import { AgreedVsDeliveredChart } from './AgreedVsDeliveredChart';
 export { EDITOR_PHASE_COLS } from './editor-phases';
 
 export interface ApprovalRow {
@@ -59,6 +60,17 @@ export interface StatusTask {
   frameLink: string | null;
 }
 
+export interface AgreedDeliveredRow {
+  name: string;
+  agreed: number;
+  delivered: number;
+}
+
+export interface BacklogRow {
+  name: string;
+  backlogCount: number;
+}
+
 interface Props {
   approvals: ApprovalRow[];
   clients: ClientRow[];
@@ -67,7 +79,14 @@ interface Props {
   attentionClients: AttentionClient[];
   topEditors: TopEditor[];
   statusTasks: StatusTask[];
+  agreedVsDelivered: AgreedDeliveredRow[];
+  periodLabel: string;
+  backlogRows: BacklogRow[];
   defaultTab?: string;
+}
+
+function norm(s: string) {
+  return s.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 const AV_COLORS = ['#FF6000', '#5e6b7a', '#5172c4', '#7c66c4', '#b58236'];
@@ -95,6 +114,12 @@ function StatusChip({ inReview, oldestDays }: { inReview: number; oldestDays: nu
   if (inReview === 0) return <span style={{ fontSize: 11, fontWeight: 600, color: '#14805f', background: '#e6f4ee', padding: '3px 9px', borderRadius: 7 }}>On track</span>;
   if (oldestDays > 3) return <span style={{ fontSize: 11, fontWeight: 600, color: '#a86a00', background: '#fbf1dc', padding: '3px 9px', borderRadius: 7 }}>Needs attention</span>;
   return <span style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', background: '#eaf0ff', padding: '3px 9px', borderRadius: 7 }}>In review</span>;
+}
+
+function BacklogBadge({ count }: { count: number }) {
+  if (count === 0) return <span style={{ fontSize: 11, fontWeight: 600, color: '#cf3f36', background: '#fdedeb', padding: '3px 9px', borderRadius: 7 }}>0 left</span>;
+  if (count <= 2)  return <span style={{ fontSize: 11, fontWeight: 600, color: '#a86a00', background: '#fbf1dc', padding: '3px 9px', borderRadius: 7 }}>{count} left</span>;
+  return <span style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{count}</span>;
 }
 
 function CleanBar({ pct }: { pct: number }) {
@@ -136,7 +161,7 @@ const tdNum: React.CSSProperties = { ...td, textAlign: 'center', fontFamily: 'va
 
 const PIPELINE_GROUPS = ['To do', 'In progress', 'Quality check', 'Review & ship'];
 
-export function DashboardTabs({ approvals, clients, editors, pipeline, attentionClients, topEditors, statusTasks, defaultTab }: Props) {
+export function DashboardTabs({ approvals, clients, editors, pipeline, attentionClients, topEditors, statusTasks, agreedVsDelivered, periodLabel, backlogRows, defaultTab }: Props) {
   const [activeTab, setActiveTab] = useState<'overview' | 'approvals' | 'clients' | 'editors'>(
     (defaultTab as 'approvals') ?? 'overview'
   );
@@ -290,6 +315,11 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
           </div>
         </div>
 
+        {/* Agreed vs. Delivered */}
+        <div style={{ marginTop: 14 }}>
+          <AgreedVsDeliveredChart rows={agreedVsDelivered} periodLabel={periodLabel} />
+        </div>
+
         {/* 2-col: Needs attention + Top editors */}
         <div className="db-ov2">
           {/* Needs attention */}
@@ -427,18 +457,23 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
                   <th style={thNum}>In review <InfoPopover tip="Videos currently in 'For Client Review' status, waiting for client response." /></th>
                   <th style={thNum}>Oldest wait <InfoPopover tip="Days since the oldest unreviewed video last changed status." /></th>
                   <th style={thNum}>Status <InfoPopover tip="On track = no pending reviews · In review = 1+ video awaiting client · Needs attention = waiting >3 days." /></th>
+                  <th style={thNum}>Backlog <InfoPopover tip="Videos still in 'Not Ready', 'Backlog', or 'Not Assigned' — raw footage not yet picked up by an editor." /></th>
                 </tr>
               </thead>
               <tbody>
-                {filteredClients.map(c => (
-                  <tr key={c.name} style={{ borderBottom: '1px solid #e7ebef' }}>
-                    <td style={{ ...td, fontWeight: 600 }}>{c.name}</td>
-                    <td style={tdNum}>{c.total}</td>
-                    <td style={tdNum}>{c.inReview > 0 ? <span style={{ fontWeight: 600, color: c.oldestDays > 3 ? '#a86a00' : '#2563eb' }}>{c.inReview}</span> : <span style={{ color: '#8b97a4' }}>—</span>}</td>
-                    <td style={tdNum}>{c.inReview > 0 ? <WaitBadge days={c.oldestDays} /> : <span style={{ color: '#8b97a4' }}>—</span>}</td>
-                    <td style={tdNum}><StatusChip inReview={c.inReview} oldestDays={c.oldestDays} /></td>
-                  </tr>
-                ))}
+                {filteredClients.map(c => {
+                  const backlog = backlogRows.find(b => norm(b.name) === norm(c.name));
+                  return (
+                    <tr key={c.name} style={{ borderBottom: '1px solid #e7ebef' }}>
+                      <td style={{ ...td, fontWeight: 600 }}>{c.name}</td>
+                      <td style={tdNum}>{c.total}</td>
+                      <td style={tdNum}>{c.inReview > 0 ? <span style={{ fontWeight: 600, color: c.oldestDays > 3 ? '#a86a00' : '#2563eb' }}>{c.inReview}</span> : <span style={{ color: '#8b97a4' }}>—</span>}</td>
+                      <td style={tdNum}>{c.inReview > 0 ? <WaitBadge days={c.oldestDays} /> : <span style={{ color: '#8b97a4' }}>—</span>}</td>
+                      <td style={tdNum}><StatusChip inReview={c.inReview} oldestDays={c.oldestDays} /></td>
+                      <td style={tdNum}>{backlog ? <BacklogBadge count={backlog.backlogCount} /> : <span style={{ color: '#8b97a4' }}>—</span>}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
