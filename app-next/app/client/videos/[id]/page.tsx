@@ -113,13 +113,7 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
         <span>{daysWaiting(task.dateUpdated)}</span>
         {task.dueDate && (<><span style={{ width: 3, height: 3, borderRadius: '50%', background: '#9d9488' }} /><span>Due {fmtDate(task.dueDate)}</span></>)}
       </div>
-      {/* Caption */}
-      {task.caption && (
-        <div style={{ background: '#f7f2ea', borderRadius: 10, padding: '10px 12px' }}>
-          <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 4 }}>Caption</div>
-          <p style={{ fontSize: 13, color: '#6c6357', lineHeight: 1.5, margin: 0 }}>{task.caption}</p>
-        </div>
-      )}
+
     </>
   );
 
@@ -182,6 +176,9 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
             {task.caption && (
               <>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Caption</div>
+                <div style={{ background: '#f7f2ea', borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
+                  <p style={{ fontSize: 13, color: '#6c6357', lineHeight: 1.5, margin: 0 }}>{task.caption}</p>
+                </div>
                 <CaptionApprovalButtons taskId={task.clickupTaskId} currentApproval={task.captionApproval ?? null} />
                 <hr style={{ border: 'none', borderTop: '1px solid #ece4d8', margin: '12px 0' }} />
               </>
