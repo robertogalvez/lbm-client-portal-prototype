@@ -194,6 +194,27 @@ export interface MasterClientRecord {
   monthlyQuota: number;
 }
 
+// Build the shared option list for a dropdown field — ClickUp only includes
+// type_config on some task responses, not all, so scan until one has it.
+function buildFieldOptions(tasks: ClickUpTask[], fieldName: string): { id: string; name: string }[] {
+  for (const t of tasks) {
+    const options = findField(t, fieldName)?.type_config?.options;
+    if (options?.length) return options;
+  }
+  return [];
+}
+
+// The link between a Master Clients List entry and its videos is the "Client
+// Name (AM)" dropdown value on that task — NOT the task's own title, which is
+// often a different, more casual label (e.g. task "Sebas Legacy" vs. dropdown
+// value "Sebastian Velasquez", which is what tags that client's videos).
+function resolveClientNameAM(task: ClickUpTask, sharedOptions: { id: string; name: string }[]): string | null {
+  const field = findField(task, 'Client Name (AM)');
+  const idx = typeof field?.value === 'number' ? field.value : null;
+  if (idx === null) return null;
+  return field?.type_config?.options?.[idx]?.name ?? sharedOptions[idx]?.name ?? null;
+}
+
 // Tasks in the Master Clients List with no "Client Status" set are placeholder/
 // junk entries (e.g. stray planning notes), not real clients — skip them.
 export async function getMasterClientRecords(): Promise<{ records: MasterClientRecord[]; skipped: string[] }> {
@@ -202,8 +223,8 @@ export async function getMasterClientRecords(): Promise<{ records: MasterClientR
 
   const tasks = await fetchRawTasks(listId);
 
-  const statusOptions: { id: string; name: string }[] =
-    tasks.map(t => findField(t, 'Client Status')?.type_config?.options).find(o => o?.length) ?? [];
+  const statusOptions = buildFieldOptions(tasks, 'Client Status');
+  const clientNameOptions = buildFieldOptions(tasks, 'Client Name (AM)');
 
   const records: MasterClientRecord[] = [];
   const skipped: string[] = [];
@@ -228,7 +249,7 @@ export async function getMasterClientRecords(): Promise<{ records: MasterClientR
 
     records.push({
       clickupTaskId:  t.id,
-      name:           t.name,
+      name:           resolveClientNameAM(t, clientNameOptions) ?? t.name,
       contactName:    typeof contactNameField?.value === 'string' ? contactNameField.value : null,
       contactEmail:   typeof contactEmailField?.value === 'string' ? contactEmailField.value : null,
       whatsappNumber: typeof phoneField?.value === 'string' ? phoneField.value : null,
@@ -245,12 +266,14 @@ export async function getClientQuotas(): Promise<ClientQuota[]> {
   if (!listId) return [];
 
   const tasks = await fetchRawTasks(listId);
+  const clientNameOptions = buildFieldOptions(tasks, 'Client Name (AM)');
+
   return tasks.map(t => {
     const reels = findField(t, 'Reels / mo');
     const yt    = findField(t, 'YT videos / mo');
     const reelsCount = typeof reels?.value === 'number' ? reels.value : Number(reels?.value ?? 0) || 0;
     const ytCount    = typeof yt?.value === 'number' ? yt.value : Number(yt?.value ?? 0) || 0;
-    return { name: t.name, reelsPerMonth: reelsCount, ytPerMonth: ytCount };
+    return { name: resolveClientNameAM(t, clientNameOptions) ?? t.name, reelsPerMonth: reelsCount, ytPerMonth: ytCount };
   });
 }
 
