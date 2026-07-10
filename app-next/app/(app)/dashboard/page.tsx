@@ -58,7 +58,6 @@ function buildPipeline(tasks: MappedTask[]): PipelineStage[] {
 }
 
 const BACKLOG_STATUSES = new Set(PIPELINE_STAGES.filter(s => s.group === 'To do').map(s => s.key));
-const LOW_BACKLOG_THRESHOLD = 2;
 
 function buildBacklog(tasks: MappedTask[]): BacklogRow[] {
   const map = new Map<string, number>();
@@ -86,7 +85,7 @@ function buildApprovals(tasks: MappedTask[]): ApprovalRow[] {
     .sort((a, b) => b.daysWaiting - a.daysWaiting);
 }
 
-function buildClients(tasks: MappedTask[], quotas: ClientQuota[], months: number): ClientRow[] {
+function buildClients(tasks: MappedTask[], quotas: ClientQuota[], months: number, backlogRows: BacklogRow[]): ClientRow[] {
   const map = new Map<string, { total: number; inReview: number; oldestDays: number; reelsDelivered: number; ytDelivered: number }>();
   for (const t of tasks) {
     const name = t.clientName ?? 'Unknown';
@@ -103,18 +102,26 @@ function buildClients(tasks: MappedTask[], quotas: ClientQuota[], months: number
     }
   }
   const quotaByName = new Map(quotas.map(q => [norm(q.name), q]));
+  const backlogByName = new Map(backlogRows.map(b => [norm(b.name), b.backlogCount]));
   return Array.from(map.entries())
     .map(([name, s]) => {
       const q = quotaByName.get(norm(name));
+      const reelsAgreed = (q?.reelsPerMonth ?? 0) * months;
+      const ytAgreed = (q?.ytPerMonth ?? 0) * months;
+      const stillNeeded = Math.max(reelsAgreed - s.reelsDelivered, 0) + Math.max(ytAgreed - s.ytDelivered, 0);
+      const backlogCount = backlogByName.get(norm(name)) ?? 0;
       return {
         name,
         total: s.total,
         inReview: s.inReview,
         oldestDays: s.oldestDays,
-        reelsAgreed: (q?.reelsPerMonth ?? 0) * months,
+        reelsAgreed,
         reelsDelivered: s.reelsDelivered,
-        ytAgreed: (q?.ytPerMonth ?? 0) * months,
+        ytAgreed,
         ytDelivered: s.ytDelivered,
+        backlogCount,
+        stillNeeded,
+        footageGap: stillNeeded - backlogCount,
       };
     })
     .sort((a, b) => b.total - a.total);
@@ -264,11 +271,13 @@ export default async function DashboardPage({
   const months = monthsInRange(range, allTasks);
   const pipeline    = buildPipeline(tasks);
   const approvals   = buildApprovals(tasks);
-  const clients     = buildClients(tasks, clientQuotas, months);
+  const backlogRows = buildBacklog(allTasks);
+  const clients     = buildClients(tasks, clientQuotas, months, backlogRows);
   const editors     = buildEditors(tasks);
   const agreedVsDelivered = buildAgreedVsDelivered(tasks, clientQuotas, months);
-  const backlogRows = buildBacklog(allTasks);
-  const lowBacklogClients = backlogRows.filter(b => b.backlogCount <= LOW_BACKLOG_THRESHOLD);
+  const footageRiskClients = clients
+    .filter(c => c.footageGap > 0)
+    .sort((a, b) => b.footageGap - a.footageGap);
   const statusTasks: StatusTask[] = tasks.map(t => ({
     id: t.clickupTaskId,
     title: t.title,
@@ -364,16 +373,16 @@ export default async function DashboardPage({
           </div>
         )}
 
-        {/* Low-backlog banner */}
-        {lowBacklogClients.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 15px', borderRadius: 12, background: '#fbf1dc', border: '1px solid #f3dfb0' }}>
-            <span style={{ width: 32, height: 32, borderRadius: 9, background: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, color: '#a86a00' }}>
+        {/* Footage-risk banner */}
+        {footageRiskClients.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 15px', borderRadius: 12, background: '#fdedeb', border: '1px solid #f6d6d3' }}>
+            <span style={{ width: 32, height: 32, borderRadius: 9, background: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, color: '#cf3f36' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:17,height:17}}><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
             </span>
             <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#111c28' }}>
-              <span style={{ color: '#a86a00' }}>{lowBacklogClients.length} client{lowBacklogClients.length !== 1 ? 's' : ''}</span> running low on backlog footage — {lowBacklogClients.map(c => `${c.name} (${c.backlogCount} left)`).join(', ')}
+              <span style={{ color: '#cf3f36' }}>{footageRiskClients.length} client{footageRiskClients.length !== 1 ? 's' : ''}</span> won&apos;t hit their quota on current footage — {footageRiskClients.map(c => `${c.name} (short ${c.footageGap})`).join(', ')}. Film more, or pull raw footage from the Marketplace.
             </span>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: '#a86a00', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: '#cf3f36', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
               Go to clients
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:14,height:14}}><path d="M5 12h14M13 6l6 6-6 6"/></svg>
             </span>
@@ -413,7 +422,6 @@ export default async function DashboardPage({
         statusTasks={statusTasks}
         agreedVsDelivered={agreedVsDelivered}
         periodLabel={periodLabel}
-        backlogRows={backlogRows}
         defaultTab={overdueCount > 0 ? 'approvals' : 'overview'}
       />
     </main>
