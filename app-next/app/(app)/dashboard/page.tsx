@@ -25,17 +25,6 @@ function rangeCutoff(range: string): number {
   return 0;
 }
 
-function monthsInRange(range: string, allTasks: MappedTask[]): number {
-  if (range === '30d') return 1;
-  if (range === '90d') return 3;
-  if (range === '1y')  return 12;
-  const dates = allTasks.map(t => parseDate(t.dateUpdated)).filter(d => !isNaN(d));
-  if (dates.length === 0) return 1;
-  const earliest = Math.min(...dates);
-  const days = (Date.now() - earliest) / 86_400_000;
-  return Math.max(1, Math.round(days / 30));
-}
-
 const parseDate = (s: string) => { const n = Number(s); return isNaN(n) ? new Date(s).getTime() : n; };
 
 const PIPELINE_STAGES: { key: string; label: string; group: string; barColor: string; isRework: boolean }[] = [
@@ -85,11 +74,15 @@ function buildApprovals(tasks: MappedTask[]): ApprovalRow[] {
     .sort((a, b) => b.daysWaiting - a.daysWaiting);
 }
 
-function buildClients(tasks: MappedTask[], quotas: ClientQuota[], months: number, backlogRows: BacklogRow[]): ClientRow[] {
-  const map = new Map<string, { total: number; inReview: number; oldestDays: number; reelsDelivered: number; ytDelivered: number }>();
+// `tasks` drives Total/In review/Oldest wait (scoped to whatever range/filters
+// are browsed); `monthlyPosted` drives Reels/YouTube delivered — always the
+// current calendar month, regardless of the browsed range, since a monthly
+// quota promise doesn't mean anything prorated over a different window.
+function buildClients(tasks: MappedTask[], monthlyPosted: MappedTask[], quotas: ClientQuota[], backlogRows: BacklogRow[]): ClientRow[] {
+  const map = new Map<string, { total: number; inReview: number; oldestDays: number }>();
   for (const t of tasks) {
     const name = t.clientName ?? 'Unknown';
-    if (!map.has(name)) map.set(name, { total: 0, inReview: 0, oldestDays: 0, reelsDelivered: 0, ytDelivered: 0 });
+    if (!map.has(name)) map.set(name, { total: 0, inReview: 0, oldestDays: 0 });
     const s = map.get(name)!;
     s.total++;
     if (norm(t.status) === 'for client review') {
@@ -97,18 +90,26 @@ function buildClients(tasks: MappedTask[], quotas: ClientQuota[], months: number
       const d = daysAgo(t.dateUpdated);
       if (d > s.oldestDays) s.oldestDays = d;
     }
-    if (norm(t.status) === 'posted in socials') {
-      if (t.isYoutube) s.ytDelivered++; else s.reelsDelivered++;
-    }
   }
+
+  const deliveredByName = new Map<string, { reels: number; yt: number }>();
+  for (const t of monthlyPosted) {
+    const name = t.clientName ?? 'Unknown';
+    if (!deliveredByName.has(name)) deliveredByName.set(name, { reels: 0, yt: 0 });
+    const d = deliveredByName.get(name)!;
+    if (t.isYoutube) d.yt++; else d.reels++;
+  }
+
   const quotaByName = new Map(quotas.map(q => [norm(q.name), q]));
   const backlogByName = new Map(backlogRows.map(b => [norm(b.name), b.backlogCount]));
+
   return Array.from(map.entries())
     .map(([name, s]) => {
+      const delivered = deliveredByName.get(name) ?? { reels: 0, yt: 0 };
       const q = quotaByName.get(norm(name));
-      const reelsAgreed = (q?.reelsPerMonth ?? 0) * months;
-      const ytAgreed = (q?.ytPerMonth ?? 0) * months;
-      const stillNeeded = Math.max(reelsAgreed - s.reelsDelivered, 0) + Math.max(ytAgreed - s.ytDelivered, 0);
+      const reelsAgreed = q?.reelsPerMonth ?? 0;
+      const ytAgreed = q?.ytPerMonth ?? 0;
+      const stillNeeded = Math.max(reelsAgreed - delivered.reels, 0) + Math.max(ytAgreed - delivered.yt, 0);
       const backlogCount = backlogByName.get(norm(name)) ?? 0;
       return {
         name,
@@ -116,9 +117,9 @@ function buildClients(tasks: MappedTask[], quotas: ClientQuota[], months: number
         inReview: s.inReview,
         oldestDays: s.oldestDays,
         reelsAgreed,
-        reelsDelivered: s.reelsDelivered,
+        reelsDelivered: delivered.reels,
         ytAgreed,
-        ytDelivered: s.ytDelivered,
+        ytDelivered: delivered.yt,
         backlogCount,
         stillNeeded,
         footageGap: stillNeeded - backlogCount,
@@ -127,20 +128,20 @@ function buildClients(tasks: MappedTask[], quotas: ClientQuota[], months: number
     .sort((a, b) => b.total - a.total);
 }
 
-function buildAgreedVsDelivered(tasks: MappedTask[], quotas: ClientQuota[], months: number): AgreedDeliveredRow[] {
+function buildAgreedVsDelivered(monthlyPosted: MappedTask[], quotas: ClientQuota[]): AgreedDeliveredRow[] {
   const delivered = new Map<string, number>();
-  for (const t of tasks) {
-    if (norm(t.status) !== 'posted in socials' || !t.clientName) continue;
+  for (const t of monthlyPosted) {
+    if (!t.clientName) continue;
     const key = norm(t.clientName);
     delivered.set(key, (delivered.get(key) ?? 0) + 1);
   }
 
   return quotas
-    .map(q => ({ name: q.name, agreedPerMonth: q.reelsPerMonth + q.ytPerMonth }))
-    .filter(q => q.agreedPerMonth > 0)
+    .map(q => ({ name: q.name, agreed: q.reelsPerMonth + q.ytPerMonth }))
+    .filter(q => q.agreed > 0)
     .map(q => ({
       name: q.name,
-      agreed: q.agreedPerMonth * months,
+      agreed: q.agreed,
       delivered: delivered.get(norm(q.name)) ?? 0,
     }))
     .sort((a, b) => b.agreed - a.agreed);
@@ -268,13 +269,21 @@ export default async function DashboardPage({
 
   const postedThisMonth = tasks.filter(t => norm(t.status) === POSTED && parseDate(t.dateUpdated) >= monthStart).length;
 
-  const months = monthsInRange(range, allTasks);
+  // Quota pacing (Delivery/Footage) is always scoped to the current calendar
+  // month, independent of the browsed range — an agreed monthly quota doesn't
+  // mean anything prorated over the account's entire history.
+  const monthlyPosted = allTasks
+    .filter(t => norm(t.status) === POSTED && parseDate(t.dateUpdated) >= monthStart)
+    .filter(t => !member       || t.editorName     === member)
+    .filter(t => !am           || t.assignedAmName === am)
+    .filter(t => !clientFilter || t.clientName     === clientFilter);
+
   const pipeline    = buildPipeline(tasks);
   const approvals   = buildApprovals(tasks);
   const backlogRows = buildBacklog(allTasks);
-  const clients     = buildClients(tasks, clientQuotas, months, backlogRows);
+  const clients     = buildClients(tasks, monthlyPosted, clientQuotas, backlogRows);
   const editors     = buildEditors(tasks);
-  const agreedVsDelivered = buildAgreedVsDelivered(tasks, clientQuotas, months);
+  const agreedVsDelivered = buildAgreedVsDelivered(monthlyPosted, clientQuotas);
   const footageRiskClients = clients
     .filter(c => c.footageGap > 0)
     .sort((a, b) => b.footageGap - a.footageGap);
@@ -298,9 +307,7 @@ export default async function DashboardPage({
     .map(e => ({ name: e.name, firstPassClean: e.firstPassClean! }));
 
   const monthLabel = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
-
-  const rangeLabels: Record<string, string> = { '30d': 'Last 30 days', '90d': 'Last 90 days', '1y': 'Last year', all: 'All time' };
-  const periodLabel = `${rangeLabels[range] ?? 'All time'} (≈${months} month${months === 1 ? '' : 's'})`;
+  const periodLabel = `${monthLabel} to date`;
 
   const segRanges = [
     { label: '30d', value: '30d' },
