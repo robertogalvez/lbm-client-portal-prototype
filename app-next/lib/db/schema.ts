@@ -57,13 +57,17 @@ export const authVerifications = pgTable('auth_verification', {
 export const clients = pgTable('clients', {
   id:                uuid('id').defaultRandom().primaryKey(),
   name:              varchar('name', { length: 255 }).notNull(),
-  clickupOptionId:   varchar('clickup_option_id', { length: 100 }).unique().notNull(),
-  type:              varchar('type', { length: 20 }).notNull(),
+  clickupTaskId:     varchar('clickup_task_id', { length: 100 }).unique().notNull(),
+  type:              varchar('type', { length: 20 }),
   showCalendar:      boolean('show_calendar').default(false),
   monthlyQuota:      integer('monthly_quota'),
   frameioProjectId:  varchar('frameio_project_id', { length: 100 }),
   whatsappNumber:    varchar('whatsapp_number', { length: 30 }),
   brandingConfig:    jsonb('branding_config'),
+  contactName:       text('contact_name'),
+  contactEmail:      text('contact_email'),
+  clientStatus:      varchar('client_status', { length: 20 }),
+  lastSyncedAt:      timestamp('last_synced_at'),
   createdAt:         timestamp('created_at').defaultNow(),
 });
 

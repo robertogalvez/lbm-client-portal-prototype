@@ -63,7 +63,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   const viewAsClient = isStaff ? await getViewAsClient() : null;
   if (!userRow || (userRow.role !== 'client' && !userRow.isAlsoClient && !viewAsClient)) redirect('/dashboard');
 
-  const clientName = viewAsClient ? viewAsClient.clickupOptionId : userRow.clientName;
+  const clientName = viewAsClient ? viewAsClient.name : userRow.clientName;
   const name = viewAsClient ? null : userRow.name;
   const isAdminClient = !viewAsClient && userRow.isAlsoClient && userRow.role !== 'client';
   if (!clientName) {
