@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import { authClient } from '@/lib/auth-client';
+import { REMEMBER_DEVICE_COOKIE } from '@/lib/auth-constants';
 
 type State = 'idle' | 'loading' | 'sent' | 'error';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
+  const [rememberDevice, setRememberDevice] = useState(false);
   const [state, setState] = useState<State>('idle');
   const [error, setError] = useState('');
 
@@ -15,6 +17,11 @@ export default function LoginPage() {
     setState('loading');
     setError('');
     try {
+      if (rememberDevice) {
+        // 15 min — outlives the magic link's own 10-minute expiry, just
+        // long enough to survive until the user clicks the emailed link.
+        document.cookie = `${REMEMBER_DEVICE_COOKIE}=1; path=/; max-age=900; samesite=lax`;
+      }
       await authClient.signIn.magicLink({ email, callbackURL: '/' });
       setState('sent');
     } catch (err) {
@@ -141,6 +148,34 @@ export default function LoginPage() {
                   onFocus={e => { e.target.style.borderColor = '#FF6000'; }}
                   onBlur={e => { e.target.style.borderColor = '#2a2a2e'; }}
                 />
+
+                {/* Remember this device */}
+                <label
+                  htmlFor="remember-device"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    fontSize: 13,
+                    color: '#aaa',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                  }}
+                >
+                  <input
+                    id="remember-device"
+                    type="checkbox"
+                    checked={rememberDevice}
+                    onChange={e => setRememberDevice(e.target.checked)}
+                    style={{
+                      width: 15,
+                      height: 15,
+                      accentColor: '#FF6000',
+                      cursor: 'pointer',
+                    }}
+                  />
+                  Remember this device
+                </label>
 
                 {state === 'error' && (
                   <div style={{
