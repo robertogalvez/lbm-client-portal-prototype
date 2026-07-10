@@ -232,6 +232,10 @@ const thStyle: React.CSSProperties = {
   background: '#f5f7f9', borderBottom: '1px solid #e7ebef', whiteSpace: 'nowrap',
 };
 const thNum: React.CSSProperties = { ...thStyle, textAlign: 'center' };
+// Scoped to the Clients tab breakdown table — its header stays pinned while
+// scrolling a long client list, so column meaning is never out of view.
+const thStickyStyle: React.CSSProperties = { ...thStyle, position: 'sticky', top: 0, zIndex: 1 };
+const thStickyNum: React.CSSProperties = { ...thStickyStyle, textAlign: 'center' };
 const td: React.CSSProperties = { padding: '11px 18px', borderBottom: '1px solid #e7ebef', verticalAlign: 'middle' };
 const tdNum: React.CSSProperties = { ...td, textAlign: 'center', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
 
@@ -537,13 +541,13 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr>
-                  <th style={thStyle}>Client</th>
-                  <th style={thNum}>Total</th>
-                  <th style={thNum}>In review <InfoPopover tip="Videos currently in 'For Client Review' status, waiting for client response." /></th>
-                  <th style={thNum}>Oldest wait <InfoPopover tip="Days since the oldest unreviewed video last changed status." /></th>
-                  <th style={thNum}>Status <InfoPopover tip="On track = no pending reviews · In review = 1+ video awaiting client · Needs attention = waiting >3 days." /></th>
-                  <th style={thNum}>Delivery <InfoPopover tip="Combined % = (Reels + YouTube delivered) ÷ (Reels + YouTube agreed) from ClickUp's Master Clients List, prorated for the selected period. Click a row to see the Reels/YouTube breakdown." /></th>
-                  <th style={thNum}>Footage <InfoPopover tip="Still needed (agreed − delivered, summed across Reels + YouTube) compared to backlog on hand. 'Short by N' means raw footage on hand won't cover the remaining quota — film more or pull from the Marketplace." /></th>
+                  <th style={thStickyStyle}>Client</th>
+                  <th style={thStickyNum}>Total</th>
+                  <th style={thStickyNum}>In review <InfoPopover tip="Videos currently in 'For Client Review' status, waiting for client response." /></th>
+                  <th style={thStickyNum}>Oldest wait <InfoPopover tip="Days since the oldest unreviewed video last changed status." /></th>
+                  <th style={thStickyNum}>Status <InfoPopover tip="On track = no pending reviews · In review = 1+ video awaiting client · Needs attention = waiting >3 days." /></th>
+                  <th style={thStickyNum}>Delivery <InfoPopover tip="Combined % = (Reels + YouTube delivered) ÷ (Reels + YouTube agreed) from ClickUp's Master Clients List, prorated for the selected period. Click a row to see the Reels/YouTube breakdown." /></th>
+                  <th style={thStickyNum}>Footage <InfoPopover tip="Still needed (agreed − delivered, summed across Reels + YouTube) compared to backlog on hand. 'Short by N' means raw footage on hand won't cover the remaining quota — film more or pull from the Marketplace." /></th>
                 </tr>
               </thead>
               <tbody>
