@@ -64,6 +64,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
   const [msg, setMsg] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
+  const [showInactive, setShowInactive] = useState(false);
 
   // Portal-only fields (the only ones an admin can edit — everything else comes from ClickUp)
   const [fType, setFType] = useState<'retainer' | 'one_time' | null>(null);
@@ -219,6 +220,8 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
   }
 
   const hasLinkedUsers = (selected?.portalUsers.length ?? 0) > 0;
+  const visibleClients = clients.filter(c => showInactive || c.clientStatus !== 'Inactive');
+  const inactiveCount = clients.length - clients.filter(c => c.clientStatus !== 'Inactive').length;
 
   return (
     <div style={{ display: 'flex', height: '100vh', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif', overflow: 'hidden' }}>
@@ -228,9 +231,13 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 28px', borderBottom: '1px solid #e7ebef', background: '#fff', flexShrink: 0 }}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 700, color: '#111c28' }}>Clients</div>
-            <div style={{ fontSize: 13, color: '#8b97a4', marginTop: 2 }}>{clients.length} client{clients.length !== 1 ? 's' : ''} · synced from ClickUp&apos;s Master Clients List</div>
+            <div style={{ fontSize: 13, color: '#8b97a4', marginTop: 2 }}>{visibleClients.length} client{visibleClients.length !== 1 ? 's' : ''} · synced from ClickUp&apos;s Master Clients List</div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#54616f', cursor: 'pointer' }}>
+              <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} style={{ cursor: 'pointer' }} />
+              Show inactive{inactiveCount > 0 ? ` (${inactiveCount})` : ''}
+            </label>
             {syncMsg && <span style={{ fontSize: 13, color: syncMsg.includes('rror') || syncMsg.includes('ail') ? '#cf3f36' : '#54616f' }}>{syncMsg}</span>}
             <button onClick={syncNow} disabled={syncing} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 8, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontWeight: 600, fontSize: 14, cursor: syncing ? 'default' : 'pointer', fontFamily: 'inherit' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}><path d="M21 2v6h-6M3 22v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L21 8M3 16l2.64 2.36A9 9 0 0 0 20.49 15" /></svg>
@@ -251,11 +258,11 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                 </tr>
               </thead>
               <tbody>
-                {clients.length === 0 && (
-                  <tr><td colSpan={6} style={{ padding: '48px 16px', textAlign: 'center', color: '#8b97a4', fontSize: 14 }}>No clients yet. Click &quot;Sync now&quot; to pull clients from ClickUp&apos;s Master Clients List.</td></tr>
+                {visibleClients.length === 0 && (
+                  <tr><td colSpan={6} style={{ padding: '48px 16px', textAlign: 'center', color: '#8b97a4', fontSize: 14 }}>{clients.length === 0 ? <>No clients yet. Click &quot;Sync now&quot; to pull clients from ClickUp&apos;s Master Clients List.</> : 'No active clients. Check "Show inactive" to see them.'}</td></tr>
                 )}
-                {clients.map((c, i) => (
-                  <tr key={c.id} onClick={() => openEdit(c)} style={{ borderBottom: i < clients.length - 1 ? '1px solid #f4f6f8' : 'none', cursor: 'pointer', background: selected?.id === c.id ? '#fff8f5' : 'transparent' }}>
+                {visibleClients.map((c, i) => (
+                  <tr key={c.id} onClick={() => openEdit(c)} style={{ borderBottom: i < visibleClients.length - 1 ? '1px solid #f4f6f8' : 'none', cursor: 'pointer', background: selected?.id === c.id ? '#fff8f5' : 'transparent' }}>
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <span style={{ width: 32, height: 32, borderRadius: '50%', background: avatarColor(c.id), color: '#fff', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{initials(c.name)}</span>

@@ -19,6 +19,7 @@ export async function getTasksFromDB(): Promise<MappedTask[]> {
     frameLink:        row.frameioAssetId ?? null,
     assignedAmName:   row.assignedAmName ?? null,
     editorName:       row.editorName ?? null,
+    isYoutube:        row.isYoutube ?? false,
     dateUpdated:      row.dateUpdated ?? String(row.lastSyncedAt?.getTime() ?? Date.now()),
     dueDate:          row.dueDate ?? null,
   }));

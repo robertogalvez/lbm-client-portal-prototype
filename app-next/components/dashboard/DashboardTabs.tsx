@@ -20,6 +20,10 @@ export interface ClientRow {
   total: number;
   inReview: number;
   oldestDays: number;
+  reelsAgreed: number;
+  reelsDelivered: number;
+  ytAgreed: number;
+  ytDelivered: number;
 }
 
 export interface EditorRow {
@@ -131,6 +135,16 @@ function CleanBar({ pct }: { pct: number }) {
       </div>
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums', width: 34, textAlign: 'right' }}>{pct}%</span>
     </div>
+  );
+}
+
+function QuotaCell({ delivered, agreed }: { delivered: number; agreed: number }) {
+  if (agreed <= 0) return <span style={{ color: '#8b97a4' }}>—</span>;
+  const onTrack = delivered >= agreed;
+  return (
+    <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', color: onTrack ? '#14805f' : '#a86a00' }}>
+      {delivered}/{agreed}
+    </span>
   );
 }
 
@@ -458,6 +472,8 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
                   <th style={thNum}>Oldest wait <InfoPopover tip="Days since the oldest unreviewed video last changed status." /></th>
                   <th style={thNum}>Status <InfoPopover tip="On track = no pending reviews · In review = 1+ video awaiting client · Needs attention = waiting >3 days." /></th>
                   <th style={thNum}>Backlog <InfoPopover tip="Videos still in 'Not Ready', 'Backlog', or 'Not Assigned' — raw footage not yet picked up by an editor." /></th>
+                  <th style={thNum}>Reels <InfoPopover tip="Delivered ÷ agreed 'Reels / mo' quota from ClickUp's Master Clients List, prorated for the selected period. Delivered counts videos with no 'youtube' tag that reached Posted in Socials." /></th>
+                  <th style={thNum}>YouTube <InfoPopover tip="Delivered ÷ agreed 'YT videos / mo' quota from ClickUp's Master Clients List, prorated for the selected period. Delivered counts videos tagged 'youtube' that reached Posted in Socials." /></th>
                 </tr>
               </thead>
               <tbody>
@@ -471,6 +487,8 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
                       <td style={tdNum}>{c.inReview > 0 ? <WaitBadge days={c.oldestDays} /> : <span style={{ color: '#8b97a4' }}>—</span>}</td>
                       <td style={tdNum}><StatusChip inReview={c.inReview} oldestDays={c.oldestDays} /></td>
                       <td style={tdNum}>{backlog ? <BacklogBadge count={backlog.backlogCount} /> : <span style={{ color: '#8b97a4' }}>—</span>}</td>
+                      <td style={tdNum}><QuotaCell delivered={c.reelsDelivered} agreed={c.reelsAgreed} /></td>
+                      <td style={tdNum}><QuotaCell delivered={c.ytDelivered} agreed={c.ytAgreed} /></td>
                     </tr>
                   );
                 })}
