@@ -1,6 +1,8 @@
 import { Suspense } from 'react';
 import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask, getClientQuotas, ClientQuota } from '@/lib/clickup';
 import { getTasksFromDB } from '@/lib/db/queries';
+import { db } from '@/lib/db';
+import { clients as clientsTable } from '@/lib/db/schema';
 import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask, AgreedDeliveredRow, BacklogRow } from '@/components/dashboard/DashboardTabs';
 import { EDITOR_PHASE_COLS } from '@/components/dashboard/editor-phases';
 import { FiltersBar } from '@/components/dashboard/FiltersBar';
@@ -200,7 +202,7 @@ function KpiCard({ label, tip, value, dotColor, sub, subTone }: KpiProps) {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; member?: string; am?: string; client?: string }>;
+  searchParams: Promise<{ range?: string; member?: string; am?: string; client?: string; inactive?: string }>;
 }) {
   if (!isConfigured()) {
     return (
@@ -213,7 +215,8 @@ export default async function DashboardPage({
     );
   }
 
-  const { range = 'all', member = '', am = '', client: clientFilter = '' } = await searchParams;
+  const { range = 'all', member = '', am = '', client: clientFilter = '', inactive = '' } = await searchParams;
+  const showInactive = inactive === '1';
   const masterListId = process.env.CLICKUP_LIST_ID;
   const folderId     = process.env.CLICKUP_FOLDER_ID;
   let allTasks: MappedTask[] = [];
@@ -231,6 +234,20 @@ export default async function DashboardPage({
     }
   } catch (e) {
     error = e instanceof Error ? e.message : 'Unknown error';
+  }
+
+  // Hide Inactive clients (per the synced ClickUp Master Clients List) everywhere
+  // on the dashboard by default — a client with no matching record (not yet
+  // synced) is kept visible rather than silently hidden.
+  const clientStatusRows = await db
+    .select({ name: clientsTable.name, clientStatus: clientsTable.clientStatus })
+    .from(clientsTable)
+    .catch(() => [] as { name: string; clientStatus: string | null }[]);
+  const inactiveNames = new Set(
+    clientStatusRows.filter(c => c.clientStatus === 'Inactive').map(c => norm(c.name))
+  );
+  if (!showInactive && inactiveNames.size > 0) {
+    allTasks = allTasks.filter(t => !t.clientName || !inactiveNames.has(norm(t.clientName)));
   }
 
   const clientQuotas = await getClientQuotas().catch(() => [] as ClientQuota[]);

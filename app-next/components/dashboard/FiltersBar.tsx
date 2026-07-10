@@ -34,6 +34,7 @@ export function FiltersBar({ members, ams, clients, hideDateRange }: Props) {
   const am       = params.get('am')       ?? '';
   const client   = params.get('client')   ?? '';
   const archived = params.get('archived') === '1';
+  const inactive = params.get('inactive') === '1';
 
   const selectStyle: React.CSSProperties = {
     fontSize: 13, color: '#111c28', background: '#fff',
@@ -41,7 +42,7 @@ export function FiltersBar({ members, ams, clients, hideDateRange }: Props) {
     cursor: 'pointer', outline: 'none',
   };
 
-  const hasFilters = (hideDateRange ? false : range !== 'all') || member || am || client || archived;
+  const hasFilters = (hideDateRange ? false : range !== 'all') || member || am || client || archived || inactive;
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -84,6 +85,26 @@ export function FiltersBar({ members, ams, clients, hideDateRange }: Props) {
           }} />
         </div>
         Show archived
+      </label>
+
+      {/* Inactive clients toggle */}
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#54616f', userSelect: 'none' }}>
+        <div
+          onClick={() => set('inactive', inactive ? '' : '1')}
+          style={{
+            width: 36, height: 20, borderRadius: 10,
+            background: inactive ? '#FF6000' : '#d4dbe2',
+            position: 'relative', cursor: 'pointer', transition: 'background 0.2s',
+            flexShrink: 0,
+          }}
+        >
+          <div style={{
+            position: 'absolute', top: 2, left: inactive ? 18 : 2,
+            width: 16, height: 16, borderRadius: '50%', background: '#fff',
+            transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+          }} />
+        </div>
+        Show inactive clients
       </label>
 
       {hasFilters && (
