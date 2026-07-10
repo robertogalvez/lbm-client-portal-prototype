@@ -179,6 +179,62 @@ export interface ClientQuota {
   agreedPerMonth: number;
 }
 
+export interface MasterClientRecord {
+  clickupTaskId: string;
+  name: string;
+  contactName: string | null;
+  contactEmail: string | null;
+  whatsappNumber: string | null;
+  clientStatus: string;
+  monthlyQuota: number;
+}
+
+// Tasks in the Master Clients List with no "Client Status" set are placeholder/
+// junk entries (e.g. stray planning notes), not real clients — skip them.
+export async function getMasterClientRecords(): Promise<{ records: MasterClientRecord[]; skipped: string[] }> {
+  const listId = process.env.CLICKUP_CLIENTS_LIST_ID;
+  if (!listId) return { records: [], skipped: [] };
+
+  const tasks = await fetchRawTasks(listId);
+
+  const statusOptions: { id: string; name: string }[] =
+    tasks.map(t => findField(t, 'Client Status')?.type_config?.options).find(o => o?.length) ?? [];
+
+  const records: MasterClientRecord[] = [];
+  const skipped: string[] = [];
+
+  for (const t of tasks) {
+    const statusField = findField(t, 'Client Status');
+    const statusIdx = typeof statusField?.value === 'number' ? statusField.value : null;
+    const clientStatus = statusIdx !== null
+      ? statusField?.type_config?.options?.[statusIdx]?.name ?? statusOptions[statusIdx]?.name ?? null
+      : null;
+
+    if (!clientStatus) { skipped.push(t.name); continue; }
+
+    const contactNameField  = findField(t, 'Full Name');
+    const contactEmailField = findField(t, 'Contact Email Address');
+    const phoneField        = findField(t, 'Phone Number');
+    const reelsField        = findField(t, 'Reels / mo');
+    const ytField           = findField(t, 'YT videos / mo');
+
+    const reels = typeof reelsField?.value === 'number' ? reelsField.value : Number(reelsField?.value ?? 0) || 0;
+    const yt    = typeof ytField?.value === 'number' ? ytField.value : Number(ytField?.value ?? 0) || 0;
+
+    records.push({
+      clickupTaskId:  t.id,
+      name:           t.name,
+      contactName:    typeof contactNameField?.value === 'string' ? contactNameField.value : null,
+      contactEmail:   typeof contactEmailField?.value === 'string' ? contactEmailField.value : null,
+      whatsappNumber: typeof phoneField?.value === 'string' ? phoneField.value : null,
+      clientStatus:   clientStatus.trim(),
+      monthlyQuota:   reels + yt,
+    });
+  }
+
+  return { records, skipped };
+}
+
 export async function getClientQuotas(): Promise<ClientQuota[]> {
   const listId = process.env.CLICKUP_CLIENTS_LIST_ID;
   if (!listId) return [];

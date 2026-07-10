@@ -100,6 +100,18 @@ export async function POST(req: Request) {
       sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS due_date text`,
       sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS caption_approval varchar(50)`,
       sql`ALTER TABLE video_cache ALTER COLUMN frameio_asset_id TYPE text`,
+      sql`DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'clients' AND column_name = 'clickup_option_id')
+             AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'clients' AND column_name = 'clickup_task_id') THEN
+            ALTER TABLE clients RENAME COLUMN clickup_option_id TO clickup_task_id;
+          END IF;
+        END $$`,
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_name text`,
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_email text`,
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS client_status varchar(20)`,
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS last_synced_at timestamp`,
+      sql`ALTER TABLE clients ALTER COLUMN type DROP NOT NULL`,
     ]);
 
     const rows = await sql`
