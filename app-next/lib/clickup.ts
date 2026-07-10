@@ -37,6 +37,7 @@ export interface ClickUpTask {
   status: { status: string; color: string };
   custom_fields: ClickUpField[];
   assignees: { id: string; username: string }[];
+  tags: { name: string }[];
   date_updated: string;
   due_date: string | null;
 }
@@ -56,6 +57,7 @@ export interface MappedTask {
   frameLink: string | null;
   assignedAmName: string | null;
   editorName: string | null;
+  isYoutube: boolean;
   dateUpdated: string;
   dueDate: string | null;
 }
@@ -85,6 +87,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
   const amUsers   = amField?.value as { username?: string }[] | undefined;
   const amName    = amUsers?.[0]?.username ?? null;
   const editorName = task.assignees?.[0]?.username ?? null;
+  const isYoutube  = (task.tags ?? []).some(tag => tag.name?.toLowerCase() === 'youtube');
 
   let dueDate: string | null = null;
   if (task.due_date) {
@@ -116,6 +119,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     frameLink:        typeof frameLinkField?.value === 'string' ? frameLinkField.value : null,
     assignedAmName:   amName,
     editorName,
+    isYoutube,
     dateUpdated:      task.date_updated,
     dueDate,
   };
@@ -176,7 +180,8 @@ export async function getTasksFromFolder(folderId: string, includeArchived = fal
 
 export interface ClientQuota {
   name: string;
-  agreedPerMonth: number;
+  reelsPerMonth: number;
+  ytPerMonth: number;
 }
 
 export interface MasterClientRecord {
@@ -245,7 +250,7 @@ export async function getClientQuotas(): Promise<ClientQuota[]> {
     const yt    = findField(t, 'YT videos / mo');
     const reelsCount = typeof reels?.value === 'number' ? reels.value : Number(reels?.value ?? 0) || 0;
     const ytCount    = typeof yt?.value === 'number' ? yt.value : Number(yt?.value ?? 0) || 0;
-    return { name: t.name, agreedPerMonth: reelsCount + ytCount };
+    return { name: t.name, reelsPerMonth: reelsCount, ytPerMonth: ytCount };
   });
 }
 

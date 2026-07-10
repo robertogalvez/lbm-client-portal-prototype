@@ -86,11 +86,11 @@ function buildApprovals(tasks: MappedTask[]): ApprovalRow[] {
     .sort((a, b) => b.daysWaiting - a.daysWaiting);
 }
 
-function buildClients(tasks: MappedTask[]): ClientRow[] {
-  const map = new Map<string, { total: number; inReview: number; oldestDays: number }>();
+function buildClients(tasks: MappedTask[], quotas: ClientQuota[], months: number): ClientRow[] {
+  const map = new Map<string, { total: number; inReview: number; oldestDays: number; reelsDelivered: number; ytDelivered: number }>();
   for (const t of tasks) {
     const name = t.clientName ?? 'Unknown';
-    if (!map.has(name)) map.set(name, { total: 0, inReview: 0, oldestDays: 0 });
+    if (!map.has(name)) map.set(name, { total: 0, inReview: 0, oldestDays: 0, reelsDelivered: 0, ytDelivered: 0 });
     const s = map.get(name)!;
     s.total++;
     if (norm(t.status) === 'for client review') {
@@ -98,9 +98,25 @@ function buildClients(tasks: MappedTask[]): ClientRow[] {
       const d = daysAgo(t.dateUpdated);
       if (d > s.oldestDays) s.oldestDays = d;
     }
+    if (norm(t.status) === 'posted in socials') {
+      if (t.isYoutube) s.ytDelivered++; else s.reelsDelivered++;
+    }
   }
+  const quotaByName = new Map(quotas.map(q => [norm(q.name), q]));
   return Array.from(map.entries())
-    .map(([name, s]) => ({ name, ...s }))
+    .map(([name, s]) => {
+      const q = quotaByName.get(norm(name));
+      return {
+        name,
+        total: s.total,
+        inReview: s.inReview,
+        oldestDays: s.oldestDays,
+        reelsAgreed: (q?.reelsPerMonth ?? 0) * months,
+        reelsDelivered: s.reelsDelivered,
+        ytAgreed: (q?.ytPerMonth ?? 0) * months,
+        ytDelivered: s.ytDelivered,
+      };
+    })
     .sort((a, b) => b.total - a.total);
 }
 
@@ -113,6 +129,7 @@ function buildAgreedVsDelivered(tasks: MappedTask[], quotas: ClientQuota[], mont
   }
 
   return quotas
+    .map(q => ({ name: q.name, agreedPerMonth: q.reelsPerMonth + q.ytPerMonth }))
     .filter(q => q.agreedPerMonth > 0)
     .map(q => ({
       name: q.name,
@@ -247,7 +264,7 @@ export default async function DashboardPage({
   const months = monthsInRange(range, allTasks);
   const pipeline    = buildPipeline(tasks);
   const approvals   = buildApprovals(tasks);
-  const clients     = buildClients(tasks);
+  const clients     = buildClients(tasks, clientQuotas, months);
   const editors     = buildEditors(tasks);
   const agreedVsDelivered = buildAgreedVsDelivered(tasks, clientQuotas, months);
   const backlogRows = buildBacklog(allTasks);

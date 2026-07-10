@@ -89,6 +89,7 @@ export const videoCache = pgTable('video_cache', {
   clientName:        text('client_name'),
   qualityCheck:      varchar('quality_check', { length: 50 }),
   captionApproval:   varchar('caption_approval', { length: 50 }),
+  isYoutube:         boolean('is_youtube').default(false),
   dateUpdated:       text('date_updated'),
   dueDate:           text('due_date'),
   lastSyncedAt:      timestamp('last_synced_at').defaultNow(),

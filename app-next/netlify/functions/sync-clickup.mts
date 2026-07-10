@@ -24,6 +24,7 @@ const videoCache = pgTable('video_cache', {
   clientName:        text('client_name'),
   qualityCheck:      varchar('quality_check', { length: 50 }),
   captionApproval:   varchar('caption_approval', { length: 50 }),
+  isYoutube:         boolean('is_youtube').default(false),
   dateUpdated:       text('date_updated'),
   dueDate:           text('due_date'),
   lastSyncedAt:      timestamp('last_synced_at').defaultNow(),
@@ -132,6 +133,7 @@ export default async function handler() {
     const amUsers    = amField?.value as { username?: string }[] | undefined;
     const amName     = amUsers?.[0]?.username ?? null;
     const editorName = (task.assignees as { username?: string }[])?.[0]?.username ?? null;
+    const isYoutube  = ((task.tags ?? []) as { name?: string }[]).some(tag => tag.name?.toLowerCase() === 'youtube');
 
     let dueDate: string | null = null;
     if (task.due_date) {
@@ -155,6 +157,7 @@ export default async function handler() {
       editorName,
       clientName,
       qualityCheck,
+      isYoutube,
       dateUpdated:      task.date_updated ?? null,
       dueDate,
       lastSyncedAt:     new Date(),
