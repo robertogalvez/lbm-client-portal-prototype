@@ -3,10 +3,9 @@ import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask, getClie
 import { getTasksFromDB } from '@/lib/db/queries';
 import { db } from '@/lib/db';
 import { clients as clientsTable } from '@/lib/db/schema';
-import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask, AgreedDeliveredRow, BacklogRow } from '@/components/dashboard/DashboardTabs';
+import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask, AgreedDeliveredRow, BacklogRow, KpiData } from '@/components/dashboard/DashboardTabs';
 import { EDITOR_PHASE_COLS } from '@/components/dashboard/editor-phases';
 import { FiltersBar } from '@/components/dashboard/FiltersBar';
-import { InfoPopover } from '@/components/ui/Tooltip';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +26,39 @@ function rangeCutoff(range: string): number {
   return 0;
 }
 
+// The equal-length window immediately preceding `cutoff`, used to compute
+// KPI trend deltas. 'all' has no meaningful "prior" window.
+function previousWindowBounds(range: string, cutoff: number): [number, number] | null {
+  if (range === '30d')  return [cutoff - 30  * 86_400_000, cutoff];
+  if (range === '90d')  return [cutoff - 90  * 86_400_000, cutoff];
+  if (range === '1y')   return [cutoff - 365 * 86_400_000, cutoff];
+  return null;
+}
+
+function periodMetrics(list: MappedTask[]) {
+  const POSTED = 'posted in socials';
+  const inProd = list.filter(t => norm(t.status) !== POSTED).length;
+  const pending = list.filter(t => norm(t.status) === 'for client review').length;
+  const approved = list.filter(t => t.clientApproval?.toLowerCase() === 'approved').length;
+  const corrections = list.filter(t => norm(t.status) === 'in progress (corrections)').length;
+  const fpTotal = approved + corrections;
+  const firstPassClean = fpTotal > 0 ? Math.round(approved / fpTotal * 100) : null;
+  return { inProd, pending, approved, firstPassClean };
+}
+
+// Delta chip for a KPI card: arrow + magnitude, colored by whether the
+// direction is actually good for that metric (e.g. Pending approval going
+// up is bad, not good).
+function kpiDelta(current: number, previous: number | null | undefined, higherIsGood: boolean, unit: 'count' | 'pts' = 'count') {
+  if (previous === null || previous === undefined) return undefined;
+  const diff = current - previous;
+  if (diff === 0) return undefined;
+  const good = (diff > 0) === higherIsGood;
+  const arrow = diff > 0 ? '▲' : '▼';
+  const magnitude = unit === 'pts' ? `${Math.abs(diff)}pts` : `${Math.abs(diff)}`;
+  return { text: `${arrow} ${magnitude}`, good };
+}
+
 const parseDate = (s: string) => { const n = Number(s); return isNaN(n) ? new Date(s).getTime() : n; };
 
 const PIPELINE_STAGES: { key: string; label: string; group: string; barColor: string; isRework: boolean }[] = [
@@ -37,7 +69,7 @@ const PIPELINE_STAGES: { key: string; label: string; group: string; barColor: st
   { key: 'in progress (corrections)', label: 'In Progress (Corrections)',   group: 'In progress',    barColor: '#a86a00', isRework: true  },
   { key: 'tc - qc (somu)',            label: 'TC / QC (Somu)',              group: 'Quality check',  barColor: '#7c66c4', isRework: false },
   { key: 'qc final - am',             label: 'QC Final – AM',               group: 'Quality check',  barColor: '#7c66c4', isRework: false },
-  { key: 'for client review',         label: 'For Client Review',           group: 'Review & ship',  barColor: '#FF6000', isRework: false },
+  { key: 'for client review',         label: 'For Client Review',           group: 'Review & ship',  barColor: '#a86a00', isRework: false },
   { key: 'ready to be posted',        label: 'Ready to be Posted',          group: 'Review & ship',  barColor: '#14805f', isRework: false },
   { key: 'posted in socials',         label: 'Posted in Socials',           group: 'Review & ship',  barColor: '#14805f', isRework: false },
 ];
@@ -172,33 +204,6 @@ function buildEditors(tasks: MappedTask[]): EditorRow[] {
     .sort((a, b) => (b.firstPassClean ?? -1) - (a.firstPassClean ?? -1));
 }
 
-interface KpiProps {
-  label: string;
-  tip: string;
-  value: string | number;
-  dotColor: string;
-  sub?: string;
-  subTone?: 'warn' | 'muted';
-}
-
-function KpiCard({ label, tip, value, dotColor, sub, subTone }: KpiProps) {
-  return (
-    <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, padding: '14px 15px', flex: '1 1 0', minWidth: 140, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ fontSize: 11.5, color: '#54616f', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-        {label}
-        <InfoPopover tip={tip} />
-      </div>
-      <div style={{ fontSize: 26, fontWeight: 600, color: '#111c28', lineHeight: 1, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{value}</div>
-      {sub && (
-        <div style={{ fontSize: 11, fontWeight: 600, color: subTone === 'warn' ? '#a86a00' : '#8b97a4', display: 'flex', alignItems: 'center', gap: 4 }}>
-          {sub}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -301,9 +306,6 @@ export default async function DashboardPage({
   const clients     = buildClients(tasks, monthlyPosted, clientQuotas, backlogRows);
   const editors     = buildEditors(tasks);
   const agreedVsDelivered = buildAgreedVsDelivered(monthlyPosted, clientQuotas);
-  const footageRiskClients = clients
-    .filter(c => c.footageGap > 0)
-    .sort((a, b) => b.footageGap - a.footageGap);
   const statusTasks: StatusTask[] = tasks.map(t => ({
     id: t.clickupTaskId,
     title: t.title,
@@ -325,6 +327,59 @@ export default async function DashboardPage({
 
   const monthLabel = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
   const periodLabel = `${monthLabel} to date`;
+
+  // KPI trend deltas vs. the prior comparable window (skipped for 'All time',
+  // which has no meaningful "prior" window).
+  const prevBounds = previousWindowBounds(range, cutoff);
+  const prevMetrics = prevBounds
+    ? periodMetrics(
+        allTasks
+          .filter(t => { const d = parseDate(t.dateUpdated); return d >= prevBounds[0] && d < prevBounds[1]; })
+          .filter(t => !member       || t.editorName     === member)
+          .filter(t => !am           || t.assignedAmName === am)
+          .filter(t => !clientFilter || t.clientName     === clientFilter)
+      )
+    : null;
+
+  const prevMonthStart = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).getTime();
+  const postedPrevMonth = allTasks
+    .filter(t => norm(t.status) === POSTED)
+    .filter(t => { const d = parseDate(t.dateUpdated); return d >= prevMonthStart && d < monthStart; })
+    .filter(t => !member       || t.editorName     === member)
+    .filter(t => !am           || t.assignedAmName === am)
+    .filter(t => !clientFilter || t.clientName     === clientFilter)
+    .length;
+
+  const kpis: KpiData[] = [
+    {
+      label: 'In production', value: inProduction, dotColor: '#FF6000',
+      tip: 'All tasks not yet posted — across every stage from To Do through QC and Review.',
+      delta: kpiDelta(inProduction, prevMetrics?.inProd, true),
+    },
+    {
+      label: 'Pending approval', value: pendingApproval, dotColor: '#a86a00',
+      tip: "Videos sitting in 'For Client Review' waiting for client sign-off.",
+      sub: overdueCount > 0 ? `${overdueCount} overdue >3d` : undefined,
+      subTone: overdueCount > 0 ? 'warn' : undefined,
+      delta: kpiDelta(pendingApproval, prevMetrics?.pending, false),
+    },
+    {
+      label: 'First-pass clean', value: firstPassCleanPct !== null ? `${firstPassCleanPct}%` : '—', dotColor: '#14805f',
+      tip: 'Approved ÷ (Approved + Rework). Higher means fewer revision rounds.',
+      delta: firstPassCleanPct !== null ? kpiDelta(firstPassCleanPct, prevMetrics?.firstPassClean, true, 'pts') : undefined,
+    },
+    {
+      label: 'Client-approved', value: clientApproved, dotColor: '#14805f',
+      tip: 'Total videos the client has marked Approved, including already-posted ones.',
+      delta: kpiDelta(clientApproved, prevMetrics?.approved, true),
+    },
+    {
+      label: 'Posted this month', value: postedThisMonth, dotColor: '#2563eb',
+      tip: "Videos that reached 'Posted in Socials' during the current calendar month.",
+      sub: monthLabel,
+      delta: kpiDelta(postedThisMonth, postedPrevMonth, true),
+    },
+  ];
 
   const segRanges = [
     { label: '30d', value: '30d' },
@@ -374,69 +429,18 @@ export default async function DashboardPage({
       </div>
 
       {/* Persistent glance zone */}
-      <div style={{ padding: '18px 24px 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {error && (
+      {error && (
+        <div style={{ margin: '18px 24px 0' }}>
           <div style={{ background: '#fdedeb', border: '1px solid #f8d0cc', borderRadius: 8, padding: '12px 16px', fontSize: 13, color: '#cf3f36' }}>
             ClickUp error: {error}
           </div>
-        )}
-
-        {/* Attention banner */}
-        {overdueCount > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 15px', borderRadius: 12, background: '#fdedeb', border: '1px solid #f6d6d3' }}>
-            <span style={{ width: 32, height: 32, borderRadius: 9, background: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, color: '#cf3f36' }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:17,height:17}}><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
-            </span>
-            <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#111c28' }}>
-              <span style={{ color: '#cf3f36' }}>{overdueCount} video{overdueCount !== 1 ? 's' : ''}</span> {overdueCount === 1 ? 'has' : 'have'} been awaiting client approval &gt; 3 days
-            </span>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: '#cf3f36', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
-              Go to approvals
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:14,height:14}}><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-            </span>
-          </div>
-        )}
-
-        {/* Footage-risk banner */}
-        {footageRiskClients.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 15px', borderRadius: 12, background: '#fdedeb', border: '1px solid #f6d6d3' }}>
-            <span style={{ width: 32, height: 32, borderRadius: 9, background: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, color: '#cf3f36' }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:17,height:17}}><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
-            </span>
-            <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#111c28' }}>
-              <span style={{ color: '#cf3f36' }}>{footageRiskClients.length} client{footageRiskClients.length !== 1 ? 's' : ''}</span> won&apos;t hit their quota on current footage — {footageRiskClients.map(c => `${c.name} (short ${c.footageGap})`).join(', ')}. Film more, or pull raw footage from the Marketplace.
-            </span>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: '#cf3f36', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
-              Go to clients
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:14,height:14}}><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-            </span>
-          </div>
-        )}
-
-        {/* KPI row */}
-        <div className="db-kpi-grid">
-          <KpiCard label="In production"    value={inProduction}    dotColor="#FF6000"  tip="All tasks not yet posted — across every stage from To Do through QC and Review." />
-          <KpiCard
-            label="Pending approval"
-            value={pendingApproval}
-            dotColor="#a86a00"
-            tip="Videos sitting in 'For Client Review' waiting for client sign-off."
-            sub={overdueCount > 0 ? `${overdueCount} overdue >3d` : undefined}
-            subTone={overdueCount > 0 ? 'warn' : undefined}
-          />
-          <KpiCard
-            label="First-pass clean"
-            value={firstPassCleanPct !== null ? `${firstPassCleanPct}%` : '—'}
-            dotColor="#14805f"
-            tip="Approved ÷ (Approved + Rework). Higher means fewer revision rounds."
-          />
-          <KpiCard label="Client-approved"  value={clientApproved}  dotColor="#14805f" tip="Total videos the client has marked Approved, including already-posted ones." />
-          <KpiCard label="Posted this month" value={postedThisMonth} dotColor="#2563eb" tip="Videos that reached 'Posted in Socials' during the current calendar month." sub={monthLabel} />
         </div>
-      </div>
+      )}
 
-      {/* Tabbed workspace */}
+      {/* Tabbed workspace (owns the "Needs attention today" panel + KPI row so
+          CTAs there can switch tabs client-side). */}
       <DashboardTabs
+        kpis={kpis}
         approvals={approvals}
         clients={clients}
         editors={editors}
