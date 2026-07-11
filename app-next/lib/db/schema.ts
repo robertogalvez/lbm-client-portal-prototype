@@ -61,6 +61,7 @@ export const clients = pgTable('clients', {
   clickupTaskId:     varchar('clickup_task_id', { length: 100 }).unique().notNull(),
   type:              varchar('type', { length: 20 }),
   showCalendar:      boolean('show_calendar').default(false),
+  showInvoices:      boolean('show_invoices').default(false),
   monthlyQuota:      integer('monthly_quota'),
   frameioProjectId:  varchar('frameio_project_id', { length: 100 }),
   whatsappNumber:    varchar('whatsapp_number', { length: 30 }),

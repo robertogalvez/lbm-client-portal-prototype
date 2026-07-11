@@ -20,6 +20,7 @@ interface ClientRecord {
   whatsappNumber: string | null;
   brandingConfig: Record<string, unknown> | null;
   showCalendar: boolean | null;
+  showInvoices: boolean | null;
   contactName: string | null;
   contactEmail: string | null;
   clientStatus: string | null;
@@ -71,6 +72,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
   const [fFrameio, setFFrameio] = useState('');
   const [fVistaSocial, setFVistaSocial] = useState('');
   const [fCalendar, setFCalendar] = useState(false);
+  const [fInvoices, setFInvoices] = useState(false);
 
   // Invite sub-form
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -86,6 +88,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
     const vs = (c.brandingConfig as { vistaSocialProfileIds?: string })?.vistaSocialProfileIds ?? '';
     setFVistaSocial(vs);
     setFCalendar(c.showCalendar ?? false);
+    setFInvoices(c.showInvoices ?? false);
     setMsg(''); setInviteOpen(false);
     setInvName(c.portalUsers.length === 0 ? (c.contactName ?? '') : '');
     setInvEmail(c.portalUsers.length === 0 ? (c.contactEmail ?? '') : '');
@@ -101,6 +104,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
       frameioProjectId: fFrameio || null,
       vistaSocialProfileIds: fVistaSocial || null,
       showCalendar: fCalendar,
+      showInvoices: fInvoices,
     };
     try {
       const res = await fetch(`/api/admin/clients/${selected.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -388,6 +392,17 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                 </div>
                 <div onClick={() => setFCalendar(v => !v)} style={{ width: 40, height: 22, borderRadius: 11, background: fCalendar ? '#FF6000' : '#d4dbe2', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
                   <div style={{ position: 'absolute', top: 3, left: fCalendar ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
+                </div>
+              </div>
+
+              {/* Invoices toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#111c28' }}>Show invoices</div>
+                  <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Client can see billing history in their portal</div>
+                </div>
+                <div onClick={() => setFInvoices(v => !v)} style={{ width: 40, height: 22, borderRadius: 11, background: fInvoices ? '#FF6000' : '#d4dbe2', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                  <div style={{ position: 'absolute', top: 3, left: fInvoices ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
                 </div>
               </div>
 
