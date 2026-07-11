@@ -56,6 +56,7 @@ export interface MappedTask {
   caption: string | null;
   frameLink: string | null;
   rawDriveLink: string | null;
+  instagramUrl: string | null;
   assignedAmName: string | null;
   editorName: string | null;
   isYoutube: boolean;
@@ -76,6 +77,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
   const captionApprovalField = findField(task, 'CAPTION APPROVAL');
   const frameLinkField = findField(task, 'Updated Frame Link (Editor)');
   const rawDriveLinkField = findField(task, 'Raw Drive Link (Videographer)');
+  const instagramUrlField = findField(task, 'Instagram URL');
   const amField       = findField(task, 'Account Manager (AM)');
   const qcField       = findField(task, 'QUALITY CHECK (Somu)');
 
@@ -120,6 +122,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     caption:          typeof captionField?.value === 'string' ? captionField.value : null,
     frameLink:        typeof frameLinkField?.value === 'string' ? frameLinkField.value : null,
     rawDriveLink:     typeof rawDriveLinkField?.value === 'string' ? rawDriveLinkField.value : null,
+    instagramUrl:     typeof instagramUrlField?.value === 'string' ? instagramUrlField.value : null,
     assignedAmName:   amName,
     editorName,
     isYoutube,
@@ -286,6 +289,25 @@ export async function getActiveTasks(includeArchived = false): Promise<MappedTas
   if (folderId) return getTasksFromFolder(folderId, includeArchived);
   if (listId) return getTasksFromList(listId, includeArchived);
   throw new Error('Set CLICKUP_FOLDER_ID or CLICKUP_LIST_ID');
+}
+
+// Task ids that are flagged "Ready to Publish?" and not yet "Published" — the
+// reconcile trigger for native publishing (backup for missed ClickUp webhooks).
+export async function getPublishableTaskIds(listId: string): Promise<string[]> {
+  const all = await fetchRawTasks(listId);
+  const ids: string[] = [];
+  for (const t of all) {
+    const ready = findField(t, 'Ready to Publish?');
+    const isReady = ready?.value === true || ready?.value === 'true' || ready?.value === 1;
+    if (!isReady) continue;
+    const pub = findField(t, 'Publishing Status');
+    const pubName = typeof pub?.value === 'number'
+      ? (pub.type_config?.options?.[pub.value]?.name ?? null)
+      : null;
+    if (pubName === 'Published') continue;
+    ids.push(t.id);
+  }
+  return ids;
 }
 
 export function isConfigured(): boolean {

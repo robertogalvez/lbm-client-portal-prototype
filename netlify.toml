@@ -12,6 +12,10 @@
   DATABASE_URL        = ""
   POSTMARK_API_KEY    = ""
   FRAMEIO_API_TOKEN   = ""
+  FRAMEIO_ACCOUNT_ID  = ""
+  VISTASOCIAL_API_TOKEN = ""
+  VISTASOCIAL_API_BASE  = ""
+  CRON_SECRET         = ""
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

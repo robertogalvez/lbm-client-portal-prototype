@@ -313,6 +313,7 @@ export default async function DashboardPage({
     amName: t.assignedAmName,
     status: t.status,
     frameLink: t.frameLink,
+    instagramUrl: t.instagramUrl,
   }));
 
   const attentionClients: AttentionClient[] = clients

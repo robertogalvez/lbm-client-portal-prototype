@@ -87,6 +87,8 @@ export const videoCache = pgTable('video_cache', {
   frameioAssetId:    text('frameio_asset_id'),
   rawDriveLink:      text('raw_drive_link'),
   vistasocialPostId: varchar('vistasocial_post_id', { length: 100 }),
+  vistasocialScheduledAt: timestamp('vistasocial_scheduled_at'),
+  instagramUrl:      text('instagram_url'),
   assignedAmName:    text('assigned_am_name'),
   editorName:        text('editor_name'),
   clientName:        text('client_name'),

@@ -116,6 +116,8 @@ export async function POST(req: Request) {
       sql`ALTER TABLE clients ALTER COLUMN type DROP NOT NULL`,
       sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS is_youtube boolean DEFAULT false`,
       sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS raw_drive_link text`,
+      sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS instagram_url text`,
+      sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS vistasocial_scheduled_at timestamp`,
     ]);
 
     const rows = await sql`

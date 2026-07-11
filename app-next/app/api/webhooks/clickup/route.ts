@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { videoCache, clients } from '@/lib/db/schema';
 import { mapTask } from '@/lib/clickup';
+import { publishVideo } from '@/lib/publish/publish-video';
 import { eq } from 'drizzle-orm';
 
 export async function POST(req: Request) {
@@ -74,6 +75,7 @@ export async function POST(req: Request) {
       frameioAssetId:    mapped.frameLink,
       rawDriveLink:      mapped.rawDriveLink,
       vistasocialPostId: null,
+      instagramUrl:      mapped.instagramUrl,
       assignedAmName:    mapped.assignedAmName,
       editorName:        mapped.editorName,
       clientName:        mapped.clientName,
@@ -96,6 +98,7 @@ export async function POST(req: Request) {
         publishingStatus:  mapped.publishingStatus,
         frameioAssetId:    mapped.frameLink,
         rawDriveLink:      mapped.rawDriveLink,
+        instagramUrl:      mapped.instagramUrl,
         assignedAmName:    mapped.assignedAmName,
         editorName:        mapped.editorName,
         clientName:        mapped.clientName,
@@ -127,6 +130,19 @@ export async function POST(req: Request) {
           body: JSON.stringify({ comment_text: '⚠️ Caption is missing — please add a caption before the client reviews this video.' }),
         }
       );
+    }
+  }
+
+  // Fast-path publish trigger (mirrors the Make webhook): if the task is flagged
+  // "Ready to Publish?" and not already Published, run the native publish pipeline.
+  // Idempotency guards inside publishVideo prevent double-publishing on re-fires.
+  const readyField = (task.custom_fields ?? []).find((f: { name: string }) => f.name === 'Ready to Publish?');
+  const isReady = readyField?.value === true || readyField?.value === 'true' || readyField?.value === 1;
+  if (isReady && mapped.publishingStatus !== 'Published') {
+    try {
+      await publishVideo(task_id);
+    } catch (e) {
+      console.error('publishVideo failed in webhook:', e instanceof Error ? e.message : e);
     }
   }
 

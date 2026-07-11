@@ -4,6 +4,7 @@ import { useState, Fragment } from 'react';
 import { InfoPopover } from '@/components/ui/Tooltip';
 import { EDITOR_PHASE_COLS } from './editor-phases';
 import { AgreedVsDeliveredChart } from './AgreedVsDeliveredChart';
+import { InstagramLink } from '@/components/InstagramLink';
 export { EDITOR_PHASE_COLS } from './editor-phases';
 
 export interface ApprovalRow {
@@ -65,6 +66,7 @@ export interface StatusTask {
   amName: string | null;
   status: string;
   frameLink: string | null;
+  instagramUrl: string | null;
 }
 
 export interface AgreedDeliveredRow {
@@ -419,6 +421,9 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, att
                   </div>
                   {t.frameLink && (
                     <a href={t.frameLink} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 600, color: '#5b6bff', textDecoration: 'none', flexShrink: 0, marginTop: 2 }}>Frame.io ↗</a>
+                  )}
+                  {t.instagramUrl && (
+                    <span style={{ flexShrink: 0, marginTop: 2 }}><InstagramLink url={t.instagramUrl} label="Instagram" compact /></span>
                   )}
                 </div>
               ))}
