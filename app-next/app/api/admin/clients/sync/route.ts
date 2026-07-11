@@ -32,8 +32,14 @@ export async function POST() {
       lastSyncedAt:   new Date(),
     };
 
+    // Capture the prior name for this task so a rename can cascade to linked users.
+    const [existing] = await db.select({ name: clients.name })
+      .from(clients)
+      .where(eq(clients.clickupTaskId, r.clickupTaskId))
+      .limit(1);
+
     // Reconcile hand-created rows (pre-dating ClickUp sync) onto the real task ID by name match.
-    const [legacy] = await db.select({ id: clients.id })
+    const [legacy] = await db.select({ id: clients.id, name: clients.name })
       .from(clients)
       .where(and(sqlOp`lower(${clients.name}) = lower(${r.name})`, ne(clients.clickupTaskId, r.clickupTaskId)))
       .limit(1);
@@ -42,6 +48,13 @@ export async function POST() {
       await db.update(clients).set(row).where(eq(clients.id, legacy.id));
     } else {
       await db.insert(clients).values(row).onConflictDoUpdate({ target: clients.clickupTaskId, set: row });
+    }
+
+    // Portal users link to a client by name string (auth_user.client_name); when
+    // the ClickUp-owned name changes, cascade it so the link isn't orphaned.
+    const prevName = existing?.name ?? legacy?.name;
+    if (prevName && prevName !== r.name) {
+      await db.update(authUsers).set({ clientName: r.name }).where(eq(authUsers.clientName, prevName));
     }
     synced++;
   }
