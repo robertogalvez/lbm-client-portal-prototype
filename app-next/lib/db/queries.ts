@@ -17,6 +17,7 @@ export async function getTasksFromDB(): Promise<MappedTask[]> {
     qualityCheck:     row.qualityCheck ?? null,
     caption:          row.caption ?? null,
     frameLink:        row.frameioAssetId ?? null,
+    rawDriveLink:     row.rawDriveLink ?? null,
     assignedAmName:   row.assignedAmName ?? null,
     editorName:       row.editorName ?? null,
     isYoutube:        row.isYoutube ?? false,

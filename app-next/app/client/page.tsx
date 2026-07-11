@@ -240,6 +240,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               dueDate: t.dueDate,
               clientApproval: t.clientApproval,
               frameLink: t.frameLink,
+              rawDriveLink: t.rawDriveLink,
             }))} />
           )}
 
@@ -422,6 +423,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
           dueDate: t.dueDate,
           clientApproval: t.clientApproval,
           frameLink: t.frameLink,
+          rawDriveLink: t.rawDriveLink,
         }))} />}
 
         {tab === 'account' && (
