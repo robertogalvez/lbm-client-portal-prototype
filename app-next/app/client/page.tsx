@@ -10,8 +10,10 @@ import { ApprovalButtons } from '@/components/client/ApprovalButtons';
 import { NotificationBell } from '@/components/client/NotificationBell';
 import { LogoutButton } from '@/components/client/LogoutButton';
 import { CalendarView } from '@/components/client/CalendarView';
+import { InvoicesView } from '@/components/client/InvoicesView';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { getViewAsClient } from '@/lib/view-as';
+import { getInvoicesForClient, isQuickBooksConfigured } from '@/lib/quickbooks';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -88,6 +90,9 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     fetchError = e instanceof Error ? e.message : 'Unknown error';
   }
 
+  const clientInvoices = await getInvoicesForClient(clientName);
+  const quickbooksConnected = isQuickBooksConfigured();
+
   const clientTasks = allTasks.filter(t => t.clientName === clientName);
   const reviewTasks = clientTasks.filter(t => norm(t.status) === 'for client review');
   const postedTasks = clientTasks.filter(t => norm(t.status) === 'posted in socials');
@@ -108,6 +113,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   const tabItems = [
     { label: 'Reviews', href: '/client?tab=reviews', badge: reviewTasks.length, active: tab === 'reviews', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg> },
     { label: 'Calendar', href: '/client?tab=calendar', badge: 0, active: tab === 'calendar', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> },
+    { label: 'Invoices', href: '/client?tab=invoices', badge: 0, active: tab === 'invoices', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6M9 9h1"/></svg> },
     { label: 'Account', href: '/client?tab=account', badge: 0, active: tab === 'account', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg> },
   ];
 
@@ -244,6 +250,11 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
             }))} />
           )}
 
+          {/* ── Invoices tab ── */}
+          {tab === 'invoices' && (
+            <InvoicesView invoices={clientInvoices} connected={quickbooksConnected} />
+          )}
+
           {/* ── Account tab ── */}
           {tab === 'account' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -298,6 +309,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               Reviews {reviewTasks.length > 0 && <span className="cd-tab-badge">{reviewTasks.length}</span>}
             </a>
             <a href="/client?tab=calendar" className={`cd-tab${tab === 'calendar' ? ' cd-active' : ''}`}>Calendar</a>
+            <a href="/client?tab=invoices" className={`cd-tab${tab === 'invoices' ? ' cd-active' : ''}`}>Invoices</a>
             <a href="/client?tab=account" className={`cd-tab${tab === 'account' ? ' cd-active' : ''}`}>Account</a>
           </div>
           <div className="cd-nav-right">
@@ -425,6 +437,12 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
           frameLink: t.frameLink,
           rawDriveLink: t.rawDriveLink,
         }))} />}
+
+        {tab === 'invoices' && (
+          <div style={{ maxWidth: 480 }}>
+            <InvoicesView invoices={clientInvoices} connected={quickbooksConnected} />
+          </div>
+        )}
 
         {tab === 'account' && (
           <div style={{maxWidth:480}}>
