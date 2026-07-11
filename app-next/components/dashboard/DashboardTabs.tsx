@@ -267,6 +267,17 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
   const filteredClients = clients.filter(r => !clientSearch || r.name.toLowerCase().includes(clientSearch.toLowerCase()));
   const filteredEditors = editors.filter(r => !editorSearch || r.name.toLowerCase().includes(editorSearch.toLowerCase()));
 
+  const allClientsExpanded = filteredClients.length > 0 && filteredClients.every(c => expandedClients.has(c.name));
+
+  function toggleAllClientsExpanded() {
+    setExpandedClients(prev => {
+      const next = new Set(prev);
+      if (allClientsExpanded) filteredClients.forEach(c => next.delete(c.name));
+      else filteredClients.forEach(c => next.add(c.name));
+      return next;
+    });
+  }
+
   const tabStyle = (t: string): React.CSSProperties => ({
     display: 'inline-flex', alignItems: 'center', gap: 8,
     padding: '13px 15px 12px', fontSize: 13.5, fontWeight: 600,
@@ -535,7 +546,17 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
               <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>Client breakdown</h3>
               <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>{clients.length} clients · pending review &amp; oldest wait</div>
             </div>
-            <SearchInput value={clientSearch} onChange={setClientSearch} placeholder="Search clients…" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                onClick={toggleAllClientsExpanded}
+                disabled={filteredClients.length === 0}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 700, color: filteredClients.length === 0 ? '#c3cbd3' : '#B23E00', background: 'none', border: 'none', cursor: filteredClients.length === 0 ? 'default' : 'pointer', padding: 0, fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+              >
+                <Chevron expanded={allClientsExpanded} />
+                {allClientsExpanded ? 'Collapse all' : 'Expand all'}
+              </button>
+              <SearchInput value={clientSearch} onChange={setClientSearch} placeholder="Search clients…" />
+            </div>
           </div>
           <div className="db-tscroll" style={{ maxHeight: 400 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
