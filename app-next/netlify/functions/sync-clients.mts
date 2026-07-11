@@ -23,6 +23,13 @@ const clients = pgTable('clients', {
   createdAt:         timestamp('created_at').defaultNow(),
 });
 
+// Portal users are linked to a client by name string (auth_user.client_name),
+// so a client rename must cascade to those rows or the link is silently orphaned.
+const authUsers = pgTable('auth_user', {
+  id:            text('id').primaryKey(),
+  clientName:    text('client_name'),
+});
+
 const BASE = 'https://api.clickup.com/api/v2';
 
 async function fetchAllTasksFromList(listId: string, token: string) {
@@ -55,7 +62,7 @@ export default async function handler() {
   }
 
   const sql = neon(dbUrl);
-  const db = drizzle(sql, { schema: { clients } });
+  const db = drizzle(sql, { schema: { clients, authUsers } });
 
   const tasks = await fetchAllTasksFromList(listId, token);
 
@@ -63,6 +70,20 @@ export default async function handler() {
   // type_config on some task responses, so find it wherever it's present.
   const statusOptions: { id: string; name: string }[] =
     tasks.map(t => findField(t, 'Client Status')?.type_config?.options).find((o: any) => o?.length) ?? [];
+
+  // The client's real name is the "Client Name (AM)" dropdown value — the same
+  // field that tags this client's videos — NOT the task title, which is often a
+  // casual label (e.g. task "Sebas Legacy" vs. dropdown "Sebastian Velasquez").
+  // Matching the video tag is what links the portal to the right content.
+  const clientNameOptions: { id: string; name: string }[] =
+    tasks.map(t => findField(t, 'Client Name (AM)')?.type_config?.options).find(o => o?.length) ?? [];
+
+  function resolveClientName(task: { name: string }): string {
+    const field = findField(task, 'Client Name (AM)');
+    const idx = typeof field?.value === 'number' ? field.value : null;
+    if (idx === null) return task.name;
+    return field?.type_config?.options?.[idx]?.name ?? clientNameOptions[idx]?.name ?? task.name;
+  }
 
   let synced = 0;
   const skipped: string[] = [];
@@ -87,7 +108,7 @@ export default async function handler() {
     const yt    = typeof ytField?.value === 'number' ? ytField.value : Number(ytField?.value ?? 0) || 0;
 
     const row = {
-      name:           task.name as string,
+      name:           resolveClientName(task),
       clickupTaskId:  task.id as string,
       contactName:    typeof contactNameField?.value === 'string' ? contactNameField.value : null,
       contactEmail:   typeof contactEmailField?.value === 'string' ? contactEmailField.value : null,
@@ -97,8 +118,14 @@ export default async function handler() {
       lastSyncedAt:   new Date(),
     };
 
+    // Capture the prior name for this task so a rename can cascade to linked users.
+    const [existing] = await db.select({ name: clients.name })
+      .from(clients)
+      .where(eq(clients.clickupTaskId, row.clickupTaskId))
+      .limit(1);
+
     // Reconcile hand-created rows (pre-dating ClickUp sync) onto the real task ID by name match.
-    const [legacy] = await db.select({ id: clients.id })
+    const [legacy] = await db.select({ id: clients.id, name: clients.name })
       .from(clients)
       .where(and(sqlOp`lower(${clients.name}) = lower(${row.name})`, ne(clients.clickupTaskId, row.clickupTaskId)))
       .limit(1);
@@ -107,6 +134,12 @@ export default async function handler() {
       await db.update(clients).set(row).where(eq(clients.id, legacy.id));
     } else {
       await db.insert(clients).values(row).onConflictDoUpdate({ target: clients.clickupTaskId, set: row });
+    }
+
+    // Keep portal-user links in sync when the ClickUp-owned name changes.
+    const prevName = existing?.name ?? legacy?.name;
+    if (prevName && prevName !== row.name) {
+      await db.update(authUsers).set({ clientName: row.name }).where(eq(authUsers.clientName, prevName));
     }
     synced++;
   }
