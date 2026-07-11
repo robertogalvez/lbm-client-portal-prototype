@@ -32,6 +32,16 @@ function dateMs(field: clickup.ClickUpFieldLite | undefined): number | null {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : null;
 }
+function boolValue(field: clickup.ClickUpFieldLite | undefined): boolean {
+  const v = field?.value;
+  return v === true || v === 'true' || v === 1 || v === '1';
+}
+
+// The order to publish: Posted Status = "Post on Socials". "Do not post" (or
+// unset) means the client decides where it goes — we never send it to Vista Social.
+export function isPostOrder(postedStatus: string | null): boolean {
+  return !!postedStatus && /post on socials/i.test(postedStatus);
+}
 
 // No live "Publishing Status" field exists on this workspace anymore, so the
 // error signal to the AM is the ClickUp comment itself.
@@ -81,6 +91,7 @@ export async function publishVideo(clickupTaskId: string): Promise<PublishOutcom
   const frameLink = textValue(clickup.findFieldRef(task, clickup.FIELD.frameLink));
   const clientName = optionName(clickup.findFieldRef(task, clickup.FIELD.clientName));
   const postedStatus = optionName(clickup.findFieldRef(task, clickup.FIELD.postedStatus));
+  const readyToPublish = boolValue(clickup.findFieldRef(task, clickup.FIELD.readyToPublish));
 
   // Idempotency — never double-publish (tracked via the stored Vista Social ids;
   // this workspace has no "Publishing Status" field to key on).
@@ -91,9 +102,14 @@ export async function publishVideo(clickupTaskId: string): Promise<PublishOutcom
     .limit(1);
   if (existing?.postId) return { status: 'already_published' };
 
-  // Explicit opt-out — respect "Posted Status = Do not post".
-  if (postedStatus && /do not post/i.test(postedStatus)) {
-    return { status: 'deferred', reason: 'Posted Status is "Do not post"' };
+  // Trigger gate: only publish when explicitly ordered (Posted Status = "Post on
+  // Socials") AND validated ready (the "Ready to Publish?" checkbox). Anything
+  // else — "Do not post", unset, or not-yet-ready — is a no-op, not an error.
+  if (!isPostOrder(postedStatus)) {
+    return { status: 'deferred', reason: 'Posted Status is not "Post on Socials"' };
+  }
+  if (!readyToPublish) {
+    return { status: 'deferred', reason: 'Ready to Publish? is not checked' };
   }
 
   // 1. Validate (Make "Task is valid" / "could not be scheduled").
