@@ -60,6 +60,17 @@ export async function getTask(taskId: string): Promise<ClickUpTaskLite> {
   return cuRequest<ClickUpTaskLite>(`/task/${taskId}?custom_fields=true`, { method: 'GET' });
 }
 
+// A field is resolved by its stable UUID first, falling back to its display
+// name. ClickUp field names drift over time (e.g. "Publish Date" →
+// "Publish Date (VistaSocial)"); the UUID is stable, so matching on it first
+// keeps the pipeline working across renames.
+export interface FieldRef { id: string; name: string }
+
+export function findFieldRef(task: ClickUpTaskLite, ref: FieldRef): ClickUpFieldLite | undefined {
+  const fields = task.custom_fields ?? [];
+  return fields.find(f => f.id === ref.id) ?? fields.find(f => f.name === ref.name);
+}
+
 export function findField(task: ClickUpTaskLite, name: string): ClickUpFieldLite | undefined {
   return (task.custom_fields ?? []).find(f => f.name === name);
 }
@@ -67,17 +78,18 @@ export function findField(task: ClickUpTaskLite, name: string): ClickUpFieldLite
 // Set a URL / text custom field. Returns false (without throwing) if the field
 // isn't present on the task — capture degrades gracefully when the optional
 // "Instagram URL" field hasn't been created in ClickUp yet.
-export async function setUrlField(task: ClickUpTaskLite, fieldName: string, value: string): Promise<boolean> {
-  const field = findField(task, fieldName);
+export async function setUrlField(task: ClickUpTaskLite, ref: FieldRef, value: string): Promise<boolean> {
+  const field = findFieldRef(task, ref);
   if (!field) return false;
   await cuRequest(`/task/${task.id}/field/${field.id}`, { method: 'POST', body: JSON.stringify({ value }) });
   return true;
 }
 
 // Set a drop-down field to the option matching `optionName` (case-insensitive),
-// using the option UUID as the value.
-export async function setDropdownByName(task: ClickUpTaskLite, fieldName: string, optionName: string): Promise<boolean> {
-  const field = findField(task, fieldName);
+// using the option UUID as the value. No-ops (returns false) if the field or
+// option is absent.
+export async function setDropdownByName(task: ClickUpTaskLite, ref: FieldRef, optionName: string): Promise<boolean> {
+  const field = findFieldRef(task, ref);
   const options = field?.type_config?.options ?? [];
   const opt = options.find(o => o.name.toLowerCase() === optionName.toLowerCase());
   if (!field || !opt) return false;
@@ -93,17 +105,22 @@ export async function setTaskStatus(taskId: string, status: string): Promise<voi
   await cuRequest(`/task/${taskId}`, { method: 'PUT', body: JSON.stringify({ status }) });
 }
 
-// Standard field-name constants (see the plan Appendix for the field UUIDs).
-export const FIELDS = {
-  publishingStatus: 'Publishing Status',
-  captions: 'Captions',
-  publishDate: 'Publish Date',
-  frameLink: 'Updated Frame Link (Editor)',
-  clientName: 'Client Name (AM)',
-  readyToPublish: 'Ready to Publish?',
-  instagramUrl: 'Instagram URL',
-} as const;
+// Field references (UUID + current name) verified against the live LBM workspace
+// (task 86aj464t5, list "0. Videographer's Backlog"). UUIDs are the source of
+// truth; names are the human-readable fallback.
+export const FIELD = {
+  captions:       { id: '5b210bcd-f8b8-4892-9cc0-7695bb2f1b9b', name: 'Captions' },
+  publishDate:    { id: '5b38072f-aac1-4c90-9833-137abf3bae0b', name: 'Publish Date (VistaSocial)' },
+  frameLink:      { id: '36e82505-006b-4c42-9a0c-534c957330ed', name: 'Updated Frame Link (Editor)' },
+  clientName:     { id: '79ec577a-a9bd-473f-85cf-7f4a2aa17740', name: 'Client Name (AM)' },
+  readyToPublish: { id: 'c2e603af-a70b-43c2-b257-fe9a02336336', name: 'Ready to Publish?' },
+  instagramUrl:   { id: '55eb3666-a703-47d5-8805-8bdb23fb3d07', name: 'Instagram URL' },
+  postedStatus:   { id: '05c724d8-261b-40c6-b736-53869eb5c913', name: 'Posted Status' },
+} as const satisfies Record<string, FieldRef>;
 
+// DB `publishing_status` cache value (no live ClickUp "Publishing Status" field
+// exists on this workspace anymore — publish state is tracked via the task
+// status pipeline + the Instagram URL field + this cached string).
 export const PUBLISHING_STATUS = {
   published: 'Published',
   error: 'Error',

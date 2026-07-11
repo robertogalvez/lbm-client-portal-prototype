@@ -133,12 +133,17 @@ export async function POST(req: Request) {
     }
   }
 
-  // Fast-path publish trigger (mirrors the Make webhook): if the task is flagged
-  // "Ready to Publish?" and not already Published, run the native publish pipeline.
-  // Idempotency guards inside publishVideo prevent double-publishing on re-fires.
-  const readyField = (task.custom_fields ?? []).find((f: { name: string }) => f.name === 'Ready to Publish?');
+  // Fast-path publish trigger: the order to post is "Posted Status" = "Post on
+  // Socials", gated by the "Ready to Publish?" validation checkbox. publishVideo
+  // re-checks this and idempotency, so re-fires are safe.
+  type RawField = { name: string; value?: unknown; type_config?: { options?: { name: string }[] } };
+  const fields = (task.custom_fields ?? []) as RawField[];
+  const findRaw = (name: string) => fields.find(f => f.name === name);
+  const posted = findRaw('Posted Status');
+  const postedName = typeof posted?.value === 'number' ? posted?.type_config?.options?.[posted.value]?.name : null;
+  const readyField = findRaw('Ready to Publish?');
   const isReady = readyField?.value === true || readyField?.value === 'true' || readyField?.value === 1;
-  if (isReady && mapped.publishingStatus !== 'Published') {
+  if (postedName && /post on socials/i.test(postedName) && isReady) {
     try {
       await publishVideo(task_id);
     } catch (e) {

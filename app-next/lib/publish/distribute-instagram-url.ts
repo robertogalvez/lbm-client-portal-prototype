@@ -34,7 +34,7 @@ export async function distributeInstagramUrl(clickupTaskId: string, url: string)
     .onConflictDoUpdate({ target: videoCache.clickupTaskId, set });
 
   const task = await clickup.getTask(clickupTaskId);
-  await clickup.setUrlField(task, clickup.FIELDS.instagramUrl, url); // no-op if field absent
+  await clickup.setUrlField(task, clickup.FIELD.instagramUrl, url); // no-op if field absent
   await clickup.postComment(clickupTaskId, AM_MESSAGES.instagramPublished(url));
   try {
     await clickup.setTaskStatus(clickupTaskId, clickup.POSTED_IN_SOCIALS_STATUS);

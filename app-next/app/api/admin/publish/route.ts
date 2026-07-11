@@ -10,16 +10,24 @@ import { eq } from 'drizzle-orm';
 import { publishVideo } from '@/lib/publish/publish-video';
 
 export async function POST(req: Request) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Two ways in: a logged-in admin/AM session (the "Publish now" UI), or the
+  // cron secret (curl-friendly, for targeted testing of a single task —
+  // bypasses the list scan and the schedule).
+  const cronSecret = req.headers.get('x-cron-secret');
+  const viaCron = !!process.env.CRON_SECRET && cronSecret === process.env.CRON_SECRET;
 
-  const [caller] = await db
-    .select({ role: authUsers.role })
-    .from(authUsers)
-    .where(eq(authUsers.id, session.user.id))
-    .limit(1);
-  if (!caller || (caller.role !== 'admin' && caller.role !== 'account_manager')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!viaCron) {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const [caller] = await db
+      .select({ role: authUsers.role })
+      .from(authUsers)
+      .where(eq(authUsers.id, session.user.id))
+      .limit(1);
+    if (!caller || (caller.role !== 'admin' && caller.role !== 'account_manager')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
   }
 
   const { taskId } = (await req.json()) as { taskId?: string };
