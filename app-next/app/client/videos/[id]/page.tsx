@@ -58,7 +58,7 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
   const canAccess = userRow?.role === 'client' || userRow?.isAlsoClient || !!viewAsClient;
   if (!userRow || !canAccess) redirect('/dashboard');
 
-  const effectiveClientName = viewAsClient ? viewAsClient.clickupOptionId : userRow.clientName;
+  const effectiveClientName = viewAsClient ? viewAsClient.name : userRow.clientName;
   if (!effectiveClientName) redirect('/client');
 
   const allTasks = await getTasksFromList(process.env.CLICKUP_LIST_ID!, false);

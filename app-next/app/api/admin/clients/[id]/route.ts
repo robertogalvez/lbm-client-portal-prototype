@@ -14,17 +14,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (caller[0]?.role === 'client') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const body = await req.json();
-  const { name, type, monthlyQuota, clickupOptionId, frameioProjectId, whatsappNumber, vistaSocialProfileIds, showCalendar } = body;
+  // Name, contact info, status, and quota are ClickUp-owned (synced from the
+  // Master Clients List) — only portal-only fields are editable here.
+  const { type, frameioProjectId, vistaSocialProfileIds, showCalendar, showInvoices } = body;
 
   const [updated] = await db.update(clients).set({
-    name,
-    type,
-    clickupOptionId: clickupOptionId || undefined,
-    monthlyQuota: monthlyQuota ? Number(monthlyQuota) : null,
+    type: type || null,
     frameioProjectId: frameioProjectId || null,
-    whatsappNumber: whatsappNumber || null,
     brandingConfig: vistaSocialProfileIds ? { vistaSocialProfileIds } : null,
     showCalendar: showCalendar ?? false,
+    showInvoices: showInvoices ?? false,
   }).where(eq(clients.id, id)).returning();
 
   if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -45,6 +44,8 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const linked = await db.select({ id: authUsers.id }).from(authUsers).where(eq(authUsers.clientName, target.name)).limit(1);
   if (linked.length > 0) return NextResponse.json({ error: 'Cannot delete — client has linked portal users' }, { status: 409 });
 
+  // Note: if the corresponding task is still Active/Inactive in the Master Clients
+  // List, the next sync run will recreate this row.
   await db.delete(clients).where(eq(clients.id, id));
   return NextResponse.json({ ok: true });
 }

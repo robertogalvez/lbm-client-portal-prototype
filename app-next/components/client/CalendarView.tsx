@@ -9,6 +9,7 @@ export interface CalTask {
   dueDate: string | null;
   clientApproval: string | null;
   frameLink: string | null;
+  rawDriveLink: string | null;
 }
 
 function norm(s: string) {
@@ -21,7 +22,12 @@ function statusStyle(t: CalTask): { color: string; bg: string; label: string } {
   if (s === 'for client review') return { color: '#b06f06', bg: '#fbeecf', label: 'Awaiting review' };
   if (s === 'ready to be posted') return { color: '#1090e0', bg: '#e6f2fc', label: 'Ready to post' };
   if (t.clientApproval === 'approved') return { color: '#14805f', bg: '#e4f3ec', label: 'Approved' };
-  return { color: '#54616f', bg: '#eef1f4', label: t.status };
+  return { color: '#cf3f36', bg: '#fbe4e2', label: 'In process' };
+}
+
+function isInProcess(t: CalTask): boolean {
+  const s = norm(t.status);
+  return !['posted in socials', 'for client review', 'ready to be posted'].includes(s) && t.clientApproval !== 'approved';
 }
 
 function toKey(date: Date) {
@@ -113,6 +119,15 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color, background: bg, padding: '2px 6px', borderRadius: 5, marginTop: 3 }}>
                             <span style={{ width: 5, height: 5, borderRadius: '50%', background: color }} />{label}
                           </span>
+                          {isInProcess(t) && t.rawDriveLink && (
+                            <span
+                              role="link"
+                              onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(t.rawDriveLink!, '_blank', 'noopener,noreferrer'); }}
+                              style={{ display: 'block', marginTop: 3, fontSize: 10.5, fontWeight: 600, color: '#0f6fec', cursor: 'pointer' }}
+                            >
+                              Raw footage ↗
+                            </span>
+                          )}
                         </div>
                       </div>
                     </a>
@@ -210,6 +225,15 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12.5, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
                         <span style={{ fontSize: 10.5, fontWeight: 700, color, background: bg, padding: '1px 6px', borderRadius: 5 }}>{label}</span>
+                        {isInProcess(t) && t.rawDriveLink && (
+                          <span
+                            role="link"
+                            onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(t.rawDriveLink!, '_blank', 'noopener,noreferrer'); }}
+                            style={{ display: 'block', marginTop: 3, fontSize: 10.5, fontWeight: 600, color: '#0f6fec', cursor: 'pointer' }}
+                          >
+                            Raw footage ↗
+                          </span>
+                        )}
                       </div>
                     </div>
                   </a>

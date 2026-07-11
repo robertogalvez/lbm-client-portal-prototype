@@ -18,12 +18,14 @@ const videoCache = pgTable('video_cache', {
   caption:           text('caption'),
   publishingStatus:  varchar('publishing_status', { length: 50 }),
   frameioAssetId:    varchar('frameio_asset_id', { length: 100 }),
+  rawDriveLink:      text('raw_drive_link'),
   vistasocialPostId: varchar('vistasocial_post_id', { length: 100 }),
   assignedAmName:    text('assigned_am_name'),
   editorName:        text('editor_name'),
   clientName:        text('client_name'),
   qualityCheck:      varchar('quality_check', { length: 50 }),
   captionApproval:   varchar('caption_approval', { length: 50 }),
+  isYoutube:         boolean('is_youtube').default(false),
   dateUpdated:       text('date_updated'),
   dueDate:           text('due_date'),
   lastSyncedAt:      timestamp('last_synced_at').defaultNow(),
@@ -119,6 +121,7 @@ export default async function handler() {
     const captionField         = find('Captions');
     const captionApprovalField = find('CAPTION APPROVAL');
     const frameField    = find('Updated Frame Link (Editor)');
+    const rawDriveField = find('Raw Drive Link (Videographer)');
     const amField       = find('Account Manager (AM)');
     const qcField       = find('QUALITY CHECK (Somu)');
 
@@ -132,6 +135,7 @@ export default async function handler() {
     const amUsers    = amField?.value as { username?: string }[] | undefined;
     const amName     = amUsers?.[0]?.username ?? null;
     const editorName = (task.assignees as { username?: string }[])?.[0]?.username ?? null;
+    const isYoutube  = ((task.tags ?? []) as { name?: string }[]).some(tag => tag.name?.toLowerCase() === 'youtube');
 
     let dueDate: string | null = null;
     if (task.due_date) {
@@ -151,10 +155,12 @@ export default async function handler() {
       caption:          typeof captionField?.value === 'string' ? captionField.value : null,
       publishingStatus: resolveByName('Publishing Status', pubIdx),
       frameioAssetId:   typeof frameField?.value === 'string' ? frameField.value : null,
+      rawDriveLink:     typeof rawDriveField?.value === 'string' ? rawDriveField.value : null,
       assignedAmName:   amName,
       editorName,
       clientName,
       qualityCheck,
+      isYoutube,
       dateUpdated:      task.date_updated ?? null,
       dueDate,
       lastSyncedAt:     new Date(),

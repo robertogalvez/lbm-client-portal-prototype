@@ -159,9 +159,9 @@ export function SettingsPageClient({ users: initial, currentUserId }: Props) {
   const [clientOptions, setClientOptions] = useState<{ name: string }[]>([]);
 
   useEffect(() => {
-    fetch('/api/admin/clickup-clients')
+    fetch('/api/admin/clients')
       .then(r => r.ok ? r.json() : [])
-      .then((data: { name: string }[]) => setClientOptions(data))
+      .then((data: { name: string }[]) => setClientOptions(data.map(c => ({ name: c.name }))))
       .catch(() => {});
   }, []);
 

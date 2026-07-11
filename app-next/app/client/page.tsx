@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { authUsers } from '@/lib/db/schema';
+import { authUsers, clients } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getTasksFromList } from '@/lib/clickup';
 import type { MappedTask } from '@/lib/clickup';
@@ -10,8 +10,10 @@ import { ApprovalButtons } from '@/components/client/ApprovalButtons';
 import { NotificationBell } from '@/components/client/NotificationBell';
 import { LogoutButton } from '@/components/client/LogoutButton';
 import { CalendarView } from '@/components/client/CalendarView';
+import { InvoicesView } from '@/components/client/InvoicesView';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { getViewAsClient } from '@/lib/view-as';
+import { getInvoicesForClient, isQuickBooksConfigured } from '@/lib/quickbooks';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -63,7 +65,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   const viewAsClient = isStaff ? await getViewAsClient() : null;
   if (!userRow || (userRow.role !== 'client' && !userRow.isAlsoClient && !viewAsClient)) redirect('/dashboard');
 
-  const clientName = viewAsClient ? viewAsClient.clickupOptionId : userRow.clientName;
+  const clientName = viewAsClient ? viewAsClient.name : userRow.clientName;
   const name = viewAsClient ? null : userRow.name;
   const isAdminClient = !viewAsClient && userRow.isAlsoClient && userRow.role !== 'client';
   if (!clientName) {
@@ -88,6 +90,16 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     fetchError = e instanceof Error ? e.message : 'Unknown error';
   }
 
+  const [clientRecord] = await db.select({ showCalendar: clients.showCalendar, showInvoices: clients.showInvoices }).from(clients).where(eq(clients.name, clientName)).limit(1);
+  const showCalendar = clientRecord?.showCalendar ?? false;
+  const showInvoices = clientRecord?.showInvoices ?? false;
+  const clientInvoices = showInvoices ? await getInvoicesForClient(clientName) : [];
+  const quickbooksConnected = isQuickBooksConfigured();
+  const effectiveTab =
+    (tab === 'invoices' && !showInvoices) || (tab === 'calendar' && !showCalendar)
+      ? 'reviews'
+      : tab;
+
   const clientTasks = allTasks.filter(t => t.clientName === clientName);
   const reviewTasks = clientTasks.filter(t => norm(t.status) === 'for client review');
   const postedTasks = clientTasks.filter(t => norm(t.status) === 'posted in socials');
@@ -106,9 +118,10 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   }));
 
   const tabItems = [
-    { label: 'Reviews', href: '/client?tab=reviews', badge: reviewTasks.length, active: tab === 'reviews', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg> },
-    { label: 'Calendar', href: '/client?tab=calendar', badge: 0, active: tab === 'calendar', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> },
-    { label: 'Account', href: '/client?tab=account', badge: 0, active: tab === 'account', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg> },
+    { label: 'Reviews', href: '/client?tab=reviews', badge: reviewTasks.length, active: effectiveTab === 'reviews', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg> },
+    ...(showCalendar ? [{ label: 'Calendar', href: '/client?tab=calendar', badge: 0, active: effectiveTab === 'calendar', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> }] : []),
+    ...(showInvoices ? [{ label: 'Invoices', href: '/client?tab=invoices', badge: 0, active: effectiveTab === 'invoices', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6M9 9h1"/></svg> }] : []),
+    { label: 'Account', href: '/client?tab=account', badge: 0, active: effectiveTab === 'account', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg> },
   ];
 
   const DesktopVideoCard = ({ t }: { t: (typeof clientTasks)[0] }) => {
@@ -195,7 +208,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
           )}
 
           {/* ── Reviews tab ── */}
-          {tab === 'reviews' && <>
+          {effectiveTab === 'reviews' && <>
             {reviewTasks.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>
@@ -232,7 +245,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
           </>}
 
           {/* ── Calendar tab ── */}
-          {tab === 'calendar' && (
+          {showCalendar && effectiveTab === 'calendar' && (
             <CalendarView tasks={clientTasks.map(t => ({
               clickupTaskId: t.clickupTaskId,
               title: t.title,
@@ -240,11 +253,17 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               dueDate: t.dueDate,
               clientApproval: t.clientApproval,
               frameLink: t.frameLink,
+              rawDriveLink: t.rawDriveLink,
             }))} />
           )}
 
+          {/* ── Invoices tab ── */}
+          {showInvoices && effectiveTab === 'invoices' && (
+            <InvoicesView invoices={clientInvoices} connected={quickbooksConnected} />
+          )}
+
           {/* ── Account tab ── */}
-          {tab === 'account' && (
+          {effectiveTab === 'account' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {/* Avatar + name */}
               <div style={{ background: '#fff', border: '1px solid #ece4d8', borderRadius: 18, padding: '20px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -293,11 +312,16 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
         <div className="cd-nav-inner">
           <span className="cd-logo"><em>LEGACY MEDIA</em></span>
           <div className="cd-tabs">
-            <a href="/client?tab=reviews" className={`cd-tab${tab === 'reviews' ? ' cd-active' : ''}`}>
+            <a href="/client?tab=reviews" className={`cd-tab${effectiveTab === 'reviews' ? ' cd-active' : ''}`}>
               Reviews {reviewTasks.length > 0 && <span className="cd-tab-badge">{reviewTasks.length}</span>}
             </a>
-            <a href="/client?tab=calendar" className={`cd-tab${tab === 'calendar' ? ' cd-active' : ''}`}>Calendar</a>
-            <a href="/client?tab=account" className={`cd-tab${tab === 'account' ? ' cd-active' : ''}`}>Account</a>
+            {showCalendar && (
+              <a href="/client?tab=calendar" className={`cd-tab${effectiveTab === 'calendar' ? ' cd-active' : ''}`}>Calendar</a>
+            )}
+            {showInvoices && (
+              <a href="/client?tab=invoices" className={`cd-tab${effectiveTab === 'invoices' ? ' cd-active' : ''}`}>Invoices</a>
+            )}
+            <a href="/client?tab=account" className={`cd-tab${effectiveTab === 'account' ? ' cd-active' : ''}`}>Account</a>
           </div>
           <div className="cd-nav-right">
             {isAdminClient && (
@@ -355,7 +379,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
         </div>
 
         {/* Tab content */}
-        {tab === 'reviews' && (
+        {effectiveTab === 'reviews' && (
           <div>
             {/* Needs your review */}
             {reviewTasks.length > 0 && (
@@ -415,16 +439,23 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
           </div>
         )}
 
-        {tab === 'calendar' && <CalendarView tasks={clientTasks.map(t => ({
+        {showCalendar && effectiveTab === 'calendar' && <CalendarView tasks={clientTasks.map(t => ({
           clickupTaskId: t.clickupTaskId,
           title: t.title,
           status: t.status,
           dueDate: t.dueDate,
           clientApproval: t.clientApproval,
           frameLink: t.frameLink,
+          rawDriveLink: t.rawDriveLink,
         }))} />}
 
-        {tab === 'account' && (
+        {showInvoices && effectiveTab === 'invoices' && (
+          <div style={{ maxWidth: 480 }}>
+            <InvoicesView invoices={clientInvoices} connected={quickbooksConnected} />
+          </div>
+        )}
+
+        {effectiveTab === 'account' && (
           <div style={{maxWidth:480}}>
             <h2 style={{fontSize:22, fontWeight:700, marginBottom:20}}>Account</h2>
             <div style={{background:'#fff', borderRadius:16, padding:24, boxShadow:'0 1px 4px #0001'}}>

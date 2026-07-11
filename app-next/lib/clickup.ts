@@ -37,6 +37,7 @@ export interface ClickUpTask {
   status: { status: string; color: string };
   custom_fields: ClickUpField[];
   assignees: { id: string; username: string }[];
+  tags: { name: string }[];
   date_updated: string;
   due_date: string | null;
 }
@@ -54,8 +55,10 @@ export interface MappedTask {
   qualityCheck: string | null;
   caption: string | null;
   frameLink: string | null;
+  rawDriveLink: string | null;
   assignedAmName: string | null;
   editorName: string | null;
+  isYoutube: boolean;
   dateUpdated: string;
   dueDate: string | null;
 }
@@ -72,6 +75,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
   const captionField        = findField(task, 'Captions');
   const captionApprovalField = findField(task, 'CAPTION APPROVAL');
   const frameLinkField = findField(task, 'Updated Frame Link (Editor)');
+  const rawDriveLinkField = findField(task, 'Raw Drive Link (Videographer)');
   const amField       = findField(task, 'Account Manager (AM)');
   const qcField       = findField(task, 'QUALITY CHECK (Somu)');
 
@@ -85,6 +89,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
   const amUsers   = amField?.value as { username?: string }[] | undefined;
   const amName    = amUsers?.[0]?.username ?? null;
   const editorName = task.assignees?.[0]?.username ?? null;
+  const isYoutube  = (task.tags ?? []).some(tag => tag.name?.toLowerCase() === 'youtube');
 
   let dueDate: string | null = null;
   if (task.due_date) {
@@ -114,8 +119,10 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     qualityCheck:     resolve(qcField, qcIdx),
     caption:          typeof captionField?.value === 'string' ? captionField.value : null,
     frameLink:        typeof frameLinkField?.value === 'string' ? frameLinkField.value : null,
+    rawDriveLink:     typeof rawDriveLinkField?.value === 'string' ? rawDriveLinkField.value : null,
     assignedAmName:   amName,
     editorName,
+    isYoutube,
     dateUpdated:      task.date_updated,
     dueDate,
   };
@@ -125,7 +132,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
 // "posted in socials" stays visible always so the pipeline funnel shows the full picture.
 const HIDDEN_STATUSES = ['archived', 'not posted - discarded'];
 
-export async function getTasksFromList(listId: string, includeArchived = false): Promise<MappedTask[]> {
+async function fetchRawTasks(listId: string): Promise<ClickUpTask[]> {
   const all: ClickUpTask[] = [];
   let page = 0;
   while (true) {
@@ -135,6 +142,11 @@ export async function getTasksFromList(listId: string, includeArchived = false):
     if (tasks.length < 100) break;
     page++;
   }
+  return all;
+}
+
+export async function getTasksFromList(listId: string, includeArchived = false): Promise<MappedTask[]> {
+  const all = await fetchRawTasks(listId);
 
   // Build shared options map — ClickUp only includes type_config on some tasks per response
   const fieldOptions: Record<string, { id: string; name: string }[]> = {};
@@ -166,6 +178,105 @@ export async function getTasksFromFolder(folderId: string, includeArchived = fal
     if (seen.has(t.clickupTaskId)) return false;
     seen.add(t.clickupTaskId);
     return true;
+  });
+}
+
+export interface ClientQuota {
+  name: string;
+  reelsPerMonth: number;
+  ytPerMonth: number;
+}
+
+export interface MasterClientRecord {
+  clickupTaskId: string;
+  name: string;
+  contactName: string | null;
+  contactEmail: string | null;
+  whatsappNumber: string | null;
+  clientStatus: string;
+  monthlyQuota: number;
+}
+
+// Build the shared option list for a dropdown field — ClickUp only includes
+// type_config on some task responses, not all, so scan until one has it.
+function buildFieldOptions(tasks: ClickUpTask[], fieldName: string): { id: string; name: string }[] {
+  for (const t of tasks) {
+    const options = findField(t, fieldName)?.type_config?.options;
+    if (options?.length) return options;
+  }
+  return [];
+}
+
+// The link between a Master Clients List entry and its videos is the "Client
+// Name (AM)" dropdown value on that task — NOT the task's own title, which is
+// often a different, more casual label (e.g. task "Sebas Legacy" vs. dropdown
+// value "Sebastian Velasquez", which is what tags that client's videos).
+function resolveClientNameAM(task: ClickUpTask, sharedOptions: { id: string; name: string }[]): string | null {
+  const field = findField(task, 'Client Name (AM)');
+  const idx = typeof field?.value === 'number' ? field.value : null;
+  if (idx === null) return null;
+  return field?.type_config?.options?.[idx]?.name ?? sharedOptions[idx]?.name ?? null;
+}
+
+// Tasks in the Master Clients List with no "Client Status" set are placeholder/
+// junk entries (e.g. stray planning notes), not real clients — skip them.
+export async function getMasterClientRecords(): Promise<{ records: MasterClientRecord[]; skipped: string[] }> {
+  const listId = process.env.CLICKUP_CLIENTS_LIST_ID;
+  if (!listId) return { records: [], skipped: [] };
+
+  const tasks = await fetchRawTasks(listId);
+
+  const statusOptions = buildFieldOptions(tasks, 'Client Status');
+  const clientNameOptions = buildFieldOptions(tasks, 'Client Name (AM)');
+
+  const records: MasterClientRecord[] = [];
+  const skipped: string[] = [];
+
+  for (const t of tasks) {
+    const statusField = findField(t, 'Client Status');
+    const statusIdx = typeof statusField?.value === 'number' ? statusField.value : null;
+    const clientStatus = statusIdx !== null
+      ? statusField?.type_config?.options?.[statusIdx]?.name ?? statusOptions[statusIdx]?.name ?? null
+      : null;
+
+    if (!clientStatus) { skipped.push(t.name); continue; }
+
+    const contactNameField  = findField(t, 'Full Name');
+    const contactEmailField = findField(t, 'Contact Email Address');
+    const phoneField        = findField(t, 'Phone Number');
+    const reelsField        = findField(t, 'Reels / mo');
+    const ytField           = findField(t, 'YT videos / mo');
+
+    const reels = typeof reelsField?.value === 'number' ? reelsField.value : Number(reelsField?.value ?? 0) || 0;
+    const yt    = typeof ytField?.value === 'number' ? ytField.value : Number(ytField?.value ?? 0) || 0;
+
+    records.push({
+      clickupTaskId:  t.id,
+      name:           resolveClientNameAM(t, clientNameOptions) ?? t.name,
+      contactName:    typeof contactNameField?.value === 'string' ? contactNameField.value : null,
+      contactEmail:   typeof contactEmailField?.value === 'string' ? contactEmailField.value : null,
+      whatsappNumber: typeof phoneField?.value === 'string' ? phoneField.value : null,
+      clientStatus:   clientStatus.trim(),
+      monthlyQuota:   reels + yt,
+    });
+  }
+
+  return { records, skipped };
+}
+
+export async function getClientQuotas(): Promise<ClientQuota[]> {
+  const listId = process.env.CLICKUP_CLIENTS_LIST_ID;
+  if (!listId) return [];
+
+  const tasks = await fetchRawTasks(listId);
+  const clientNameOptions = buildFieldOptions(tasks, 'Client Name (AM)');
+
+  return tasks.map(t => {
+    const reels = findField(t, 'Reels / mo');
+    const yt    = findField(t, 'YT videos / mo');
+    const reelsCount = typeof reels?.value === 'number' ? reels.value : Number(reels?.value ?? 0) || 0;
+    const ytCount    = typeof yt?.value === 'number' ? yt.value : Number(yt?.value ?? 0) || 0;
+    return { name: resolveClientNameAM(t, clientNameOptions) ?? t.name, reelsPerMonth: reelsCount, ytPerMonth: ytCount };
   });
 }
 

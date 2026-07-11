@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 interface PortalUser {
   id: string;
@@ -13,13 +13,18 @@ interface PortalUser {
 interface ClientRecord {
   id: string;
   name: string;
-  type: string;
+  type: string | null;
   monthlyQuota: number | null;
-  clickupOptionId: string | null;
+  clickupTaskId: string;
   frameioProjectId: string | null;
   whatsappNumber: string | null;
   brandingConfig: Record<string, unknown> | null;
   showCalendar: boolean | null;
+  showInvoices: boolean | null;
+  contactName: string | null;
+  contactEmail: string | null;
+  clientStatus: string | null;
+  lastSyncedAt: Date | null;
   createdAt: Date | null;
   portalUsers: PortalUser[];
 }
@@ -46,35 +51,28 @@ const label: React.CSSProperties = {
   marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em',
 };
 
+const readonlyRow: React.CSSProperties = {
+  fontSize: 14, color: '#111c28', padding: '8px 0', borderBottom: '1px solid #f4f6f8',
+  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+};
+
 export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[] }) {
   const [clients, setClients] = useState<ClientRecord[]>(initial);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [clickupOptions, setClickupOptions] = useState<{ id: string; name: string }[]>([]);
-
-  useEffect(() => {
-    fetch('/api/admin/clickup-clients')
-      .then(r => r.ok ? r.json() : [])
-      .then((data: { id: string; name: string }[]) => setClickupOptions(data))
-      .catch(() => {});
-  }, []);
   const [selected, setSelected] = useState<ClientRecord | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [msg, setMsg] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState('');
+  const [showInactive, setShowInactive] = useState(false);
 
-  // Form fields
-  const [fName, setFName] = useState('');
-  const [fType, setFType] = useState<'retainer' | 'one_time'>('retainer');
-  const [fQuota, setFQuota] = useState('');
-  const [fClickup, setFClickup] = useState('');
+  // Portal-only fields (the only ones an admin can edit — everything else comes from ClickUp)
+  const [fType, setFType] = useState<'retainer' | 'one_time' | null>(null);
   const [fFrameio, setFFrameio] = useState('');
-  const [fWhatsapp, setFWhatsapp] = useState('');
   const [fVistaSocial, setFVistaSocial] = useState('');
   const [fCalendar, setFCalendar] = useState(false);
-
-  // Primary contact (create only)
-  const [fContactName, setFContactName] = useState('');
-  const [fContactEmail, setFContactEmail] = useState('');
+  const [fInvoices, setFInvoices] = useState(false);
 
   // Invite sub-form
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -83,69 +81,38 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
   const [inviting, setInviting] = useState(false);
   const [invMsg, setInvMsg] = useState('');
 
-  function openNew() {
-    setSelected(null);
-    setFName(''); setFType('retainer'); setFQuota(''); setFClickup('');
-    setFFrameio(''); setFWhatsapp(''); setFVistaSocial(''); setFCalendar(false);
-    setFContactName(''); setFContactEmail('');
-    setMsg(''); setInviteOpen(false);
-    setDrawerOpen(true);
-  }
-
   function openEdit(c: ClientRecord) {
     setSelected(c);
-    setFName(c.name);
-    setFType(c.type as 'retainer' | 'one_time');
-    setFQuota(c.monthlyQuota?.toString() ?? '');
-    setFClickup(c.clickupOptionId ?? '');
+    setFType((c.type as 'retainer' | 'one_time' | null) ?? null);
     setFFrameio(c.frameioProjectId ?? '');
-    setFWhatsapp(c.whatsappNumber ?? '');
     const vs = (c.brandingConfig as { vistaSocialProfileIds?: string })?.vistaSocialProfileIds ?? '';
     setFVistaSocial(vs);
     setFCalendar(c.showCalendar ?? false);
-    setMsg(''); setInviteOpen(false); setInvEmail(''); setInvName(''); setInvMsg('');
+    setFInvoices(c.showInvoices ?? false);
+    setMsg(''); setInviteOpen(false);
+    setInvName(c.portalUsers.length === 0 ? (c.contactName ?? '') : '');
+    setInvEmail(c.portalUsers.length === 0 ? (c.contactEmail ?? '') : '');
+    setInvMsg('');
     setDrawerOpen(true);
   }
 
   async function save() {
+    if (!selected) return;
     setSaving(true); setMsg('');
     const body = {
-      name: fName, type: fType,
-      monthlyQuota: fType === 'retainer' && fQuota ? Number(fQuota) : null,
-      clickupOptionId: fClickup || null,
+      type: fType,
       frameioProjectId: fFrameio || null,
-      whatsappNumber: fWhatsapp || null,
       vistaSocialProfileIds: fVistaSocial || null,
       showCalendar: fCalendar,
+      showInvoices: fInvoices,
     };
     try {
-      if (selected) {
-        const res = await fetch(`/api/admin/clients/${selected.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? 'Failed');
-        setClients(prev => prev.map(c => c.id === selected.id ? { ...c, ...body, portalUsers: c.portalUsers } : c));
-        setMsg('Saved.');
-      } else {
-        const res = await fetch('/api/admin/clients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? 'Failed');
-        let portalUsers: PortalUser[] = [];
-        if (fContactEmail && fContactName) {
-          const invRes = await fetch('/api/admin/create-client', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: fContactEmail, name: fContactName, clientName: fClickup || fName }),
-          });
-          const invData = await invRes.json();
-          if (invRes.ok) {
-            portalUsers = [{ id: invData.id ?? fContactEmail, name: fContactName, email: fContactEmail, clientName: fClickup || fName, emailVerified: false }];
-          }
-        }
-        const newClient = { ...data.client, brandingConfig: data.client.brandingConfig as Record<string, unknown> | null, portalUsers };
-        setClients(prev => [newClient, ...prev]);
-        setMsg(fContactEmail ? 'Client created and invite sent.' : 'Client created.');
-        setSelected(newClient);
-      }
+      const res = await fetch(`/api/admin/clients/${selected.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed');
+      setClients(prev => prev.map(c => c.id === selected.id ? { ...c, ...body } : c));
+      setSelected(prev => prev ? { ...prev, ...body } : prev);
+      setMsg('Saved.');
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Error');
     } finally {
@@ -153,9 +120,25 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
     }
   }
 
+  async function syncNow() {
+    setSyncing(true); setSyncMsg('');
+    try {
+      const res = await fetch('/api/admin/clients/sync', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Sync failed');
+      setSyncMsg(`Synced ${data.synced} client${data.synced === 1 ? '' : 's'}${data.skipped ? `, skipped ${data.skipped} without a Client Status` : ''}.`);
+      const listRes = await fetch('/api/admin/clients');
+      if (listRes.ok) setClients(await listRes.json());
+    } catch (e) {
+      setSyncMsg(e instanceof Error ? e.message : 'Error');
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   async function del() {
     if (!selected) return;
-    if (!confirm(`Delete "${selected.name}"? This cannot be undone.`)) return;
+    if (!confirm(`Delete "${selected.name}"? This cannot be undone, and it will reappear on the next ClickUp sync if it's still Active/Inactive there.`)) return;
     setDeleting(true); setMsg('');
     try {
       const res = await fetch(`/api/admin/clients/${selected.id}`, { method: 'DELETE' });
@@ -192,7 +175,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
       const res = await fetch('/api/admin/create-client', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: u.email, name: u.name, clientName: selected.clickupOptionId || selected.name }),
+        body: JSON.stringify({ email: u.email, name: u.name, clientName: selected.name }),
       });
       if (!res.ok) throw new Error('Failed to resend');
       setMsg('Invite resent to ' + u.email);
@@ -223,11 +206,11 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
       const res = await fetch('/api/admin/create-client', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: invEmail, name: invName, clientName: selected.clickupOptionId || selected.name }),
+        body: JSON.stringify({ email: invEmail, name: invName, clientName: selected.name }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed');
-      const newUser: PortalUser = { id: data.id ?? invEmail, name: invName, email: invEmail, clientName: selected.clickupOptionId || selected.name, emailVerified: false };
+      const newUser: PortalUser = { id: data.id ?? invEmail, name: invName, email: invEmail, clientName: selected.name, emailVerified: false };
       setClients(prev => prev.map(c => c.id === selected.id ? { ...c, portalUsers: [...c.portalUsers, newUser] } : c));
       setSelected(prev => prev ? { ...prev, portalUsers: [...prev.portalUsers, newUser] } : prev);
       setInvMsg('Invited!');
@@ -241,6 +224,8 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
   }
 
   const hasLinkedUsers = (selected?.portalUsers.length ?? 0) > 0;
+  const visibleClients = clients.filter(c => showInactive || c.clientStatus !== 'Inactive');
+  const inactiveCount = clients.length - clients.filter(c => c.clientStatus !== 'Inactive').length;
 
   return (
     <div style={{ display: 'flex', height: '100vh', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif', overflow: 'hidden' }}>
@@ -250,12 +235,19 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
         <div className="db-topbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 28px', borderBottom: '1px solid #e7ebef', background: '#fff', flexShrink: 0 }}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 700, color: '#111c28' }}>Clients</div>
-            <div style={{ fontSize: 13, color: '#8b97a4', marginTop: 2 }}>{clients.length} client{clients.length !== 1 ? 's' : ''}</div>
+            <div style={{ fontSize: 13, color: '#8b97a4', marginTop: 2 }}>{visibleClients.length} client{visibleClients.length !== 1 ? 's' : ''} · synced from ClickUp&apos;s Master Clients List</div>
           </div>
-          <button onClick={openNew} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 8, border: 'none', background: '#FF6000', color: '#fff', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 15, height: 15 }}><path d="M12 5v14M5 12h14" /></svg>
-            New client
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#54616f', cursor: 'pointer' }}>
+              <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} style={{ cursor: 'pointer' }} />
+              Show inactive{inactiveCount > 0 ? ` (${inactiveCount})` : ''}
+            </label>
+            {syncMsg && <span style={{ fontSize: 13, color: syncMsg.includes('rror') || syncMsg.includes('ail') ? '#cf3f36' : '#54616f' }}>{syncMsg}</span>}
+            <button onClick={syncNow} disabled={syncing} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 8, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontWeight: 600, fontSize: 14, cursor: syncing ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}><path d="M21 2v6h-6M3 22v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L21 8M3 16l2.64 2.36A9 9 0 0 0 20.49 15" /></svg>
+              {syncing ? 'Syncing…' : 'Sync now'}
+            </button>
+          </div>
         </div>
 
         {/* Table */}
@@ -264,17 +256,17 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #e7ebef' }}>
-                  {['Client', 'Type', 'Quota', 'ClickUp', 'Portal users', ''].map(h => (
+                  {['Client', 'Type', 'Quota', 'Status', 'Portal users', ''].map(h => (
                     <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#8b97a4', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'inherit' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {clients.length === 0 && (
-                  <tr><td colSpan={6} style={{ padding: '48px 16px', textAlign: 'center', color: '#8b97a4', fontSize: 14 }}>No clients yet. Create one to get started.</td></tr>
+                {visibleClients.length === 0 && (
+                  <tr><td colSpan={6} style={{ padding: '48px 16px', textAlign: 'center', color: '#8b97a4', fontSize: 14 }}>{clients.length === 0 ? <>No clients yet. Click &quot;Sync now&quot; to pull clients from ClickUp&apos;s Master Clients List.</> : 'No active clients. Check "Show inactive" to see them.'}</td></tr>
                 )}
-                {clients.map((c, i) => (
-                  <tr key={c.id} onClick={() => openEdit(c)} style={{ borderBottom: i < clients.length - 1 ? '1px solid #f4f6f8' : 'none', cursor: 'pointer', background: selected?.id === c.id ? '#fff8f5' : 'transparent' }}>
+                {visibleClients.map((c, i) => (
+                  <tr key={c.id} onClick={() => openEdit(c)} style={{ borderBottom: i < visibleClients.length - 1 ? '1px solid #f4f6f8' : 'none', cursor: 'pointer', background: selected?.id === c.id ? '#fff8f5' : 'transparent' }}>
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <span style={{ width: 32, height: 32, borderRadius: '50%', background: avatarColor(c.id), color: '#fff', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{initials(c.name)}</span>
@@ -282,17 +274,19 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                       </div>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: '3px 9px', borderRadius: 100, color: c.type === 'retainer' ? '#1a56a0' : '#7c3aed', background: c.type === 'retainer' ? '#dbeafe' : '#ede9fe' }}>
-                        {c.type === 'retainer' ? 'Retainer' : 'One-time'}
-                      </span>
+                      {c.type
+                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: '3px 9px', borderRadius: 100, color: c.type === 'retainer' ? '#1a56a0' : '#7c3aed', background: c.type === 'retainer' ? '#dbeafe' : '#ede9fe' }}>
+                            {c.type === 'retainer' ? 'Retainer' : 'One-time'}
+                          </span>
+                        : <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 9px', borderRadius: 100, color: '#b06f06', background: '#fdf3e1' }}>Needs setup</span>}
                     </td>
                     <td style={{ padding: '12px 16px', color: c.monthlyQuota ? '#111c28' : '#8b97a4', fontWeight: c.monthlyQuota ? 600 : 400 }}>
                       {c.monthlyQuota ? `${c.monthlyQuota}/mo` : '—'}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      {c.clickupOptionId
-                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: '#14805f' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 13, height: 13 }}><path d="M20 6 9 17l-5-5" /></svg>Mapped</span>
-                        : <span style={{ fontSize: 12, fontWeight: 600, color: '#b06f06' }}>Not mapped</span>}
+                      {c.clientStatus
+                        ? <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 9px', borderRadius: 100, color: c.clientStatus === 'Active' ? '#14805f' : '#8b97a4', background: c.clientStatus === 'Active' ? '#e6f4ee' : '#f4f6f8' }}>{c.clientStatus}</span>
+                        : <span style={{ fontSize: 13, color: '#8b97a4' }}>—</span>}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: -4 }}>
@@ -326,7 +320,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
       </div>
 
       {/* Drawer */}
-      {drawerOpen && (
+      {drawerOpen && selected && (
         <>
           <div onClick={() => setDrawerOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(17,28,40,.3)', zIndex: 40 }} />
           <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 460, background: '#fff', boxShadow: '-8px 0 32px rgba(17,28,40,.12)', zIndex: 50, display: 'flex', flexDirection: 'column', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}>
@@ -334,8 +328,8 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
             {/* Drawer header */}
             <div style={{ padding: '20px 24px', borderBottom: '1px solid #e7ebef', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: 0 }}>{selected ? selected.name : 'New client'}</h3>
-                <div style={{ fontSize: 13, color: '#8b97a4', marginTop: 3 }}>{selected ? 'Edit client details' : 'Add a client to the portal'}</div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: 0 }}>{selected.name}</h3>
+                <div style={{ fontSize: 13, color: '#8b97a4', marginTop: 3 }}>Client details</div>
               </div>
               <button onClick={() => setDrawerOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#54616f', padding: 4 }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}><path d="M18 6 6 18M6 6l12 12" /></svg>
@@ -345,15 +339,30 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
             {/* Drawer body */}
             <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-              {/* Name */}
+              {/* From ClickUp (read-only) */}
               <div>
-                <span style={label}>Client name</span>
-                <input value={fName} onChange={e => setFName(e.target.value)} placeholder="Ohr Shlomo" style={inp} />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={label}>From ClickUp</span>
+                  <a href={`https://app.clickup.com/t/${selected.clickupTaskId}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 600, color: '#FF6000', textDecoration: 'none' }}>Open in ClickUp →</a>
+                </div>
+                <div style={readonlyRow}><span style={{ color: '#8b97a4' }}>Contact</span><span>{selected.contactName || '—'}</span></div>
+                <div style={readonlyRow}><span style={{ color: '#8b97a4' }}>Email</span><span>{selected.contactEmail || '—'}</span></div>
+                <div style={readonlyRow}><span style={{ color: '#8b97a4' }}>Phone</span><span>{selected.whatsappNumber || '—'}</span></div>
+                <div style={readonlyRow}><span style={{ color: '#8b97a4' }}>Client status</span><span>{selected.clientStatus || '—'}</span></div>
+                <div style={{ ...readonlyRow, borderBottom: 'none' }}><span style={{ color: '#8b97a4' }}>Monthly quota</span><span>{selected.monthlyQuota ? `${selected.monthlyQuota}/mo` : '—'}</span></div>
+                {selected.lastSyncedAt && <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 4 }}>Last synced {new Date(selected.lastSyncedAt).toLocaleString()}</div>}
+              </div>
+
+              <div style={{ borderTop: '1px solid #e7ebef' }} />
+
+              {/* Portal settings (editable) */}
+              <div>
+                <span style={label}>Portal settings</span>
               </div>
 
               {/* Type */}
               <div>
-                <span style={label}>Type</span>
+                <span style={label}>Billing type</span>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {(['retainer', 'one_time'] as const).map(t => (
                     <button key={t} onClick={() => setFType(t)} style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: `1px solid ${fType === t ? '#FF6000' : '#d4dbe2'}`, background: fType === t ? '#fff8f5' : '#fff', color: fType === t ? '#FF6000' : '#54616f', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -363,39 +372,10 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                 </div>
               </div>
 
-              {/* Quota (retainer only) */}
-              {fType === 'retainer' && (
-                <div>
-                  <span style={label}>Monthly video quota</span>
-                  <input type="number" min="1" value={fQuota} onChange={e => setFQuota(e.target.value)} placeholder="8" style={{ ...inp, width: 120 }} />
-                </div>
-              )}
-
-              {/* ClickUp */}
-              <div>
-                <span style={label}>ClickUp client name</span>
-                <select
-                  value={fClickup}
-                  onChange={e => setFClickup(e.target.value)}
-                  style={{ ...inp, cursor: 'pointer' }}
-                >
-                  <option value="">— select from ClickUp —</option>
-                  {clickupOptions.map(o => (
-                    <option key={o.id} value={o.name}>{o.name}</option>
-                  ))}
-                </select>
-              </div>
-
               {/* Frame.io */}
               <div>
                 <span style={label}>Frame.io project ID <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></span>
                 <input value={fFrameio} onChange={e => setFFrameio(e.target.value)} placeholder="abc123" style={inp} />
-              </div>
-
-              {/* WhatsApp */}
-              <div>
-                <span style={label}>WhatsApp number <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></span>
-                <input value={fWhatsapp} onChange={e => setFWhatsapp(e.target.value)} placeholder="+1 809 555 0000" style={inp} />
               </div>
 
               {/* Vista Social */}
@@ -415,89 +395,81 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                 </div>
               </div>
 
-              {/* Primary contact (create only) */}
-              {!selected && (
-                <>
-                  <div style={{ borderTop: '1px solid #e7ebef', margin: '4px 0' }} />
-                  <div>
-                    <span style={label}>Primary contact <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional — sends magic link invite)</span></span>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <input value={fContactName} onChange={e => setFContactName(e.target.value)} placeholder="Full name" style={inp} />
-                      <input type="email" value={fContactEmail} onChange={e => setFContactEmail(e.target.value)} placeholder="client@example.com" style={inp} />
-                    </div>
-                  </div>
-                </>
-              )}
+              {/* Invoices toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#111c28' }}>Show invoices</div>
+                  <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Client can see billing history in their portal</div>
+                </div>
+                <div onClick={() => setFInvoices(v => !v)} style={{ width: 40, height: 22, borderRadius: 11, background: fInvoices ? '#FF6000' : '#d4dbe2', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                  <div style={{ position: 'absolute', top: 3, left: fInvoices ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
+                </div>
+              </div>
 
-              {/* Divider */}
-              {selected && <div style={{ borderTop: '1px solid #e7ebef', margin: '4px 0' }} />}
+              <div style={{ borderTop: '1px solid #e7ebef', margin: '4px 0' }} />
 
               {/* Portal users */}
-              {selected && (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <span style={label}>Portal access</span>
-                    <button onClick={() => { setInviteOpen(v => !v); setInvMsg(''); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: '#FF6000', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 13, height: 13 }}><path d="M12 5v14M5 12h14" /></svg>
-                      Invite user
-                    </button>
-                  </div>
-
-                  {inviteOpen && (
-                    <div style={{ background: '#f4f6f8', borderRadius: 10, padding: '14px', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      <input value={invName} onChange={e => setInvName(e.target.value)} placeholder="Full name" style={inp} />
-                      <input type="email" value={invEmail} onChange={e => setInvEmail(e.target.value)} placeholder="client@example.com" style={inp} />
-                      {invMsg && <div style={{ fontSize: 12, color: invMsg === 'Invited!' ? '#14805f' : '#cf3f36' }}>{invMsg}</div>}
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => setInviteOpen(false)} style={{ flex: 1, padding: '7px 12px', borderRadius: 7, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-                        <button onClick={invite} disabled={inviting || !invEmail || !invName} style={{ flex: 1, padding: '7px 12px', borderRadius: 7, border: 'none', background: inviting || !invEmail || !invName ? '#eef1f4' : '#FF6000', color: inviting || !invEmail || !invName ? '#8b97a4' : '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                          {inviting ? 'Sending…' : 'Send invite'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {selected.portalUsers.length === 0 ? (
-                    <div style={{ fontSize: 13, color: '#8b97a4', fontStyle: 'italic' }}>No portal users yet.</div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {selected.portalUsers.map(u => (
-                        <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: '#f4f6f8', borderRadius: 8 }}>
-                          <span style={{ width: 28, height: 28, borderRadius: '50%', background: avatarColor(u.id), color: '#fff', display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{initials(u.name)}</span>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: '#111c28' }}>{u.name}</div>
-                            <div style={{ fontSize: 12, color: '#8b97a4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</div>
-                          </div>
-                          <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 100, color: u.emailVerified ? '#14805f' : '#b06f06', background: u.emailVerified ? '#e6f4ee' : '#fdf3e1', flexShrink: 0 }}>
-                            {u.emailVerified ? 'Active' : 'Pending'}
-                          </span>
-                          {!u.emailVerified && (
-                            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                              <button onClick={() => resendInvite(u)} title="Resend invite" style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Resend</button>
-                              <button onClick={() => cancelInvite(u)} title="Cancel invitation" style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #fbd5d0', background: '#fef2f1', color: '#cf3f36', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <span style={label}>Portal access</span>
+                  <button onClick={() => { setInviteOpen(v => !v); setInvMsg(''); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: '#FF6000', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 13, height: 13 }}><path d="M12 5v14M5 12h14" /></svg>
+                    Invite user
+                  </button>
                 </div>
-              )}
+
+                {inviteOpen && (
+                  <div style={{ background: '#f4f6f8', borderRadius: 10, padding: '14px', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <input value={invName} onChange={e => setInvName(e.target.value)} placeholder="Full name" style={inp} />
+                    <input type="email" value={invEmail} onChange={e => setInvEmail(e.target.value)} placeholder="client@example.com" style={inp} />
+                    {invMsg && <div style={{ fontSize: 12, color: invMsg === 'Invited!' ? '#14805f' : '#cf3f36' }}>{invMsg}</div>}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => setInviteOpen(false)} style={{ flex: 1, padding: '7px 12px', borderRadius: 7, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                      <button onClick={invite} disabled={inviting || !invEmail || !invName} style={{ flex: 1, padding: '7px 12px', borderRadius: 7, border: 'none', background: inviting || !invEmail || !invName ? '#eef1f4' : '#FF6000', color: inviting || !invEmail || !invName ? '#8b97a4' : '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        {inviting ? 'Sending…' : 'Send invite'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {selected.portalUsers.length === 0 ? (
+                  <div style={{ fontSize: 13, color: '#8b97a4', fontStyle: 'italic' }}>No portal users yet.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {selected.portalUsers.map(u => (
+                      <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: '#f4f6f8', borderRadius: 8 }}>
+                        <span style={{ width: 28, height: 28, borderRadius: '50%', background: avatarColor(u.id), color: '#fff', display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{initials(u.name)}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: '#111c28' }}>{u.name}</div>
+                          <div style={{ fontSize: 12, color: '#8b97a4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</div>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 100, color: u.emailVerified ? '#14805f' : '#b06f06', background: u.emailVerified ? '#e6f4ee' : '#fdf3e1', flexShrink: 0 }}>
+                          {u.emailVerified ? 'Active' : 'Pending'}
+                        </span>
+                        {!u.emailVerified && (
+                          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                            <button onClick={() => resendInvite(u)} title="Resend invite" style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Resend</button>
+                            <button onClick={() => cancelInvite(u)} title="Cancel invitation" style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #fbd5d0', background: '#fef2f1', color: '#cf3f36', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Delete */}
-              {selected && (
-                <div style={{ borderTop: '1px solid #e7ebef', paddingTop: 16, marginTop: 4 }}>
-                  <button
-                    onClick={del}
-                    disabled={deleting || hasLinkedUsers}
-                    title={hasLinkedUsers ? 'Remove all portal users before deleting this client' : ''}
-                    style={{ fontSize: 13, color: hasLinkedUsers ? '#8b97a4' : '#cf3f36', background: 'none', border: 'none', cursor: hasLinkedUsers ? 'not-allowed' : 'pointer', padding: 0, fontFamily: 'inherit', fontWeight: 600 }}
-                  >
-                    {deleting ? 'Deleting…' : 'Delete client'}
-                  </button>
-                  {hasLinkedUsers && <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 4 }}>Remove all portal users before deleting.</div>}
-                </div>
-              )}
+              <div style={{ borderTop: '1px solid #e7ebef', paddingTop: 16, marginTop: 4 }}>
+                <button
+                  onClick={del}
+                  disabled={deleting || hasLinkedUsers}
+                  title={hasLinkedUsers ? 'Remove all portal users before deleting this client' : ''}
+                  style={{ fontSize: 13, color: hasLinkedUsers ? '#8b97a4' : '#cf3f36', background: 'none', border: 'none', cursor: hasLinkedUsers ? 'not-allowed' : 'pointer', padding: 0, fontFamily: 'inherit', fontWeight: 600 }}
+                >
+                  {deleting ? 'Deleting…' : 'Delete client'}
+                </button>
+                {hasLinkedUsers && <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 4 }}>Remove all portal users before deleting.</div>}
+              </div>
             </div>
 
             {/* Drawer footer */}
@@ -505,8 +477,8 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
               {msg && <span style={{ flex: 1, fontSize: 13, color: msg.includes('rror') || msg.includes('ail') || msg.includes('annot') ? '#cf3f36' : '#14805f' }}>{msg}</span>}
               {!msg && <span style={{ flex: 1 }} />}
               <button onClick={() => setDrawerOpen(false)} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-              <button onClick={save} disabled={saving || !fName || !fType} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: saving || !fName ? '#eef1f4' : '#FF6000', color: saving || !fName ? '#8b97a4' : '#fff', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
-                {saving ? 'Saving…' : selected ? 'Save changes' : 'Create client'}
+              <button onClick={save} disabled={saving} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: saving ? '#eef1f4' : '#FF6000', color: saving ? '#8b97a4' : '#fff', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {saving ? 'Saving…' : 'Save changes'}
               </button>
             </div>
           </div>

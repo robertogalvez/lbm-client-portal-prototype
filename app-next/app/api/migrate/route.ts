@@ -76,6 +76,7 @@ export async function POST(req: Request) {
       sql`ALTER TABLE auth_user ADD COLUMN IF NOT EXISTS am_name text`,
       sql`ALTER TABLE auth_user ADD COLUMN IF NOT EXISTS client_name text`,
       sql`ALTER TABLE auth_user ADD COLUMN IF NOT EXISTS is_also_client boolean DEFAULT false`,
+      sql`ALTER TABLE auth_session ADD COLUMN IF NOT EXISTS remember_device boolean NOT NULL DEFAULT false`,
       sql`CREATE TABLE IF NOT EXISTS "video_cache" (
         "clickup_task_id"     varchar(50) PRIMARY KEY NOT NULL,
         "client_id"           varchar(100),
@@ -100,6 +101,21 @@ export async function POST(req: Request) {
       sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS due_date text`,
       sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS caption_approval varchar(50)`,
       sql`ALTER TABLE video_cache ALTER COLUMN frameio_asset_id TYPE text`,
+      sql`DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'clients' AND column_name = 'clickup_option_id')
+             AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'clients' AND column_name = 'clickup_task_id') THEN
+            ALTER TABLE clients RENAME COLUMN clickup_option_id TO clickup_task_id;
+          END IF;
+        END $$`,
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_name text`,
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_email text`,
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS client_status varchar(20)`,
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS last_synced_at timestamp`,
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS show_invoices boolean DEFAULT false`,
+      sql`ALTER TABLE clients ALTER COLUMN type DROP NOT NULL`,
+      sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS is_youtube boolean DEFAULT false`,
+      sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS raw_drive_link text`,
     ]);
 
     const rows = await sql`

@@ -1,10 +1,11 @@
 import { Suspense } from 'react';
-import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask } from '@/lib/clickup';
+import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask, getClientQuotas, ClientQuota } from '@/lib/clickup';
 import { getTasksFromDB } from '@/lib/db/queries';
-import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask } from '@/components/dashboard/DashboardTabs';
+import { db } from '@/lib/db';
+import { clients as clientsTable } from '@/lib/db/schema';
+import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask, AgreedDeliveredRow, BacklogRow, KpiData } from '@/components/dashboard/DashboardTabs';
 import { EDITOR_PHASE_COLS } from '@/components/dashboard/editor-phases';
 import { FiltersBar } from '@/components/dashboard/FiltersBar';
-import { InfoPopover } from '@/components/ui/Tooltip';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,39 @@ function rangeCutoff(range: string): number {
   return 0;
 }
 
+// The equal-length window immediately preceding `cutoff`, used to compute
+// KPI trend deltas. 'all' has no meaningful "prior" window.
+function previousWindowBounds(range: string, cutoff: number): [number, number] | null {
+  if (range === '30d')  return [cutoff - 30  * 86_400_000, cutoff];
+  if (range === '90d')  return [cutoff - 90  * 86_400_000, cutoff];
+  if (range === '1y')   return [cutoff - 365 * 86_400_000, cutoff];
+  return null;
+}
+
+function periodMetrics(list: MappedTask[]) {
+  const POSTED = 'posted in socials';
+  const inProd = list.filter(t => norm(t.status) !== POSTED).length;
+  const pending = list.filter(t => norm(t.status) === 'for client review').length;
+  const approved = list.filter(t => t.clientApproval?.toLowerCase() === 'approved').length;
+  const corrections = list.filter(t => norm(t.status) === 'in progress (corrections)').length;
+  const fpTotal = approved + corrections;
+  const firstPassClean = fpTotal > 0 ? Math.round(approved / fpTotal * 100) : null;
+  return { inProd, pending, approved, firstPassClean };
+}
+
+// Delta chip for a KPI card: arrow + magnitude, colored by whether the
+// direction is actually good for that metric (e.g. Pending approval going
+// up is bad, not good).
+function kpiDelta(current: number, previous: number | null | undefined, higherIsGood: boolean, unit: 'count' | 'pts' = 'count') {
+  if (previous === null || previous === undefined) return undefined;
+  const diff = current - previous;
+  if (diff === 0) return undefined;
+  const good = (diff > 0) === higherIsGood;
+  const arrow = diff > 0 ? '▲' : '▼';
+  const magnitude = unit === 'pts' ? `${Math.abs(diff)}pts` : `${Math.abs(diff)}`;
+  return { text: `${arrow} ${magnitude}`, good };
+}
+
 const parseDate = (s: string) => { const n = Number(s); return isNaN(n) ? new Date(s).getTime() : n; };
 
 const PIPELINE_STAGES: { key: string; label: string; group: string; barColor: string; isRework: boolean }[] = [
@@ -35,7 +69,7 @@ const PIPELINE_STAGES: { key: string; label: string; group: string; barColor: st
   { key: 'in progress (corrections)', label: 'In Progress (Corrections)',   group: 'In progress',    barColor: '#a86a00', isRework: true  },
   { key: 'tc - qc (somu)',            label: 'TC / QC (Somu)',              group: 'Quality check',  barColor: '#7c66c4', isRework: false },
   { key: 'qc final - am',             label: 'QC Final – AM',               group: 'Quality check',  barColor: '#7c66c4', isRework: false },
-  { key: 'for client review',         label: 'For Client Review',           group: 'Review & ship',  barColor: '#FF6000', isRework: false },
+  { key: 'for client review',         label: 'For Client Review',           group: 'Review & ship',  barColor: '#a86a00', isRework: false },
   { key: 'ready to be posted',        label: 'Ready to be Posted',          group: 'Review & ship',  barColor: '#14805f', isRework: false },
   { key: 'posted in socials',         label: 'Posted in Socials',           group: 'Review & ship',  barColor: '#14805f', isRework: false },
 ];
@@ -44,6 +78,20 @@ function buildPipeline(tasks: MappedTask[]): PipelineStage[] {
   const counts: Record<string, number> = {};
   for (const t of tasks) counts[norm(t.status)] = (counts[norm(t.status)] ?? 0) + 1;
   return PIPELINE_STAGES.map(s => ({ ...s, count: counts[s.key] ?? 0 }));
+}
+
+const BACKLOG_STATUSES = new Set(PIPELINE_STAGES.filter(s => s.group === 'To do').map(s => s.key));
+
+function buildBacklog(tasks: MappedTask[]): BacklogRow[] {
+  const map = new Map<string, number>();
+  for (const t of tasks) {
+    const name = t.clientName ?? 'Unknown';
+    if (!map.has(name)) map.set(name, 0);
+    if (BACKLOG_STATUSES.has(norm(t.status))) map.set(name, map.get(name)! + 1);
+  }
+  return Array.from(map.entries())
+    .map(([name, backlogCount]) => ({ name, backlogCount }))
+    .sort((a, b) => a.backlogCount - b.backlogCount);
 }
 
 function buildApprovals(tasks: MappedTask[]): ApprovalRow[] {
@@ -60,7 +108,11 @@ function buildApprovals(tasks: MappedTask[]): ApprovalRow[] {
     .sort((a, b) => b.daysWaiting - a.daysWaiting);
 }
 
-function buildClients(tasks: MappedTask[]): ClientRow[] {
+// `tasks` drives Total/In review/Oldest wait (scoped to whatever range/filters
+// are browsed); `monthlyPosted` drives Reels/YouTube delivered — always the
+// current calendar month, regardless of the browsed range, since a monthly
+// quota promise doesn't mean anything prorated over a different window.
+function buildClients(tasks: MappedTask[], monthlyPosted: MappedTask[], quotas: ClientQuota[], backlogRows: BacklogRow[]): ClientRow[] {
   const map = new Map<string, { total: number; inReview: number; oldestDays: number }>();
   for (const t of tasks) {
     const name = t.clientName ?? 'Unknown';
@@ -73,9 +125,60 @@ function buildClients(tasks: MappedTask[]): ClientRow[] {
       if (d > s.oldestDays) s.oldestDays = d;
     }
   }
+
+  const deliveredByName = new Map<string, { reels: number; yt: number }>();
+  for (const t of monthlyPosted) {
+    const name = t.clientName ?? 'Unknown';
+    if (!deliveredByName.has(name)) deliveredByName.set(name, { reels: 0, yt: 0 });
+    const d = deliveredByName.get(name)!;
+    if (t.isYoutube) d.yt++; else d.reels++;
+  }
+
+  const quotaByName = new Map(quotas.map(q => [norm(q.name), q]));
+  const backlogByName = new Map(backlogRows.map(b => [norm(b.name), b.backlogCount]));
+
   return Array.from(map.entries())
-    .map(([name, s]) => ({ name, ...s }))
+    .map(([name, s]) => {
+      const delivered = deliveredByName.get(name) ?? { reels: 0, yt: 0 };
+      const q = quotaByName.get(norm(name));
+      const reelsAgreed = q?.reelsPerMonth ?? 0;
+      const ytAgreed = q?.ytPerMonth ?? 0;
+      const stillNeeded = Math.max(reelsAgreed - delivered.reels, 0) + Math.max(ytAgreed - delivered.yt, 0);
+      const backlogCount = backlogByName.get(norm(name)) ?? 0;
+      return {
+        name,
+        total: s.total,
+        inReview: s.inReview,
+        oldestDays: s.oldestDays,
+        reelsAgreed,
+        reelsDelivered: delivered.reels,
+        ytAgreed,
+        ytDelivered: delivered.yt,
+        backlogCount,
+        stillNeeded,
+        footageGap: stillNeeded - backlogCount,
+      };
+    })
     .sort((a, b) => b.total - a.total);
+}
+
+function buildAgreedVsDelivered(monthlyPosted: MappedTask[], quotas: ClientQuota[]): AgreedDeliveredRow[] {
+  const delivered = new Map<string, number>();
+  for (const t of monthlyPosted) {
+    if (!t.clientName) continue;
+    const key = norm(t.clientName);
+    delivered.set(key, (delivered.get(key) ?? 0) + 1);
+  }
+
+  return quotas
+    .map(q => ({ name: q.name, agreed: q.reelsPerMonth + q.ytPerMonth }))
+    .filter(q => q.agreed > 0)
+    .map(q => ({
+      name: q.name,
+      agreed: q.agreed,
+      delivered: delivered.get(norm(q.name)) ?? 0,
+    }))
+    .sort((a, b) => b.agreed - a.agreed);
 }
 
 function buildEditors(tasks: MappedTask[]): EditorRow[] {
@@ -101,37 +204,10 @@ function buildEditors(tasks: MappedTask[]): EditorRow[] {
     .sort((a, b) => (b.firstPassClean ?? -1) - (a.firstPassClean ?? -1));
 }
 
-interface KpiProps {
-  label: string;
-  tip: string;
-  value: string | number;
-  dotColor: string;
-  sub?: string;
-  subTone?: 'warn' | 'muted';
-}
-
-function KpiCard({ label, tip, value, dotColor, sub, subTone }: KpiProps) {
-  return (
-    <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, padding: '14px 15px', flex: '1 1 0', minWidth: 140, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ fontSize: 11.5, color: '#54616f', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-        {label}
-        <InfoPopover tip={tip} />
-      </div>
-      <div style={{ fontSize: 26, fontWeight: 600, color: '#111c28', lineHeight: 1, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{value}</div>
-      {sub && (
-        <div style={{ fontSize: 11, fontWeight: 600, color: subTone === 'warn' ? '#a86a00' : '#8b97a4', display: 'flex', alignItems: 'center', gap: 4 }}>
-          {sub}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; member?: string; am?: string; client?: string }>;
+  searchParams: Promise<{ range?: string; member?: string; am?: string; client?: string; inactive?: string }>;
 }) {
   if (!isConfigured()) {
     return (
@@ -144,7 +220,8 @@ export default async function DashboardPage({
     );
   }
 
-  const { range = 'all', member = '', am = '', client: clientFilter = '' } = await searchParams;
+  const { range = 'all', member = '', am = '', client: clientFilter = '', inactive = '' } = await searchParams;
+  const showInactive = inactive === '1';
   const masterListId = process.env.CLICKUP_LIST_ID;
   const folderId     = process.env.CLICKUP_FOLDER_ID;
   let allTasks: MappedTask[] = [];
@@ -163,6 +240,22 @@ export default async function DashboardPage({
   } catch (e) {
     error = e instanceof Error ? e.message : 'Unknown error';
   }
+
+  // Hide Inactive clients (per the synced ClickUp Master Clients List) everywhere
+  // on the dashboard by default — a client with no matching record (not yet
+  // synced) is kept visible rather than silently hidden.
+  const clientStatusRows = await db
+    .select({ name: clientsTable.name, clientStatus: clientsTable.clientStatus })
+    .from(clientsTable)
+    .catch(() => [] as { name: string; clientStatus: string | null }[]);
+  const inactiveNames = new Set(
+    clientStatusRows.filter(c => c.clientStatus === 'Inactive').map(c => norm(c.name))
+  );
+  if (!showInactive && inactiveNames.size > 0) {
+    allTasks = allTasks.filter(t => !t.clientName || !inactiveNames.has(norm(t.clientName)));
+  }
+
+  const clientQuotas = await getClientQuotas().catch(() => [] as ClientQuota[]);
 
   const cutoff = rangeCutoff(range);
 
@@ -198,10 +291,21 @@ export default async function DashboardPage({
 
   const postedThisMonth = tasks.filter(t => norm(t.status) === POSTED && parseDate(t.dateUpdated) >= monthStart).length;
 
+  // Quota pacing (Delivery/Footage) is always scoped to the current calendar
+  // month, independent of the browsed range — an agreed monthly quota doesn't
+  // mean anything prorated over the account's entire history.
+  const monthlyPosted = allTasks
+    .filter(t => norm(t.status) === POSTED && parseDate(t.dateUpdated) >= monthStart)
+    .filter(t => !member       || t.editorName     === member)
+    .filter(t => !am           || t.assignedAmName === am)
+    .filter(t => !clientFilter || t.clientName     === clientFilter);
+
   const pipeline    = buildPipeline(tasks);
   const approvals   = buildApprovals(tasks);
-  const clients     = buildClients(tasks);
+  const backlogRows = buildBacklog(allTasks);
+  const clients     = buildClients(tasks, monthlyPosted, clientQuotas, backlogRows);
   const editors     = buildEditors(tasks);
+  const agreedVsDelivered = buildAgreedVsDelivered(monthlyPosted, clientQuotas);
   const statusTasks: StatusTask[] = tasks.map(t => ({
     id: t.clickupTaskId,
     title: t.title,
@@ -222,6 +326,60 @@ export default async function DashboardPage({
     .map(e => ({ name: e.name, firstPassClean: e.firstPassClean! }));
 
   const monthLabel = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+  const periodLabel = `${monthLabel} to date`;
+
+  // KPI trend deltas vs. the prior comparable window (skipped for 'All time',
+  // which has no meaningful "prior" window).
+  const prevBounds = previousWindowBounds(range, cutoff);
+  const prevMetrics = prevBounds
+    ? periodMetrics(
+        allTasks
+          .filter(t => { const d = parseDate(t.dateUpdated); return d >= prevBounds[0] && d < prevBounds[1]; })
+          .filter(t => !member       || t.editorName     === member)
+          .filter(t => !am           || t.assignedAmName === am)
+          .filter(t => !clientFilter || t.clientName     === clientFilter)
+      )
+    : null;
+
+  const prevMonthStart = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).getTime();
+  const postedPrevMonth = allTasks
+    .filter(t => norm(t.status) === POSTED)
+    .filter(t => { const d = parseDate(t.dateUpdated); return d >= prevMonthStart && d < monthStart; })
+    .filter(t => !member       || t.editorName     === member)
+    .filter(t => !am           || t.assignedAmName === am)
+    .filter(t => !clientFilter || t.clientName     === clientFilter)
+    .length;
+
+  const kpis: KpiData[] = [
+    {
+      label: 'In production', value: inProduction, dotColor: '#FF6000',
+      tip: 'All tasks not yet posted — across every stage from To Do through QC and Review.',
+      delta: kpiDelta(inProduction, prevMetrics?.inProd, true),
+    },
+    {
+      label: 'Pending approval', value: pendingApproval, dotColor: '#a86a00',
+      tip: "Videos sitting in 'For Client Review' waiting for client sign-off.",
+      sub: overdueCount > 0 ? `${overdueCount} overdue >3d` : undefined,
+      subTone: overdueCount > 0 ? 'warn' : undefined,
+      delta: kpiDelta(pendingApproval, prevMetrics?.pending, false),
+    },
+    {
+      label: 'First-pass clean', value: firstPassCleanPct !== null ? `${firstPassCleanPct}%` : '—', dotColor: '#14805f',
+      tip: 'Approved ÷ (Approved + Rework). Higher means fewer revision rounds.',
+      delta: firstPassCleanPct !== null ? kpiDelta(firstPassCleanPct, prevMetrics?.firstPassClean, true, 'pts') : undefined,
+    },
+    {
+      label: 'Client-approved', value: clientApproved, dotColor: '#14805f',
+      tip: 'Total videos the client has marked Approved, including already-posted ones.',
+      delta: kpiDelta(clientApproved, prevMetrics?.approved, true),
+    },
+    {
+      label: 'Posted this month', value: postedThisMonth, dotColor: '#2563eb',
+      tip: "Videos that reached 'Posted in Socials' during the current calendar month.",
+      sub: monthLabel,
+      delta: kpiDelta(postedThisMonth, postedPrevMonth, true),
+    },
+  ];
 
   const segRanges = [
     { label: '30d', value: '30d' },
@@ -271,53 +429,18 @@ export default async function DashboardPage({
       </div>
 
       {/* Persistent glance zone */}
-      <div style={{ padding: '18px 24px 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {error && (
+      {error && (
+        <div style={{ margin: '18px 24px 0' }}>
           <div style={{ background: '#fdedeb', border: '1px solid #f8d0cc', borderRadius: 8, padding: '12px 16px', fontSize: 13, color: '#cf3f36' }}>
             ClickUp error: {error}
           </div>
-        )}
-
-        {/* Attention banner */}
-        {overdueCount > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 15px', borderRadius: 12, background: '#fdedeb', border: '1px solid #f6d6d3', flexWrap: 'wrap' }}>
-            <span style={{ width: 32, height: 32, borderRadius: 9, background: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, color: '#cf3f36' }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:17,height:17}}><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
-            </span>
-            <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#111c28' }}>
-              <span style={{ color: '#cf3f36' }}>{overdueCount} video{overdueCount !== 1 ? 's' : ''}</span> {overdueCount === 1 ? 'has' : 'have'} been awaiting client approval &gt; 3 days
-            </span>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: '#cf3f36', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
-              Go to approvals
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:14,height:14}}><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-            </span>
-          </div>
-        )}
-
-        {/* KPI row */}
-        <div className="db-kpi-grid">
-          <KpiCard label="In production"    value={inProduction}    dotColor="#FF6000"  tip="All tasks not yet posted — across every stage from To Do through QC and Review." />
-          <KpiCard
-            label="Pending approval"
-            value={pendingApproval}
-            dotColor="#a86a00"
-            tip="Videos sitting in 'For Client Review' waiting for client sign-off."
-            sub={overdueCount > 0 ? `${overdueCount} overdue >3d` : undefined}
-            subTone={overdueCount > 0 ? 'warn' : undefined}
-          />
-          <KpiCard
-            label="First-pass clean"
-            value={firstPassCleanPct !== null ? `${firstPassCleanPct}%` : '—'}
-            dotColor="#14805f"
-            tip="Approved ÷ (Approved + Rework). Higher means fewer revision rounds."
-          />
-          <KpiCard label="Client-approved"  value={clientApproved}  dotColor="#14805f" tip="Total videos the client has marked Approved, including already-posted ones." />
-          <KpiCard label="Posted this month" value={postedThisMonth} dotColor="#2563eb" tip="Videos that reached 'Posted in Socials' during the current calendar month." sub={monthLabel} />
         </div>
-      </div>
+      )}
 
-      {/* Tabbed workspace */}
+      {/* Tabbed workspace (owns the "Needs attention today" panel + KPI row so
+          CTAs there can switch tabs client-side). */}
       <DashboardTabs
+        kpis={kpis}
         approvals={approvals}
         clients={clients}
         editors={editors}
@@ -325,6 +448,8 @@ export default async function DashboardPage({
         attentionClients={attentionClients}
         topEditors={topEditors}
         statusTasks={statusTasks}
+        agreedVsDelivered={agreedVsDelivered}
+        periodLabel={periodLabel}
         defaultTab={overdueCount > 0 ? 'approvals' : 'overview'}
       />
     </main>

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { InfoPopover } from '@/components/ui/Tooltip';
 import { EDITOR_PHASE_COLS } from './editor-phases';
+import { AgreedVsDeliveredChart } from './AgreedVsDeliveredChart';
 export { EDITOR_PHASE_COLS } from './editor-phases';
 
 export interface ApprovalRow {
@@ -19,6 +20,13 @@ export interface ClientRow {
   total: number;
   inReview: number;
   oldestDays: number;
+  reelsAgreed: number;
+  reelsDelivered: number;
+  ytAgreed: number;
+  ytDelivered: number;
+  backlogCount: number;
+  stillNeeded: number;
+  footageGap: number;
 }
 
 export interface EditorRow {
@@ -59,7 +67,29 @@ export interface StatusTask {
   frameLink: string | null;
 }
 
+export interface AgreedDeliveredRow {
+  name: string;
+  agreed: number;
+  delivered: number;
+}
+
+export interface BacklogRow {
+  name: string;
+  backlogCount: number;
+}
+
+export interface KpiData {
+  label: string;
+  tip: string;
+  value: string | number;
+  dotColor: string;
+  sub?: string;
+  subTone?: 'warn' | 'muted';
+  delta?: { text: string; good: boolean };
+}
+
 interface Props {
+  kpis: KpiData[];
   approvals: ApprovalRow[];
   clients: ClientRow[];
   editors: EditorRow[];
@@ -67,6 +97,8 @@ interface Props {
   attentionClients: AttentionClient[];
   topEditors: TopEditor[];
   statusTasks: StatusTask[];
+  agreedVsDelivered: AgreedDeliveredRow[];
+  periodLabel: string;
   defaultTab?: string;
 }
 
@@ -82,10 +114,61 @@ function initials(name: string): string {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-function WaitBadge({ days }: { days: number }) {
-  const stale = days > 3;
+function KpiCard({ label, tip, value, dotColor, sub, subTone, delta }: KpiData) {
   return (
-    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: stale ? '#cf3f36' : '#8b97a4' }}>
+    <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, padding: '14px 15px', flex: '1 1 0', minWidth: 140, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontSize: 11.5, color: '#54616f', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+        {label}
+        <InfoPopover tip={tip} />
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 9 }}>
+        <div style={{ fontSize: 26, fontWeight: 600, color: '#111c28', lineHeight: 1, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{value}</div>
+        {delta && (
+          <span style={{
+            fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 5,
+            fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums',
+            color: delta.good ? '#14805f' : '#cf3f36',
+            background: delta.good ? '#e6f4ee' : '#fdedeb',
+          }}>
+            {delta.text}
+          </span>
+        )}
+      </div>
+      {sub && (
+        <div style={{ fontSize: 11, fontWeight: 600, color: subTone === 'warn' ? '#a86a00' : '#8b97a4', display: 'flex', alignItems: 'center', gap: 4 }}>
+          {sub}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AttentionRow({ tone, text, cta, onClick }: { tone: 'red' | 'amber'; text: React.ReactNode; cta: string; onClick: () => void }) {
+  const color = tone === 'red' ? '#cf3f36' : '#a86a00';
+  const bg = tone === 'red' ? '#fdedeb' : '#fbf1dc';
+  const border = tone === 'red' ? '#f6d6d3' : '#f5e2b8';
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 18px', borderTop: '1px solid #e7ebef' }}>
+      <div style={{ width: 4, alignSelf: 'stretch', borderRadius: 2, background: color, flexShrink: 0 }} />
+      <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: 17, height: 17, flexShrink: 0 }}>
+        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4M12 17h.01" />
+      </svg>
+      <div style={{ flex: 1, minWidth: 0, fontSize: 13.5, lineHeight: 1.5, color: '#334155' }}>{text}</div>
+      <button
+        onClick={onClick}
+        style={{ padding: '8px 14px', borderRadius: 8, border: `1px solid ${border}`, background: bg, color, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', flexShrink: 0 }}
+      >
+        {cta} →
+      </button>
+    </div>
+  );
+}
+
+function WaitBadge({ days }: { days: number }) {
+  const color = days > 14 ? '#cf3f36' : days > 3 ? '#a86a00' : '#8b97a4';
+  return (
+    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color }}>
       {days === 0 ? 'Today' : `${days}d`}
     </span>
   );
@@ -97,8 +180,88 @@ function StatusChip({ inReview, oldestDays }: { inReview: number; oldestDays: nu
   return <span style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', background: '#eaf0ff', padding: '3px 9px', borderRadius: 7 }}>In review</span>;
 }
 
+type Tone = 'good' | 'warn' | 'bad' | 'none';
+const TONE_COLORS: Record<Tone, { color: string; bg: string }> = {
+  good: { color: '#14805f', bg: '#e6f4ee' },
+  warn: { color: '#a86a00', bg: '#fbf1dc' },
+  bad:  { color: '#cf3f36', bg: '#fdedeb' },
+  none: { color: '#8b97a4', bg: '#f5f7f9' },
+};
+
+function deliveryTone(delivered: number, agreed: number): Tone {
+  if (agreed <= 0) return 'none';
+  const pct = delivered / agreed;
+  if (pct >= 0.9) return 'good';
+  if (pct >= 0.5) return 'warn';
+  return 'bad';
+}
+
+function Chip({ tone, children }: { tone: Tone; children: React.ReactNode }) {
+  const t = TONE_COLORS[tone];
+  return (
+    <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 100, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', color: t.color, background: t.bg }}>
+      {children}
+    </span>
+  );
+}
+
+function MiniBar({ pct, tone }: { pct: number; tone: Tone | 'empty' }) {
+  const color = tone === 'empty' ? 'transparent' : TONE_COLORS[tone].color;
+  return (
+    <div style={{ height: 5, borderRadius: 100, background: '#eef1f4', overflow: 'hidden' }}>
+      <div style={{ width: `${Math.min(100, Math.max(0, pct))}%`, height: '100%', borderRadius: 100, background: color }} />
+    </div>
+  );
+}
+
+function Chevron({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+      style={{ width: 13, height: 13, color: '#8b97a4', flexShrink: 0, transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 150ms ease' }}
+    >
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}
+
+function DeliveryCell({ row, expanded, onToggle }: { row: ClientRow; expanded: boolean; onToggle: () => void }) {
+  const totalAgreed = row.reelsAgreed + row.ytAgreed;
+  const totalDelivered = row.reelsDelivered + row.ytDelivered;
+  const tone = deliveryTone(totalDelivered, totalAgreed);
+  const pct = totalAgreed > 0 ? Math.round((totalDelivered / totalAgreed) * 100) : 0;
+  const label = tone === 'none' ? 'No quota' : tone === 'good' ? `On pace · ${pct}%` : tone === 'warn' ? `Behind · ${pct}%` : `At risk · ${pct}%`;
+  const reelsTone = row.reelsAgreed > 0 ? deliveryTone(row.reelsDelivered, row.reelsAgreed) : 'empty';
+  const ytTone = row.ytAgreed > 0 ? deliveryTone(row.ytDelivered, row.ytAgreed) : 'empty';
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'flex-end' }}>
+      <Chip tone={tone}>{label}</Chip>
+      <button
+        onClick={onToggle}
+        aria-expanded={expanded}
+        title={expanded ? 'Hide Reels/YouTube breakdown' : 'Show Reels/YouTube breakdown'}
+        style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'none', border: 'none', padding: '4px 4px 4px 8px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: 46 }}>
+          <MiniBar pct={row.reelsAgreed > 0 ? (row.reelsDelivered / row.reelsAgreed) * 100 : 0} tone={reelsTone} />
+          <MiniBar pct={row.ytAgreed > 0 ? (row.ytDelivered / row.ytAgreed) * 100 : 0} tone={ytTone} />
+        </div>
+        <Chevron expanded={expanded} />
+      </button>
+    </div>
+  );
+}
+
+function FootageChip({ row }: { row: ClientRow }) {
+  if (row.reelsAgreed + row.ytAgreed <= 0) return <Chip tone="none">N/A</Chip>;
+  if (row.stillNeeded <= 0) return <Chip tone="none">Quota met</Chip>;
+  if (row.footageGap > 0) return <Chip tone="bad">Short by {row.footageGap}</Chip>;
+  return <Chip tone="good">Buffer +{Math.abs(row.footageGap)}</Chip>;
+}
+
 function CleanBar({ pct }: { pct: number }) {
-  const color = pct >= 75 ? '#14805f' : pct >= 50 ? '#FF6000' : '#a86a00';
+  const color = pct >= 97 ? '#14805f' : pct >= 90 ? '#a86a00' : '#cf3f36';
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, justifyContent: 'center' }}>
       <div style={{ width: 60, height: 6, background: '#f0f2f5', borderRadius: 100, overflow: 'hidden' }}>
@@ -131,12 +294,16 @@ const thStyle: React.CSSProperties = {
   background: '#f5f7f9', borderBottom: '1px solid #e7ebef', whiteSpace: 'nowrap',
 };
 const thNum: React.CSSProperties = { ...thStyle, textAlign: 'center' };
+// Scoped to the Clients tab breakdown table — its header stays pinned while
+// scrolling a long client list, so column meaning is never out of view.
+const thStickyStyle: React.CSSProperties = { ...thStyle, position: 'sticky', top: 0, zIndex: 1 };
+const thStickyNum: React.CSSProperties = { ...thStickyStyle, textAlign: 'center' };
 const td: React.CSSProperties = { padding: '11px 18px', borderBottom: '1px solid #e7ebef', verticalAlign: 'middle' };
 const tdNum: React.CSSProperties = { ...td, textAlign: 'center', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
 
 const PIPELINE_GROUPS = ['To do', 'In progress', 'Quality check', 'Review & ship'];
 
-export function DashboardTabs({ approvals, clients, editors, pipeline, attentionClients, topEditors, statusTasks, defaultTab }: Props) {
+export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, attentionClients, topEditors, statusTasks, agreedVsDelivered, periodLabel, defaultTab }: Props) {
   const [activeTab, setActiveTab] = useState<'overview' | 'approvals' | 'clients' | 'editors'>(
     (defaultTab as 'approvals') ?? 'overview'
   );
@@ -144,6 +311,15 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
   const [clientSearch, setClientSearch] = useState('');
   const [editorSearch, setEditorSearch] = useState('');
   const [drillStage, setDrillStage] = useState<PipelineStage | null>(null);
+  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
+
+  function toggleClientExpanded(name: string) {
+    setExpandedClients(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  }
 
   const maxPipeline = Math.max(...pipeline.map(s => s.count), 1);
 
@@ -152,6 +328,17 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
   );
   const filteredClients = clients.filter(r => !clientSearch || r.name.toLowerCase().includes(clientSearch.toLowerCase()));
   const filteredEditors = editors.filter(r => !editorSearch || r.name.toLowerCase().includes(editorSearch.toLowerCase()));
+
+  const allClientsExpanded = filteredClients.length > 0 && filteredClients.every(c => expandedClients.has(c.name));
+
+  function toggleAllClientsExpanded() {
+    setExpandedClients(prev => {
+      const next = new Set(prev);
+      if (allClientsExpanded) filteredClients.forEach(c => next.delete(c.name));
+      else filteredClients.forEach(c => next.add(c.name));
+      return next;
+    });
+  }
 
   const tabStyle = (t: string): React.CSSProperties => ({
     display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -176,6 +363,19 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
   const drillTasks = drillStage
     ? statusTasks.filter(t => t.status.toLowerCase().replace(/\s+/g, ' ').trim() === drillStage.key)
     : [];
+
+  // "Needs attention today" — ranked red-then-amber, derived from data already
+  // passed down rather than duplicated banner props.
+  const overdueApprovals = approvals.filter(a => a.daysWaiting > 3);
+  const oldestOverdue = overdueApprovals[0]; // `approvals` is sorted oldest-first
+  const overdueSeverity: 'red' | 'amber' = oldestOverdue && oldestOverdue.daysWaiting > 14 ? 'red' : 'amber';
+
+  const footageRiskClients = clients.filter(c => c.footageGap > 0).sort((a, b) => b.footageGap - a.footageGap);
+  // Critical = backlog on hand covers less than half of what's still needed —
+  // same 50% cut as `deliveryTone`'s amber/red split, so "critical" reads
+  // consistently across the dashboard.
+  const footageCritical = footageRiskClients.some(c => c.stillNeeded > 0 && c.backlogCount / c.stillNeeded < 0.5);
+  const footageSeverity: 'red' | 'amber' = footageCritical ? 'red' : 'amber';
 
   return (
     <div>
@@ -226,6 +426,46 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
           </div>
         </>
       )}
+
+      {/* Needs attention today */}
+      {(overdueApprovals.length > 0 || footageRiskClients.length > 0) && (
+        <div style={{ border: '1px solid #e7ebef', borderRadius: 12, background: '#fff', margin: '16px 24px 0', overflow: 'hidden' }}>
+          <div style={{ padding: '13px 18px 6px', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8b97a4' }}>
+            Needs attention today
+          </div>
+          {overdueApprovals.length > 0 && (
+            <AttentionRow
+              tone={overdueSeverity}
+              cta="Review approvals"
+              onClick={() => setActiveTab('approvals')}
+              text={
+                <>
+                  <strong style={{ color: '#111c28' }}>{overdueApprovals.length} video{overdueApprovals.length !== 1 ? 's' : ''}</strong>{' '}
+                  {overdueApprovals.length === 1 ? 'has' : 'have'} been awaiting client approval more than 3 days — oldest is {oldestOverdue!.daysWaiting}d ({oldestOverdue!.title}).
+                </>
+              }
+            />
+          )}
+          {footageRiskClients.length > 0 && (
+            <AttentionRow
+              tone={footageSeverity}
+              cta="View clients"
+              onClick={() => setActiveTab('clients')}
+              text={
+                <>
+                  <strong style={{ color: '#111c28' }}>{footageRiskClients.length} client{footageRiskClients.length !== 1 ? 's' : ''}</strong>{' '}
+                  {footageRiskClients.length === 1 ? 'is' : 'are'} on pace to miss this month&apos;s quota — {footageRiskClients.map(c => `${c.name} (short ${c.footageGap})`).join(', ')}.
+                </>
+              }
+            />
+          )}
+        </div>
+      )}
+
+      {/* KPI row */}
+      <div className="db-kpi-grid" style={{ margin: '16px 24px 0' }}>
+        {kpis.map(k => <KpiCard key={k.label} {...k} />)}
+      </div>
 
       {/* Tab bar */}
       <div className="db-tab-strip">
@@ -288,6 +528,11 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
               );
             })}
           </div>
+        </div>
+
+        {/* Agreed vs. Delivered */}
+        <div style={{ marginTop: 14 }}>
+          <AgreedVsDeliveredChart rows={agreedVsDelivered} periodLabel={periodLabel} />
         </div>
 
         {/* 2-col: Needs attention + Top editors */}
@@ -368,7 +613,7 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
               </thead>
               <tbody>
                 {filteredApprovals.map(r => (
-                  <tr key={r.id} style={{ borderBottom: '1px solid #e7ebef' }}>
+                  <tr key={r.id} style={{ borderBottom: '1px solid #e7ebef', background: r.daysWaiting > 14 ? 'rgba(207,63,54,0.04)' : 'transparent' }}>
                     <td style={td}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                         <div style={{ width: 50, height: 32, borderRadius: 6, flexShrink: 0, display: 'grid', placeItems: 'center', color: '#fff', background: 'linear-gradient(135deg,#2c3540,#4a5562)' }}>
@@ -416,29 +661,84 @@ export function DashboardTabs({ approvals, clients, editors, pipeline, attention
               <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>Client breakdown</h3>
               <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>{clients.length} clients · pending review &amp; oldest wait</div>
             </div>
-            <SearchInput value={clientSearch} onChange={setClientSearch} placeholder="Search clients…" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                onClick={toggleAllClientsExpanded}
+                disabled={filteredClients.length === 0}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 700, color: filteredClients.length === 0 ? '#c3cbd3' : '#B23E00', background: 'none', border: 'none', cursor: filteredClients.length === 0 ? 'default' : 'pointer', padding: 0, fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+              >
+                <Chevron expanded={allClientsExpanded} />
+                {allClientsExpanded ? 'Collapse all' : 'Expand all'}
+              </button>
+              <SearchInput value={clientSearch} onChange={setClientSearch} placeholder="Search clients…" />
+            </div>
           </div>
           <div className="db-tscroll" style={{ maxHeight: 400 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr>
-                  <th style={thStyle}>Client</th>
-                  <th style={thNum}>Total</th>
-                  <th style={thNum}>In review <InfoPopover tip="Videos currently in 'For Client Review' status, waiting for client response." /></th>
-                  <th style={thNum}>Oldest wait <InfoPopover tip="Days since the oldest unreviewed video last changed status." /></th>
-                  <th style={thNum}>Status <InfoPopover tip="On track = no pending reviews · In review = 1+ video awaiting client · Needs attention = waiting >3 days." /></th>
+                  <th style={thStickyStyle}>Client</th>
+                  <th style={thStickyNum}>Total</th>
+                  <th style={thStickyNum}>In review <InfoPopover tip="Videos currently in 'For Client Review' status, waiting for client response." /></th>
+                  <th style={thStickyNum}>Oldest wait <InfoPopover tip="Days since the oldest unreviewed video last changed status." /></th>
+                  <th style={thStickyNum}>Status <InfoPopover tip="On track = no pending reviews · In review = 1+ video awaiting client · Needs attention = waiting >3 days." /></th>
+                  <th style={thStickyNum}>Delivery <InfoPopover tip="Combined % = (Reels + YouTube delivered) ÷ (Reels + YouTube agreed) from ClickUp's Master Clients List, prorated for the selected period. Click a row to see the Reels/YouTube breakdown." /></th>
+                  <th style={thStickyNum}>Footage <InfoPopover tip="Still needed (agreed − delivered, summed across Reels + YouTube) compared to backlog on hand. 'Short by N' means raw footage on hand won't cover the remaining quota — film more or pull from the Marketplace." /></th>
                 </tr>
               </thead>
               <tbody>
-                {filteredClients.map(c => (
-                  <tr key={c.name} style={{ borderBottom: '1px solid #e7ebef' }}>
-                    <td style={{ ...td, fontWeight: 600 }}>{c.name}</td>
-                    <td style={tdNum}>{c.total}</td>
-                    <td style={tdNum}>{c.inReview > 0 ? <span style={{ fontWeight: 600, color: c.oldestDays > 3 ? '#a86a00' : '#2563eb' }}>{c.inReview}</span> : <span style={{ color: '#8b97a4' }}>—</span>}</td>
-                    <td style={tdNum}>{c.inReview > 0 ? <WaitBadge days={c.oldestDays} /> : <span style={{ color: '#8b97a4' }}>—</span>}</td>
-                    <td style={tdNum}><StatusChip inReview={c.inReview} oldestDays={c.oldestDays} /></td>
-                  </tr>
-                ))}
+                {filteredClients.map(c => {
+                  const expanded = expandedClients.has(c.name);
+                  return (
+                    <Fragment key={c.name}>
+                    <tr style={{ borderBottom: expanded ? 'none' : '1px solid #e7ebef' }}>
+                      <td style={{ ...td, fontWeight: 600 }}>{c.name}</td>
+                      <td style={tdNum}>{c.total}</td>
+                      <td style={tdNum}>{c.inReview > 0 ? <span style={{ fontWeight: 600, color: c.oldestDays > 3 ? '#a86a00' : '#2563eb' }}>{c.inReview}</span> : <span style={{ color: '#8b97a4' }}>—</span>}</td>
+                      <td style={tdNum}>{c.inReview > 0 ? <WaitBadge days={c.oldestDays} /> : <span style={{ color: '#8b97a4' }}>—</span>}</td>
+                      <td style={tdNum}><StatusChip inReview={c.inReview} oldestDays={c.oldestDays} /></td>
+                      <td style={tdNum}><DeliveryCell row={c} expanded={expanded} onToggle={() => toggleClientExpanded(c.name)} /></td>
+                      <td style={tdNum}><FootageChip row={c} /></td>
+                    </tr>
+                    {expanded && (
+                      <tr style={{ borderBottom: '1px solid #e7ebef' }}>
+                        <td colSpan={7} style={{ padding: '4px 18px 14px 46px', background: '#fafbfc' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 28 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 140 }}>
+                              <span style={{ fontSize: 11, color: '#8b97a4', fontWeight: 600 }}>Reels / mo</span>
+                              <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                                {c.reelsAgreed > 0 ? `${c.reelsDelivered} / ${c.reelsAgreed}` : <span style={{ color: '#8b97a4', fontWeight: 400 }}>No quota set</span>}
+                              </span>
+                              <MiniBar pct={c.reelsAgreed > 0 ? (c.reelsDelivered / c.reelsAgreed) * 100 : 0} tone={c.reelsAgreed > 0 ? deliveryTone(c.reelsDelivered, c.reelsAgreed) : 'empty'} />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 140 }}>
+                              <span style={{ fontSize: 11, color: '#8b97a4', fontWeight: 600 }}>YouTube / mo</span>
+                              <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                                {c.ytAgreed > 0 ? `${c.ytDelivered} / ${c.ytAgreed}` : <span style={{ color: '#8b97a4', fontWeight: 400 }}>No quota set</span>}
+                              </span>
+                              <MiniBar pct={c.ytAgreed > 0 ? (c.ytDelivered / c.ytAgreed) * 100 : 0} tone={c.ytAgreed > 0 ? deliveryTone(c.ytDelivered, c.ytAgreed) : 'empty'} />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 140 }}>
+                              <span style={{ fontSize: 11, color: '#8b97a4', fontWeight: 600 }}>Backlog on hand</span>
+                              <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{c.backlogCount} raw video{c.backlogCount === 1 ? '' : 's'}</span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 140 }}>
+                              <span style={{ fontSize: 11, color: '#8b97a4', fontWeight: 600 }}>Still needed</span>
+                              <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: c.footageGap > 0 ? '#cf3f36' : '#111c28' }}>
+                                {c.reelsAgreed + c.ytAgreed <= 0
+                                  ? 'No quota to measure against'
+                                  : c.stillNeeded <= 0
+                                    ? '0 — quota already met'
+                                    : `${c.stillNeeded} video${c.stillNeeded === 1 ? '' : 's'} → ${c.footageGap > 0 ? `short by ${c.footageGap}` : `buffer +${Math.abs(c.footageGap)}`}`}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>

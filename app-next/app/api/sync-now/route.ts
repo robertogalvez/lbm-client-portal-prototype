@@ -62,6 +62,7 @@ export async function POST() {
       const pubField      = find('Publishing Status');
       const captionField  = find('Captions');
       const frameField    = find('Updated Frame Link (Editor)');
+      const rawDriveField = find('Raw Drive Link (Videographer)');
       const amField       = find('Account Manager (AM)');
       const qcField       = find('QUALITY CHECK (Somu)');
 
@@ -92,6 +93,7 @@ export async function POST() {
         caption:          typeof captionField?.value === 'string' ? captionField.value : null,
         publishingStatus: resolveOpt('Publishing Status', pubIdx),
         frameioAssetId:   typeof frameField?.value === 'string' ? frameField.value : null,
+        rawDriveLink:     typeof rawDriveField?.value === 'string' ? rawDriveField.value : null,
         assignedAmName:   amName,
         editorName,
         qualityCheck:     resolveOpt('QUALITY CHECK (Somu)', qcIdx),
@@ -119,6 +121,7 @@ export async function POST() {
             caption:          sql`excluded.caption`,
             publishingStatus: sql`excluded.publishing_status`,
             frameioAssetId:   sql`excluded.frameio_asset_id`,
+            rawDriveLink:     sql`excluded.raw_drive_link`,
             assignedAmName:   sql`excluded.assigned_am_name`,
             editorName:       sql`excluded.editor_name`,
             qualityCheck:     sql`excluded.quality_check`,

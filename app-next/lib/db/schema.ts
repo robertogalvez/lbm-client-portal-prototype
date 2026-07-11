@@ -17,14 +17,15 @@ export const authUsers = pgTable('auth_user', {
 });
 
 export const authSessions = pgTable('auth_session', {
-  id:          text('id').primaryKey(),
-  expiresAt:   timestamp('expires_at').notNull(),
-  token:       text('token').notNull().unique(),
-  createdAt:   timestamp('created_at').notNull().defaultNow(),
-  updatedAt:   timestamp('updated_at').notNull().defaultNow(),
-  ipAddress:   text('ip_address'),
-  userAgent:   text('user_agent'),
-  userId:      text('user_id').notNull().references(() => authUsers.id, { onDelete: 'cascade' }),
+  id:             text('id').primaryKey(),
+  expiresAt:      timestamp('expires_at').notNull(),
+  token:          text('token').notNull().unique(),
+  createdAt:      timestamp('created_at').notNull().defaultNow(),
+  updatedAt:      timestamp('updated_at').notNull().defaultNow(),
+  ipAddress:      text('ip_address'),
+  userAgent:      text('user_agent'),
+  userId:         text('user_id').notNull().references(() => authUsers.id, { onDelete: 'cascade' }),
+  rememberDevice: boolean('remember_device').notNull().default(false),
 });
 
 export const authAccounts = pgTable('auth_account', {
@@ -57,13 +58,18 @@ export const authVerifications = pgTable('auth_verification', {
 export const clients = pgTable('clients', {
   id:                uuid('id').defaultRandom().primaryKey(),
   name:              varchar('name', { length: 255 }).notNull(),
-  clickupOptionId:   varchar('clickup_option_id', { length: 100 }).unique().notNull(),
-  type:              varchar('type', { length: 20 }).notNull(),
+  clickupTaskId:     varchar('clickup_task_id', { length: 100 }).unique().notNull(),
+  type:              varchar('type', { length: 20 }),
   showCalendar:      boolean('show_calendar').default(false),
+  showInvoices:      boolean('show_invoices').default(false),
   monthlyQuota:      integer('monthly_quota'),
   frameioProjectId:  varchar('frameio_project_id', { length: 100 }),
   whatsappNumber:    varchar('whatsapp_number', { length: 30 }),
   brandingConfig:    jsonb('branding_config'),
+  contactName:       text('contact_name'),
+  contactEmail:      text('contact_email'),
+  clientStatus:      varchar('client_status', { length: 20 }),
+  lastSyncedAt:      timestamp('last_synced_at'),
   createdAt:         timestamp('created_at').defaultNow(),
 });
 
@@ -79,12 +85,14 @@ export const videoCache = pgTable('video_cache', {
   caption:           text('caption'),
   publishingStatus:  varchar('publishing_status', { length: 50 }),
   frameioAssetId:    text('frameio_asset_id'),
+  rawDriveLink:      text('raw_drive_link'),
   vistasocialPostId: varchar('vistasocial_post_id', { length: 100 }),
   assignedAmName:    text('assigned_am_name'),
   editorName:        text('editor_name'),
   clientName:        text('client_name'),
   qualityCheck:      varchar('quality_check', { length: 50 }),
   captionApproval:   varchar('caption_approval', { length: 50 }),
+  isYoutube:         boolean('is_youtube').default(false),
   dateUpdated:       text('date_updated'),
   dueDate:           text('due_date'),
   lastSyncedAt:      timestamp('last_synced_at').defaultNow(),
