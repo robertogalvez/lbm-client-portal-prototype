@@ -56,6 +56,7 @@ export interface MappedTask {
   caption: string | null;
   frameLink: string | null;
   rawDriveLink: string | null;
+  clientTitle: string | null;
   assignedAmName: string | null;
   editorName: string | null;
   isYoutube: boolean;
@@ -76,6 +77,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
   const captionApprovalField = findField(task, 'CAPTION APPROVAL');
   const frameLinkField = findField(task, 'Updated Frame Link (Editor)');
   const rawDriveLinkField = findField(task, 'Raw Drive Link (Videographer)');
+  const clientTitleField = findField(task, 'Client-Facing Title');
   const amField       = findField(task, 'Account Manager (AM)');
   const qcField       = findField(task, 'QUALITY CHECK (Somu)');
 
@@ -120,6 +122,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     caption:          typeof captionField?.value === 'string' ? captionField.value : null,
     frameLink:        typeof frameLinkField?.value === 'string' ? frameLinkField.value : null,
     rawDriveLink:     typeof rawDriveLinkField?.value === 'string' ? rawDriveLinkField.value : null,
+    clientTitle:      typeof clientTitleField?.value === 'string' && clientTitleField.value.trim() ? clientTitleField.value.trim() : null,
     assignedAmName:   amName,
     editorName,
     isYoutube,

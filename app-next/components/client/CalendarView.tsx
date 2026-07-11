@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { clientStatusLabel } from '@/lib/statusLabels';
 
 export interface CalTask {
   clickupTaskId: string;
   title: string;
+  clientTitle: string | null;
   status: string;
   dueDate: string | null;
   clientApproval: string | null;
@@ -16,13 +18,18 @@ function norm(s: string) {
   return s.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
+function displayTitle(t: CalTask): string {
+  return t.clientTitle ?? t.title;
+}
+
 function statusStyle(t: CalTask): { color: string; bg: string; label: string } {
   const s = norm(t.status);
-  if (s === 'posted in socials') return { color: '#14805f', bg: '#e4f3ec', label: 'Posted' };
-  if (s === 'for client review') return { color: '#b06f06', bg: '#fbeecf', label: 'Awaiting review' };
-  if (s === 'ready to be posted') return { color: '#1090e0', bg: '#e6f2fc', label: 'Ready to post' };
+  const label = clientStatusLabel(t.status);
+  if (s === 'posted in socials') return { color: '#14805f', bg: '#e4f3ec', label };
+  if (s === 'for client review') return { color: '#b06f06', bg: '#fbeecf', label };
+  if (s === 'ready to be posted') return { color: '#1090e0', bg: '#e6f2fc', label };
   if (t.clientApproval === 'approved') return { color: '#14805f', bg: '#e4f3ec', label: 'Approved' };
-  return { color: '#cf3f36', bg: '#fbe4e2', label: 'In process' };
+  return { color: '#cf3f36', bg: '#fbe4e2', label };
 }
 
 function isInProcess(t: CalTask): boolean {
@@ -81,12 +88,20 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
     const DAY = 86_400_000;
     const WEEK = 7 * DAY;
     const monday = now.getTime() - ((now.getDay() || 7) - 1) * DAY;
-    const weeks = Array.from({ length: 5 }, (_, i) => monday - WEEK + i * WEEK);
+    // Week rows span the selected month (current.year/current.month), navigable
+    // via the same prevMonth/nextMonth controls as the grid view — not a fixed
+    // window around today, so past and future months are both reachable.
+    const monthFirst = new Date(current.year, current.month, 1).getTime();
+    const monthLast = new Date(current.year, current.month + 1, 0).getTime();
+    const firstMonday = monthFirst - ((new Date(monthFirst).getDay() || 7) - 1) * DAY;
+    const lastMonday = monthLast - ((new Date(monthLast).getDay() || 7) - 1) * DAY;
+    const numWeeks = Math.round((lastMonday - firstMonday) / WEEK) + 1;
+    const weeks = Array.from({ length: numWeeks }, (_, i) => firstMonday + i * WEEK);
     const withDue = tasks.filter(t => t.dueDate).sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <ViewToggle view={view} setView={setView} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <CalendarNav monthLabel={monthLabel} prevMonth={prevMonth} nextMonth={nextMonth} view={view} setView={setView} />
         {withDue.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9d9488' }}>
             <div style={{ fontSize: 28, marginBottom: 8 }}>📅</div>
@@ -115,7 +130,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                           <div style={{ fontSize: 10, fontWeight: 600, color: '#9d9488', textTransform: 'uppercase' }}>{due.toLocaleString('en-US', { month: 'short' })}</div>
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#221e18', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#221e18', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayTitle(t)}</div>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color, background: bg, padding: '2px 6px', borderRadius: 5, marginTop: 3 }}>
                             <span style={{ width: 5, height: 5, borderRadius: '50%', background: color }} />{label}
                           </span>
@@ -147,17 +162,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {/* Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <button onClick={prevMonth} style={navBtn}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="m15 18-6-6 6-6" /></svg>
-        </button>
-        <div style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#221e18' }}>{monthLabel}</div>
-        <button onClick={nextMonth} style={navBtn}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="m9 18 6-6-6-6" /></svg>
-        </button>
-        <ViewToggle view={view} setView={setView} />
-      </div>
+      <CalendarNav monthLabel={monthLabel} prevMonth={prevMonth} nextMonth={nextMonth} view={view} setView={setView} />
 
       {/* Two-column layout on desktop: calendar + upcoming sidebar */}
       <div className="cal-layout">
@@ -194,7 +199,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                       return (
                         <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}`} style={{ textDecoration: 'none', color: 'inherit' }} onClick={e => e.stopPropagation()}>
                           <div style={{ fontSize: 9, fontWeight: 700, color, background: bg, padding: '1px 3px', borderRadius: 3, marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }}>
-                            {t.title}
+                            {displayTitle(t)}
                           </div>
                         </a>
                       );
@@ -223,7 +228,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid #f0e8df' }}>
                       <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayTitle(t)}</div>
                         <span style={{ fontSize: 10.5, fontWeight: 700, color, background: bg, padding: '1px 6px', borderRadius: 5 }}>{label}</span>
                         {isInProcess(t) && t.rawDriveLink && (
                           <span
@@ -260,7 +265,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                       <div style={{ fontSize: 9, fontWeight: 600, color: '#9d9488', textTransform: 'uppercase' }}>{due.toLocaleString('en-US', { month: 'short' })}</div>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayTitle(t)}</div>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, color, background: bg, padding: '1px 5px', borderRadius: 4, marginTop: 2 }}>
                         <span style={{ width: 4, height: 4, borderRadius: '50%', background: color }} />{label}
                       </span>
@@ -281,6 +286,27 @@ const navBtn: React.CSSProperties = {
   background: '#fff', display: 'grid', placeItems: 'center',
   cursor: 'pointer', color: '#6c6357', flexShrink: 0,
 };
+
+function CalendarNav({ monthLabel, prevMonth, nextMonth, view, setView }: {
+  monthLabel: string;
+  prevMonth: () => void;
+  nextMonth: () => void;
+  view: 'month' | 'list';
+  setView: (v: 'month' | 'list') => void;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <button onClick={prevMonth} style={navBtn}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="m15 18-6-6 6-6" /></svg>
+      </button>
+      <div style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#221e18' }}>{monthLabel}</div>
+      <button onClick={nextMonth} style={navBtn}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="m9 18 6-6-6-6" /></svg>
+      </button>
+      <ViewToggle view={view} setView={setView} />
+    </div>
+  );
+}
 
 function ViewToggle({ view, setView }: { view: 'month' | 'list'; setView: (v: 'month' | 'list') => void }) {
   return (

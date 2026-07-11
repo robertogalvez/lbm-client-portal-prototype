@@ -105,6 +105,7 @@ export async function runMigrations(dbUrl) {
     sql`ALTER TABLE clients ALTER COLUMN type DROP NOT NULL`,
     sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS is_youtube boolean DEFAULT false`,
     sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS raw_drive_link text`,
+    sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS client_title text`,
   ]);
 
   const rows = await sql`

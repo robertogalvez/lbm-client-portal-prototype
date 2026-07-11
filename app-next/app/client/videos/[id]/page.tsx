@@ -9,6 +9,7 @@ import { ApprovalButtons } from '@/components/client/ApprovalButtons';
 import { CaptionApprovalButtons } from '@/components/client/CaptionApprovalButtons';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { getViewAsClient } from '@/lib/view-as';
+import { clientStatusLabel } from '@/lib/statusLabels';
 import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
@@ -90,7 +91,7 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 9, color: isReview ? '#b06f06' : '#54616f', background: isReview ? '#fbeecf' : '#eef1f4' }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: isReview ? '#b06f06' : '#54616f' }} />
-          {isReview ? 'Awaiting your review' : task.status}
+          {isReview ? 'Awaiting your review' : clientStatusLabel(task.status)}
         </span>
         {task.frameLink && (
           <a href={task.frameLink} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: '#6c6357', textDecoration: 'none' }}>
@@ -100,7 +101,7 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
         )}
       </div>
       {/* Title */}
-      <h1 style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.2, margin: 0 }}>{task.title}</h1>
+      <h1 style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.2, margin: 0 }}>{task.clientTitle ?? task.title}</h1>
       {/* Meta */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#6c6357', fontWeight: 500, flexWrap: 'wrap' as const }}>
         {task.assignedAmName && (

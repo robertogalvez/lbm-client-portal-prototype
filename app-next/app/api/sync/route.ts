@@ -90,6 +90,7 @@ export async function POST(req: Request) {
     const captionField  = find('Captions');
     const frameField    = find('Updated Frame Link (Editor)');
     const rawDriveField = find('Raw Drive Link (Videographer)');
+    const clientTitleField = find('Client-Facing Title');
     const amField       = find('Account Manager (AM)');
     const qcField       = find('QUALITY CHECK (Somu)');
 
@@ -120,6 +121,7 @@ export async function POST(req: Request) {
       publishingStatus: resolveOpt('Publishing Status', pubIdx),
       frameioAssetId:   typeof frameField?.value === 'string' ? frameField.value : null,
       rawDriveLink:     typeof rawDriveField?.value === 'string' ? rawDriveField.value : null,
+      clientTitle:      typeof clientTitleField?.value === 'string' && clientTitleField.value.trim() ? clientTitleField.value.trim() : null,
       assignedAmName:   amName,
       editorName,
       clientName,

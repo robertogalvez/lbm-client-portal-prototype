@@ -4,14 +4,17 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { getTasksFromList } from '@/lib/clickup';
+import { getTasksFromList, getClientQuotas } from '@/lib/clickup';
 import type { MappedTask } from '@/lib/clickup';
 import { ApprovalButtons } from '@/components/client/ApprovalButtons';
 import { NotificationBell } from '@/components/client/NotificationBell';
 import { LogoutButton } from '@/components/client/LogoutButton';
 import { CalendarView } from '@/components/client/CalendarView';
+import { MonthlyProgress } from '@/components/client/MonthlyProgress';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { getViewAsClient } from '@/lib/view-as';
+import { parseClickUpDate } from '@/lib/dates';
+import { clientStatusLabel } from '@/lib/statusLabels';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -44,6 +47,10 @@ function fmtDate(iso: string | null) {
 
 function initials(name: string) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function displayTitle(t: MappedTask): string {
+  return t.clientTitle ?? t.title;
 }
 
 
@@ -88,6 +95,11 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     fetchError = e instanceof Error ? e.message : 'Unknown error';
   }
 
+  const quotas = await getClientQuotas().catch(() => []);
+  const quota = quotas.find(q => norm(q.name) === norm(clientName));
+  const reelsAgreed = quota?.reelsPerMonth ?? 0;
+  const ytAgreed = quota?.ytPerMonth ?? 0;
+
   const clientTasks = allTasks.filter(t => t.clientName === clientName);
   const reviewTasks = clientTasks.filter(t => norm(t.status) === 'for client review');
   const postedTasks = clientTasks.filter(t => norm(t.status) === 'posted in socials');
@@ -95,7 +107,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     !['for client review', 'posted in socials'].includes(norm(t.status))
   );
   const monthStart  = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-  const postedThisMonth = postedTasks.filter(t => new Date(t.dateUpdated).getTime() >= monthStart).length;
+  const postedThisMonth = postedTasks.filter(t => parseClickUpDate(t.dateUpdated) >= monthStart).length;
   const displayName = (name ?? clientName).split(' ')[0];
   const pct = clientTasks.length > 0 ? Math.round((postedTasks.length / clientTasks.length) * 100) : 0;
 
@@ -118,7 +130,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
         {/* 16:9 thumbnail */}
         <div style={{position:'relative', paddingTop:'56.25%', background:'#1a1714'}}>
           {thumb ? (
-            <img src={thumb} alt={t.title} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}} />
+            <img src={thumb} alt={displayTitle(t)} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}} />
           ) : (
             <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:36}}>🎬</div>
           )}
@@ -127,7 +139,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
           )}
         </div>
         <div style={{padding:16}}>
-          <div style={{fontWeight:700, fontSize:15, marginBottom:10, lineHeight:1.3}}>{t.title}</div>
+          <div style={{fontWeight:700, fontSize:15, marginBottom:10, lineHeight:1.3}}>{displayTitle(t)}</div>
           <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
             <div style={{width:28,height:28,borderRadius:'50%',background:'#f97316',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#fff'}}>{initials(t.assignedAmName||'AM')}</div>
             <span style={{fontSize:12, color:'#6b6455'}}>{t.assignedAmName}</span>
@@ -236,6 +248,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
             <CalendarView tasks={clientTasks.map(t => ({
               clickupTaskId: t.clickupTaskId,
               title: t.title,
+              clientTitle: t.clientTitle,
               status: t.status,
               dueDate: t.dueDate,
               clientApproval: t.clientApproval,
@@ -325,35 +338,13 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
         </div>
 
         {/* Pipeline stats banner */}
-        <div style={{background:'#1a1714', borderRadius:16, padding:'24px 32px', marginBottom:28, display:'flex', alignItems:'center', gap:32, color:'#fff'}}>
-          {/* Conic progress ring */}
-          <div style={{position:'relative', width:72, height:72, flexShrink:0}}>
-            <svg width="72" height="72" viewBox="0 0 72 72">
-              <circle cx="36" cy="36" r="30" fill="none" stroke="#333" strokeWidth="8"/>
-              <circle cx="36" cy="36" r="30" fill="none" stroke="#f97316" strokeWidth="8"
-                strokeDasharray={`${pct * 1.885} 188.5`} strokeLinecap="round"
-                transform="rotate(-90 36 36)"/>
-            </svg>
-            <span style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700}}>{postedTasks.length}/{clientTasks.length}</span>
-          </div>
-          <div style={{flex:1}}>
-            <div style={{fontSize:11, letterSpacing:2, color:'#888', fontWeight:600, marginBottom:4}}>
-              {new Date().toLocaleString('default',{month:'long'}).toUpperCase()} CONTENT PACKAGE
-            </div>
-            <div style={{fontSize:20, fontWeight:700}}>{clientTasks.length} videos this month</div>
-          </div>
-          {/* Stat columns */}
-          {[
-            {label:'Awaiting you', val: reviewTasks.length, color:'#f59e0b'},
-            {label:'Published', val: postedTasks.length, color:'#22c55e'},
-            {label:'In production', val: inProgress.length, color:'#60a5fa'},
-          ].map(s => (
-            <div key={s.label} style={{textAlign:'center', minWidth:80}}>
-              <div style={{fontSize:32, fontWeight:800, color: s.color}}>{s.val}</div>
-              <div style={{fontSize:12, color:'#aaa', marginTop:2}}>{s.label}</div>
-            </div>
-          ))}
-        </div>
+        <MonthlyProgress
+          tasks={clientTasks.map(t => ({ dateUpdated: t.dateUpdated, isYoutube: t.isYoutube, status: t.status }))}
+          reelsAgreed={reelsAgreed}
+          ytAgreed={ytAgreed}
+          reviewCount={reviewTasks.length}
+          inProductionCount={inProgress.length}
+        />
 
         {/* Tab content */}
         {tab === 'reviews' && (
@@ -376,10 +367,10 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                   <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
                     <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
                     <div style={{flex:1}}>
-                      <div style={{fontWeight:600, fontSize:14}}>{t.title}</div>
+                      <div style={{fontWeight:600, fontSize:14}}>{displayTitle(t)}</div>
                       <div style={{fontSize:12, color:'#6b6455'}}>{t.assignedAmName}</div>
                     </div>
-                    <span style={{background:'#ede9e0', color:'#6b6455', fontSize:12, padding:'3px 10px', borderRadius:12}}>{norm(t.status)}</span>
+                    <span style={{background:'#ede9e0', color:'#6b6455', fontSize:12, padding:'3px 10px', borderRadius:12}}>{clientStatusLabel(t.status)}</span>
                   </div>
                 ))}
               </section>
@@ -398,7 +389,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                     <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
                       <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
                       <div style={{flex:1}}>
-                        <div style={{fontWeight:600, fontSize:14}}>{t.title}</div>
+                        <div style={{fontWeight:600, fontSize:14}}>{displayTitle(t)}</div>
                         <div style={{fontSize:12, color:'#6b6455'}}>{t.assignedAmName}</div>
                       </div>
                       <span style={{fontSize:12, color:'#888'}}>{t.dateUpdated ? fmtDate(t.dateUpdated) : ''}</span>
@@ -419,6 +410,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
         {tab === 'calendar' && <CalendarView tasks={clientTasks.map(t => ({
           clickupTaskId: t.clickupTaskId,
           title: t.title,
+          clientTitle: t.clientTitle,
           status: t.status,
           dueDate: t.dueDate,
           clientApproval: t.clientApproval,
@@ -466,7 +458,7 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
       {/* Body */}
       <div style={{ padding: '13px 15px 15px', display: 'flex', flexDirection: 'column', gap: 11 }}>
         <div style={{ fontSize: 15.5, fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.25 }}>
-          {task.title}
+          {displayTitle(task)}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const, fontSize: 12, color: '#9d9488', fontWeight: 500 }}>
@@ -554,10 +546,10 @@ function VideoRow({ task, color, colorBg, label, date }: { task: MappedTask; col
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13.5, fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {task.title}
+          {displayTitle(task)}
         </div>
         <div style={{ fontSize: 11.5, color: '#9d9488', fontWeight: 500, marginTop: 3 }}>
-          {task.status}{date ? ` · ${date}` : ''}
+          {clientStatusLabel(task.status)}{date ? ` · ${date}` : ''}
         </div>
       </div>
       <span style={{
@@ -566,7 +558,7 @@ function VideoRow({ task, color, colorBg, label, date }: { task: MappedTask; col
         color, background: colorBg, whiteSpace: 'nowrap' as const, flexShrink: 0,
       }}>
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: color }} />
-        {label ?? task.status}
+        {label ?? clientStatusLabel(task.status)}
       </span>
     </div>
   );
