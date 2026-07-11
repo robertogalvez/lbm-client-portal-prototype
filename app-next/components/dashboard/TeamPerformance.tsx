@@ -44,7 +44,7 @@ export function TeamPerformance({ editors }: { editors: EditorStat[] }) {
       </div>
 
       {tab === 'leaderboard' && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <div className="db-tscroll"><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #e7ebef' }}>
               {['Editor', 'Total', 'Approved', 'In Progress', 'On Time', 'Late'].map(h => (
@@ -71,11 +71,11 @@ export function TeamPerformance({ editors }: { editors: EditorStat[] }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       )}
 
       {tab === 'deadline' && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <div className="db-tscroll"><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #e7ebef' }}>
               {['Editor', 'Tasks with Deadline', 'On Time', 'Late', 'On-Time Rate'].map(h => (
@@ -114,7 +114,7 @@ export function TeamPerformance({ editors }: { editors: EditorStat[] }) {
               <tr><td colSpan={5} style={{ textAlign: 'center', padding: 32, color: '#8b97a4', fontSize: 13 }}>No tasks with due dates assigned to editors</td></tr>
             )}
           </tbody>
-        </table>
+        </table></div>
       )}
     </div>
   );

@@ -522,7 +522,7 @@ function TabItems({ items }: { items: { label: string; href: string; badge: numb
   return (
     <>
       {items.map(({ label, href, badge, active, icon }) => (
-        <a key={label} href={href} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: active ? '#B23E00' : '#9d9488', position: 'relative', padding: '2px 14px', textDecoration: 'none' }}>
+        <a key={label} href={href} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: active ? '#B23E00' : '#9d9488', position: 'relative', padding: '6px 14px', textDecoration: 'none' }}>
           {icon}
           {badge > 0 && (
             <span style={{ position: 'absolute', top: -2, right: 6, minWidth: 16, height: 16, background: '#cf3f36', color: '#fff', fontSize: 10, fontWeight: 800, borderRadius: 100, display: 'grid', placeItems: 'center', padding: '0 4px', border: '1.5px solid #fff' }}>{badge}</span>

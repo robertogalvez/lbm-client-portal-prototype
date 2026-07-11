@@ -67,13 +67,19 @@ export function FiltersBar({ members, ams, clients, hideDateRange }: Props) {
       </select>
 
       {/* Archived toggle */}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#54616f', userSelect: 'none' }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: '#54616f', userSelect: 'none', padding: '8px 0', minHeight: 40 }}>
+        <input
+          type="checkbox"
+          checked={archived}
+          onChange={e => set('archived', e.target.checked ? '1' : '')}
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+        />
         <div
-          onClick={() => set('archived', archived ? '' : '1')}
+          aria-hidden="true"
           style={{
             width: 36, height: 20, borderRadius: 10,
             background: archived ? '#FF6000' : '#d4dbe2',
-            position: 'relative', cursor: 'pointer', transition: 'background 0.2s',
+            position: 'relative', transition: 'background 0.2s',
             flexShrink: 0,
           }}
         >

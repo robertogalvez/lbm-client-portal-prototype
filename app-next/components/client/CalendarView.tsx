@@ -110,7 +110,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, color: '#221e18', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color, background: bg, padding: '2px 6px', borderRadius: 5, marginTop: 3 }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color, background: bg, padding: '2px 6px', borderRadius: 5, marginTop: 3 }}>
                             <span style={{ width: 5, height: 5, borderRadius: '50%', background: color }} />{label}
                           </span>
                         </div>
@@ -178,14 +178,14 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                       const { color, bg } = statusStyle(t);
                       return (
                         <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}`} style={{ textDecoration: 'none', color: 'inherit' }} onClick={e => e.stopPropagation()}>
-                          <div style={{ fontSize: 9, fontWeight: 700, color, background: bg, padding: '1px 3px', borderRadius: 3, marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color, background: bg, padding: '1px 3px', borderRadius: 3, marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }}>
                             {t.title}
                           </div>
                         </a>
                       );
                     })}
                     {cell.tasks.length > 2 && (
-                      <div style={{ fontSize: 9, color: '#9d9488', fontWeight: 600 }}>+{cell.tasks.length - 2}</div>
+                      <div style={{ fontSize: 11, color: '#9d9488', fontWeight: 600 }}>+{cell.tasks.length - 2}</div>
                     )}
                   </div>
                 </div>
@@ -237,7 +237,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 12, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, color, background: bg, padding: '1px 5px', borderRadius: 4, marginTop: 2 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color, background: bg, padding: '1px 5px', borderRadius: 4, marginTop: 2 }}>
                         <span style={{ width: 4, height: 4, borderRadius: '50%', background: color }} />{label}
                       </span>
                     </div>
@@ -253,7 +253,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
 }
 
 const navBtn: React.CSSProperties = {
-  width: 30, height: 30, borderRadius: 8, border: '1px solid #ece4d8',
+  width: 40, height: 40, borderRadius: 8, border: '1px solid #ece4d8',
   background: '#fff', display: 'grid', placeItems: 'center',
   cursor: 'pointer', color: '#6c6357', flexShrink: 0,
 };
@@ -263,7 +263,7 @@ function ViewToggle({ view, setView }: { view: 'month' | 'list'; setView: (v: 'm
     <div style={{ display: 'inline-flex', background: '#f7f1ea', borderRadius: 8, padding: 2, gap: 1 }}>
       {(['month', 'list'] as const).map(v => (
         <button key={v} onClick={() => setView(v)} style={{
-          padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 700,
+          padding: '9px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 700,
           background: view === v ? '#fff' : 'transparent',
           color: view === v ? '#221e18' : '#9d9488',
           boxShadow: view === v ? '0 1px 3px rgba(0,0,0,.08)' : 'none',

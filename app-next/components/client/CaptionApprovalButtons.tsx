@@ -102,7 +102,7 @@ export function CaptionApprovalButtons({ taskId, currentApproval }: Props) {
             width: '100%', boxSizing: 'border-box' as const,
             padding: '10px 12px', borderRadius: 10,
             border: '1px solid #e0d8ce', background: '#faf6f0',
-            fontSize: 13, color: '#221e18', lineHeight: 1.5,
+            fontSize: 16, color: '#221e18', lineHeight: 1.5,
             fontFamily: 'inherit', resize: 'vertical' as const,
             outline: 'none',
           }}
