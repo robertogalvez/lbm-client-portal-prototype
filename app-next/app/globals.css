@@ -109,6 +109,43 @@ body {
 }
 
 /* ============================================================
+   Login page — responsive layout
+   ============================================================ */
+.login-shell {
+  min-height: 100vh;
+  display: flex;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.login-left {
+  width: 100%;
+  max-width: 520px;
+  background: #0c0c0e;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 40px 48px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+.login-right {
+  flex: 1;
+  min-width: 0;
+  background: linear-gradient(135deg, #0d0d14 0%, #14101a 40%, #1a0d1a 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 48px;
+  position: relative;
+  overflow: hidden;
+}
+@media (max-width: 760px) {
+  .login-shell { flex-direction: column; }
+  .login-left { max-width: 100%; padding: 32px 24px; }
+  .login-right { display: none; }
+}
+
+/* ============================================================
    Client Portal — responsive layout
    ============================================================ */
 
@@ -202,9 +239,11 @@ body {
   display: flex;
   flex-direction: column;
 }
-.vd-player { flex: 1; position: relative; background: #1a1e24; min-height: 0; }
+.vd-player { flex: 1; position: relative; background: #1a1e24; min-height: 220px; }
 .vd-player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; display: block; }
-.vd-meta { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+/* Extra bottom padding reserves room for the fixed .vd-dock below so it never
+   covers the tail of the meta panel (mirrors .cp-body's clearance for .cp-tab-bar). */
+.vd-meta { padding: 12px 16px calc(230px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; }
 .vd-dock {
   position: fixed;
   bottom: 0; left: 0; right: 0;
@@ -361,8 +400,8 @@ body {
   .cal-sidebar { display: block; width: 280px; flex-shrink: 0; }
 }
 
-/* Video detail — desktop two-column */
-@media (min-width: 768px) {
+/* Video detail — desktop two-column (aligned with .client-desktop's 900px switch) */
+@media (min-width: 900px) {
   .vd-shell {
     flex-direction: row;
     height: 100vh;
@@ -540,8 +579,15 @@ body {
   flex-shrink: 0;
   line-height: 1;
   padding: 0;
+  position: relative;
   transition: background 120ms;
   font-family: inherit;
+}
+/* Extend the tappable area to ~40x40 without growing the visible dot */
+.db-info-btn::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
 }
 .db-info-btn:hover { background: #d8dde3; }
 .db-info-bubble {
@@ -572,3 +618,36 @@ body {
 @media (max-width: 860px) {
   .db-topbar { padding-left: 62px !important; }
 }
+
+/* Page wrapper — same hamburger clearance as .db-topbar, but for pages whose
+   <main> owns its own padding (Settings, AM dashboard) instead of a separate
+   topbar strip, so title/table/sections all stay aligned together. */
+.db-page-pad { padding: 28px 32px; }
+@media (max-width: 860px) {
+  .db-page-pad { padding: 20px 16px 20px 62px; }
+}
+
+/* AM "My Clients" card grid — single column below 480px so the minmax floor
+   never exceeds the viewport width on small phones. */
+.am-client-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+@media (max-width: 480px) {
+  .am-client-grid { grid-template-columns: 1fr; }
+}
+
+/* Tab strip — allow horizontal scroll instead of overflowing the page when
+   there isn't room for every tab on a narrow screen. */
+.db-tab-strip {
+  display: flex;
+  gap: 2px;
+  padding: 0 24px;
+  border-bottom: 1px solid #e7ebef;
+  margin-top: 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.db-tab-strip button { flex-shrink: 0; }

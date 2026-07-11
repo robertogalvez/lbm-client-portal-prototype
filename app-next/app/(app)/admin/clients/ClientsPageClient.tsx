@@ -232,7 +232,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 28px', borderBottom: '1px solid #e7ebef', background: '#fff', flexShrink: 0 }}>
+        <div className="db-topbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 28px', borderBottom: '1px solid #e7ebef', background: '#fff', flexShrink: 0 }}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 700, color: '#111c28' }}>Clients</div>
             <div style={{ fontSize: 13, color: '#8b97a4', marginTop: 2 }}>{visibleClients.length} client{visibleClients.length !== 1 ? 's' : ''} · synced from ClickUp&apos;s Master Clients List</div>
@@ -252,7 +252,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
 
         {/* Table */}
         <div style={{ flex: 1, overflow: 'auto', padding: '20px 28px' }}>
-          <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, overflow: 'hidden' }}>
+          <div className="db-tscroll" style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #e7ebef' }}>

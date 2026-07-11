@@ -59,7 +59,7 @@ export function LayoutShell({ children, showClientPortal }: { children: React.Re
                 Portal
               </div>
             </div>
-            <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7888', padding: 4 }} aria-label="Close navigation">
+            <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7888', padding: 11, margin: -7 }} aria-label="Close navigation">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" style={{ width: 18, height: 18 }}>
                 <path d="M18 6 6 18M6 6l12 12" />
               </svg>

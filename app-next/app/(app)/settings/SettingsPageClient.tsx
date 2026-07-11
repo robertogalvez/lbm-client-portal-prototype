@@ -103,7 +103,7 @@ function ForceSyncSection() {
         ClickUp changes sync automatically via webhook in real time — this button is a recovery tool only.
         Use it if the webhook was down, you just reconfigured ClickUp, or you suspect the database is out of sync.
       </p>
-      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#111c28' }}>Force full resync from ClickUp</div>
           <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 3 }}>
@@ -269,9 +269,9 @@ export function SettingsPageClient({ users: initial, currentUserId }: Props) {
   };
 
   return (
-    <main style={{ padding: '28px 32px', maxWidth: 900 }}>
+    <main className="db-page-pad" style={{ maxWidth: 900 }}>
       {/* Header */}
-      <div style={{ marginBottom: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+      <div style={{ marginBottom: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111c28', margin: 0 }}>Settings</h1>
           <p style={{ fontSize: 13, color: '#8b97a4', margin: '4px 0 0' }}>Manage internal team access and roles</p>
@@ -293,7 +293,7 @@ export function SettingsPageClient({ users: initial, currentUserId }: Props) {
       </div>
 
       {/* Users table */}
-      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, overflow: 'hidden' }}>
+      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10 }} className="db-tscroll">
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #e7ebef', background: '#f8f9fb' }}>
@@ -353,7 +353,7 @@ export function SettingsPageClient({ users: initial, currentUserId }: Props) {
                       style={{
                         fontSize: 12, fontWeight: 600, color: '#54616f',
                         background: 'none', border: '1px solid #d4dbe2',
-                        borderRadius: 6, padding: '5px 10px', cursor: 'pointer',
+                        borderRadius: 6, padding: '9px 12px', cursor: 'pointer',
                         fontFamily: 'inherit',
                       }}
                     >
@@ -381,7 +381,7 @@ export function SettingsPageClient({ users: initial, currentUserId }: Props) {
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              width: 380, background: '#fff', height: '100%',
+              width: 380, maxWidth: '92vw', background: '#fff', height: '100%',
               boxShadow: '-4px 0 24px rgba(0,0,0,0.12)',
               display: 'flex', flexDirection: 'column',
             }}
@@ -391,7 +391,7 @@ export function SettingsPageClient({ users: initial, currentUserId }: Props) {
               <div style={{ fontSize: 15, fontWeight: 700, color: '#111c28' }}>
                 {drawer.mode === 'invite' ? 'Invite team member' : `Edit ${drawer.user?.name}`}
               </div>
-              <button onClick={close} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b97a4', padding: 4 }}>
+              <button onClick={close} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b97a4', padding: 11, margin: -7 }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
                   <path d="M18 6 6 18M6 6l12 12" />
                 </svg>

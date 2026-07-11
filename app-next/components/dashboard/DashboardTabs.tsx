@@ -398,7 +398,7 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, att
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#111c28' }}>{drillStage.label}</div>
                 <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 1 }}>{drillTasks.length} video{drillTasks.length !== 1 ? 's' : ''}</div>
               </div>
-              <button onClick={() => setDrillStage(null)} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #e7ebef', background: '#f5f7f9', cursor: 'pointer', display: 'grid', placeItems: 'center', color: '#54616f', fontSize: 16, fontFamily: 'inherit' }}>×</button>
+              <button onClick={() => setDrillStage(null)} style={{ width: 40, height: 40, borderRadius: 8, border: '1px solid #e7ebef', background: '#f5f7f9', cursor: 'pointer', display: 'grid', placeItems: 'center', color: '#54616f', fontSize: 16, fontFamily: 'inherit' }}>×</button>
             </div>
 
             {/* Task list */}
@@ -468,7 +468,7 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, att
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: 'flex', gap: 2, padding: '0 24px', borderBottom: '1px solid #e7ebef', marginTop: 16 }}>
+      <div className="db-tab-strip">
         {(['overview', 'approvals', 'clients', 'editors'] as const).map(t => (
           <button key={t} style={tabStyle(t)} onClick={() => setActiveTab(t)}>
             {t === 'overview' && 'Overview'}
@@ -483,7 +483,7 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, att
       <div style={{ display: activeTab === 'overview' ? 'block' : 'none', padding: '20px 24px 26px' }}>
         {/* Pipeline card */}
         <div style={{ border: '1px solid #e7ebef', borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 18px', borderBottom: '1px solid #e7ebef' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 18px', borderBottom: '1px solid #e7ebef', flexWrap: 'wrap' }}>
             <div>
               <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 6 }}>
                 Production pipeline
@@ -593,7 +593,7 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, att
       {/* APPROVALS */}
       <div style={{ display: activeTab === 'approvals' ? 'block' : 'none', padding: '20px 24px 26px' }}>
         <div style={{ border: '1px solid #e7ebef', borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 18px', borderBottom: '1px solid #e7ebef' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 18px', borderBottom: '1px solid #e7ebef', flexWrap: 'wrap' }}>
             <div>
               <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>For client review</h3>
               <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Awaiting client approval · oldest first</div>
@@ -656,7 +656,7 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, att
       {/* CLIENTS */}
       <div style={{ display: activeTab === 'clients' ? 'block' : 'none', padding: '20px 24px 26px' }}>
         <div style={{ border: '1px solid #e7ebef', borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 18px', borderBottom: '1px solid #e7ebef' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 18px', borderBottom: '1px solid #e7ebef', flexWrap: 'wrap' }}>
             <div>
               <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>Client breakdown</h3>
               <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>{clients.length} clients · pending review &amp; oldest wait</div>
@@ -748,7 +748,7 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, att
       {/* EDITORS */}
       <div style={{ display: activeTab === 'editors' ? 'block' : 'none', padding: '20px 24px 26px' }}>
         <div style={{ border: '1px solid #e7ebef', borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 18px', borderBottom: '1px solid #e7ebef' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 18px', borderBottom: '1px solid #e7ebef', flexWrap: 'wrap' }}>
             <div>
               <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>Editor performance</h3>
               <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>{editors.length} editors · ranked by first-pass clean</div>

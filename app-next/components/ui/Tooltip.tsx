@@ -35,7 +35,10 @@ export function InfoPopover({ tip }: { tip: string }) {
           style={{
             position: 'fixed',
             bottom: window.innerHeight - rect.top + 7,
-            left: rect.left + rect.width / 2,
+            left: Math.min(
+              Math.max(rect.left + rect.width / 2, 123),
+              window.innerWidth - 123
+            ),
             transform: 'translateX(-50%)',
           }}
         >{tip}</span>,

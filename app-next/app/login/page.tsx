@@ -31,22 +31,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    }}>
+    <div className="login-shell">
       {/* Left panel — login form */}
-      <div style={{
-        width: '100%',
-        maxWidth: 520,
-        background: '#0c0c0e',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        padding: '40px 48px',
-        flexShrink: 0,
-      }}>
+      <div className="login-left">
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
@@ -136,7 +123,7 @@ export default function LoginPage() {
                   style={{
                     width: '100%',
                     padding: '10px 12px',
-                    fontSize: 14,
+                    fontSize: 16,
                     background: '#18181b',
                     border: '1px solid #2a2a2e',
                     borderRadius: 8,
@@ -229,18 +216,8 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right panel — brand visual */}
-      <div style={{
-        flex: 1,
-        background: 'linear-gradient(135deg, #0d0d14 0%, #14101a 40%, #1a0d1a 100%)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '60px 48px',
-        position: 'relative',
-        overflow: 'hidden',
-      }}>
+      {/* Right panel — brand visual (hidden on mobile, see .login-right) */}
+      <div className="login-right">
         {/* Background glow */}
         <div style={{
           position: 'absolute',

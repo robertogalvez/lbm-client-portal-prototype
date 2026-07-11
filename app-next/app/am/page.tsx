@@ -184,7 +184,7 @@ export default async function AmPage() {
     .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
 
   return (
-    <main style={{ padding: '28px 32px', maxWidth: 1400 }}>
+    <main className="db-page-pad" style={{ maxWidth: 1400 }}>
 
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
@@ -212,7 +212,7 @@ export default async function AmPage() {
 
       {/* My Clients grid */}
       <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: '0 0 14px' }}>My Clients</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16, marginBottom: 28 }}>
+      <div className="am-client-grid">
         {clientEntries.map(([clientName, cd]) => {
           const needsAttn = cd.inReview > 0 && cd.oldestReviewMs > 3 * DAY_MS;
           return (
@@ -255,7 +255,7 @@ export default async function AmPage() {
 
       {/* Needs My Attention */}
       <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: '0 0 14px' }}>Needs My Attention</h2>
-      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, overflow: 'hidden', marginBottom: 28 }}>
+      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, marginBottom: 28 }} className="db-tscroll">
         {attentionTasks.length === 0 ? (
           <div style={{ padding: '24px', textAlign: 'center', fontSize: 14, color: '#8b97a4' }}>
             Nothing needs attention right now.
@@ -290,7 +290,7 @@ export default async function AmPage() {
 
       {/* Due This Week */}
       <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: '0 0 14px' }}>Due This Week</h2>
-      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, overflow: 'hidden' }}>
+      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10 }} className="db-tscroll">
         {dueTasks.length === 0 ? (
           <div style={{ padding: '24px', textAlign: 'center', fontSize: 14, color: '#8b97a4' }}>
             No tasks due in the next 7 days.

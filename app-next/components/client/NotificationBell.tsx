@@ -77,7 +77,7 @@ export function NotificationBell({ tasks }: { tasks: ReviewTask[] }) {
 
           <div style={{
             position: 'absolute', top: 48, right: 0,
-            width: 290, background: '#fff',
+            width: 290, maxWidth: 'calc(100vw - 24px)', background: '#fff',
             border: '1px solid #ece4d8', borderRadius: 16,
             boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
             zIndex: 201, overflow: 'hidden',
