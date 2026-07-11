@@ -33,9 +33,10 @@ function dateMs(field: clickup.ClickUpFieldLite | undefined): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-async function markError(taskId: string, task: clickup.ClickUpTaskLite, comment: string): Promise<PublishOutcome> {
+// No live "Publishing Status" field exists on this workspace anymore, so the
+// error signal to the AM is the ClickUp comment itself.
+async function markError(taskId: string, comment: string): Promise<PublishOutcome> {
   await clickup.postComment(taskId, comment);
-  await clickup.setDropdownByName(task, clickup.FIELDS.publishingStatus, clickup.PUBLISHING_STATUS.error);
   return { status: 'error', reason: comment };
 }
 
@@ -75,14 +76,14 @@ export async function publishVideo(clickupTaskId: string): Promise<PublishOutcom
   }
   const task = await clickup.getTask(clickupTaskId);
 
-  const publishingStatus = optionName(clickup.findField(task, clickup.FIELDS.publishingStatus));
-  const captions = textValue(clickup.findField(task, clickup.FIELDS.captions));
-  const publishAtMs = dateMs(clickup.findField(task, clickup.FIELDS.publishDate));
-  const frameLink = textValue(clickup.findField(task, clickup.FIELDS.frameLink));
-  const clientName = optionName(clickup.findField(task, clickup.FIELDS.clientName));
+  const captions = textValue(clickup.findFieldRef(task, clickup.FIELD.captions));
+  const publishAtMs = dateMs(clickup.findFieldRef(task, clickup.FIELD.publishDate));
+  const frameLink = textValue(clickup.findFieldRef(task, clickup.FIELD.frameLink));
+  const clientName = optionName(clickup.findFieldRef(task, clickup.FIELD.clientName));
+  const postedStatus = optionName(clickup.findFieldRef(task, clickup.FIELD.postedStatus));
 
-  // Idempotency — never double-publish.
-  if (publishingStatus === clickup.PUBLISHING_STATUS.published) return { status: 'already_published' };
+  // Idempotency — never double-publish (tracked via the stored Vista Social ids;
+  // this workspace has no "Publishing Status" field to key on).
   const [existing] = await db
     .select({ postId: videoCache.vistasocialPostId })
     .from(videoCache)
@@ -90,12 +91,17 @@ export async function publishVideo(clickupTaskId: string): Promise<PublishOutcom
     .limit(1);
   if (existing?.postId) return { status: 'already_published' };
 
+  // Explicit opt-out — respect "Posted Status = Do not post".
+  if (postedStatus && /do not post/i.test(postedStatus)) {
+    return { status: 'deferred', reason: 'Posted Status is "Do not post"' };
+  }
+
   // 1. Validate (Make "Task is valid" / "could not be scheduled").
   if (!captions || !publishAtMs || publishAtMs <= Date.now()) {
-    return markError(clickupTaskId, task, AM_MESSAGES.notSchedulable());
+    return markError(clickupTaskId, AM_MESSAGES.notSchedulable());
   }
   if (!frameLink) {
-    return markError(clickupTaskId, task, AM_MESSAGES.frameioStackFailed('No Frame.io link on the task'));
+    return markError(clickupTaskId, AM_MESSAGES.frameioStackFailed('No Frame.io link on the task'));
   }
 
   // 2. Resolve the final Frame.io asset.
@@ -107,7 +113,7 @@ export async function publishVideo(clickupTaskId: string): Promise<PublishOutcom
     const msg = err?.stage === 'file'
       ? AM_MESSAGES.frameioFileFailed(err.message)
       : AM_MESSAGES.frameioStackFailed(err?.message ?? String(e));
-    return markError(clickupTaskId, task, msg);
+    return markError(clickupTaskId,msg);
   }
   // Not transcoded / no download URL yet — defer without erroring; the reconcile
   // pass retries once Frame.io finishes processing.
@@ -117,11 +123,11 @@ export async function publishVideo(clickupTaskId: string): Promise<PublishOutcom
 
   // 3. Resolve Vista Social profiles for the client.
   if (!clientName) {
-    return markError(clickupTaskId, task, AM_MESSAGES.noProfile('(unknown client)'));
+    return markError(clickupTaskId,AM_MESSAGES.noProfile('(unknown client)'));
   }
   const profileIds = await resolveProfileIds(clientName);
   if (profileIds.length === 0) {
-    return markError(clickupTaskId, task, AM_MESSAGES.noProfile(clientName));
+    return markError(clickupTaskId,AM_MESSAGES.noProfile(clientName));
   }
 
   // 4. Ingest media into Vista Social (falls back to the direct URL if needed).
@@ -144,11 +150,11 @@ export async function publishVideo(clickupTaskId: string): Promise<PublishOutcom
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return markError(clickupTaskId, task, AM_MESSAGES.publishFailed(profileIds.join(', '), msg));
+    return markError(clickupTaskId,AM_MESSAGES.publishFailed(profileIds.join(', '), msg));
   }
 
-  // 6. Success — mark Published, store post ids, comment.
-  await clickup.setDropdownByName(task, clickup.FIELDS.publishingStatus, clickup.PUBLISHING_STATUS.published);
+  // 6. Success — store post ids (Published state lives in the cache; ClickUp has
+  // no Publishing Status field), then comment.
   await cacheAfterPublish(clickupTaskId, result.ids, publishAtMs);
   await clickup.postComment(clickupTaskId, AM_MESSAGES.publishSuccess());
 
