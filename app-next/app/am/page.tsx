@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm';
 import { getTasksFromList } from '@/lib/clickup';
 import type { MappedTask } from '@/lib/clickup';
 import { AmPicker } from '@/components/am/AmPicker';
+import { InstagramLink } from '@/components/InstagramLink';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,6 +77,14 @@ function greeting(name: string) {
 function fmtDate(iso: string | null) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// dateUpdated arrives as an epoch-ms string; parse robustly.
+function fmtEpoch(v: string | null) {
+  if (!v) return '—';
+  const ts = Number(v);
+  const d = Number.isFinite(ts) ? new Date(ts) : new Date(v);
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 function daysWaiting(dateUpdated: string) {
@@ -182,6 +191,12 @@ export default async function AmPage() {
   const dueTasks = activeTasks
     .filter(t => t.dueDate && new Date(t.dueDate).getTime() <= weekEnd)
     .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+
+  // Recently posted — surfaces the captured Instagram link to the AM
+  const recentlyPosted = amTasks
+    .filter(t => norm(t.status) === POSTED_NORM)
+    .sort((a, b) => (Number(b.dateUpdated) || 0) - (Number(a.dateUpdated) || 0))
+    .slice(0, 10);
 
   return (
     <main className="db-page-pad" style={{ maxWidth: 1400 }}>
@@ -321,6 +336,40 @@ export default async function AmPage() {
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Recently Posted */}
+      <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: '28px 0 14px' }}>Recently Posted</h2>
+      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10 }} className="db-tscroll">
+        {recentlyPosted.length === 0 ? (
+          <div style={{ padding: '24px', textAlign: 'center', fontSize: 14, color: '#8b97a4' }}>
+            No videos posted yet.
+          </div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #e7ebef', background: '#f8f9fb' }}>
+                {['Video Title', 'Client', 'Posted', 'Instagram'].map(h => (
+                  <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontWeight: 600, color: '#8b97a4', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {recentlyPosted.map(t => (
+                <tr key={t.clickupTaskId} style={{ borderBottom: '1px solid #f4f6f8' }}>
+                  <td style={{ padding: '10px 16px', fontWeight: 500, color: '#111c28', maxWidth: 300 }}>
+                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                  </td>
+                  <td style={{ padding: '10px 16px', color: '#54616f' }}>{t.clientName ?? '—'}</td>
+                  <td style={{ padding: '10px 16px', color: '#54616f' }}>{fmtEpoch(t.dateUpdated)}</td>
+                  <td style={{ padding: '10px 16px' }}>
+                    {t.instagramUrl ? <InstagramLink url={t.instagramUrl} label="View post" compact /> : <span style={{ color: '#b6bfc9' }}>—</span>}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}

@@ -14,6 +14,7 @@ import { InvoicesView } from '@/components/client/InvoicesView';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { getViewAsClient } from '@/lib/view-as';
 import { getInvoicesForClient, isQuickBooksConfigured } from '@/lib/quickbooks';
+import { InstagramLink } from '@/components/InstagramLink';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -430,6 +431,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                         color: t.clientApproval === 'approved' ? '#1a6b35' : '#c2410c',
                         fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:600
                       }}>{t.clientApproval === 'approved' ? 'Approved' : 'Changes requested'}</span>
+                      {t.instagramUrl && <InstagramLink url={t.instagramUrl} label="Instagram" compact />}
                       <a href={`/client/videos/${t.clickupTaskId}`} style={{fontSize:13, color:'#f97316', fontWeight:600}}>View →</a>
                     </div>
                   ))}
@@ -585,8 +587,9 @@ function VideoRow({ task, color, colorBg, label, date }: { task: MappedTask; col
         <div style={{ fontSize: 13.5, fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {task.title}
         </div>
-        <div style={{ fontSize: 11.5, color: '#9d9488', fontWeight: 500, marginTop: 3 }}>
-          {task.status}{date ? ` · ${date}` : ''}
+        <div style={{ fontSize: 11.5, color: '#9d9488', fontWeight: 500, marginTop: 3, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
+          <span>{task.status}{date ? ` · ${date}` : ''}</span>
+          {task.instagramUrl && <InstagramLink url={task.instagramUrl} label="Instagram" compact />}
         </div>
       </div>
       <span style={{

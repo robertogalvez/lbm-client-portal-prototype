@@ -9,6 +9,7 @@ import { ApprovalButtons } from '@/components/client/ApprovalButtons';
 import { CaptionApprovalButtons } from '@/components/client/CaptionApprovalButtons';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { getViewAsClient } from '@/lib/view-as';
+import { InstagramLink } from '@/components/InstagramLink';
 import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
@@ -113,6 +114,13 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
         <span>{daysWaiting(task.dateUpdated)}</span>
         {task.dueDate && (<><span style={{ width: 3, height: 3, borderRadius: '50%', background: '#9d9488' }} /><span>Due {fmtDate(task.dueDate)}</span></>)}
       </div>
+
+      {task.instagramUrl && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fdf2f8', border: '1px solid #f5d0e6', borderRadius: 10, padding: '10px 12px' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#9d4a7a' }}>Published</span>
+          <InstagramLink url={task.instagramUrl} style={{ marginLeft: 'auto' }} />
+        </div>
+      )}
 
     </>
   );

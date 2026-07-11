@@ -20,6 +20,7 @@ const videoCache = pgTable('video_cache', {
   frameioAssetId:    varchar('frameio_asset_id', { length: 100 }),
   rawDriveLink:      text('raw_drive_link'),
   vistasocialPostId: varchar('vistasocial_post_id', { length: 100 }),
+  instagramUrl:      text('instagram_url'),
   assignedAmName:    text('assigned_am_name'),
   editorName:        text('editor_name'),
   clientName:        text('client_name'),
@@ -122,6 +123,7 @@ export default async function handler() {
     const captionApprovalField = find('CAPTION APPROVAL');
     const frameField    = find('Updated Frame Link (Editor)');
     const rawDriveField = find('Raw Drive Link (Videographer)');
+    const instagramField = find('Instagram URL');
     const amField       = find('Account Manager (AM)');
     const qcField       = find('QUALITY CHECK (Somu)');
 
@@ -156,6 +158,7 @@ export default async function handler() {
       publishingStatus: resolveByName('Publishing Status', pubIdx),
       frameioAssetId:   typeof frameField?.value === 'string' ? frameField.value : null,
       rawDriveLink:     typeof rawDriveField?.value === 'string' ? rawDriveField.value : null,
+      instagramUrl:     typeof instagramField?.value === 'string' ? instagramField.value : null,
       assignedAmName:   amName,
       editorName,
       clientName,
