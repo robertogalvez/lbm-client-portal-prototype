@@ -92,6 +92,7 @@ export async function POST(req: Request) {
     const rawDriveField = find('Raw Drive Link (Videographer)');
     const amField       = find('Account Manager (AM)');
     const qcField       = find('QUALITY CHECK (Somu)');
+    const revisionsField = find('Revisions #');
 
     const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
     const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
@@ -104,6 +105,7 @@ export async function POST(req: Request) {
     const editorName = (task.assignees as { username?: string }[])?.[0]?.username ?? null;
     const clientName   = resolveOpt('Client Name (AM)', clientIdx);
     const qualityCheck = resolveOpt('QUALITY CHECK (Somu)', qcIdx);
+    const revisions    = typeof revisionsField?.value === 'number' ? revisionsField.value : null;
 
     let dueDate: string | null = null;
     if (task.due_date) {
@@ -124,6 +126,7 @@ export async function POST(req: Request) {
       editorName,
       clientName,
       qualityCheck,
+      revisions,
       dateUpdated:      task.date_updated ?? null,
       dueDate,
       lastSyncedAt:     new Date(),
