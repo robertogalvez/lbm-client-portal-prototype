@@ -287,11 +287,11 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                           </span>
                         : <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 9px', borderRadius: 100, color: '#b06f06', background: '#fdf3e1' }}>Needs setup</span>}
                     </td>
-                    <td style={{ padding: '12px 16px', color: c.monthlyReels ? '#111c28' : '#8b97a4', fontWeight: c.monthlyReels ? 600 : 400 }}>
-                      {c.monthlyReels ? `${c.monthlyReels}` : '—'}
+                    <td style={{ padding: '12px 16px', color: c.monthlyReels > 0 ? '#111c28' : '#8b97a4', fontWeight: c.monthlyReels > 0 ? 600 : 400 }}>
+                      {c.monthlyReels > 0 ? `${c.monthlyReels}` : '—'}
                     </td>
-                    <td style={{ padding: '12px 16px', color: c.monthlyYoutube ? '#111c28' : '#8b97a4', fontWeight: c.monthlyYoutube ? 600 : 400 }}>
-                      {c.monthlyYoutube ? `${c.monthlyYoutube}` : '—'}
+                    <td style={{ padding: '12px 16px', color: c.monthlyYoutube > 0 ? '#111c28' : '#8b97a4', fontWeight: c.monthlyYoutube > 0 ? 600 : 400 }}>
+                      {c.monthlyYoutube > 0 ? `${c.monthlyYoutube}` : '—'}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       {c.clientStatus
@@ -363,8 +363,8 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                 <div style={readonlyRow}><span style={{ color: '#8b97a4' }}>Email</span><span>{selected.contactEmail || '—'}</span></div>
                 <div style={readonlyRow}><span style={{ color: '#8b97a4' }}>Phone</span><span>{selected.whatsappNumber || '—'}</span></div>
                 <div style={readonlyRow}><span style={{ color: '#8b97a4' }}>Client status</span><span>{selected.clientStatus || '—'}</span></div>
-                <div style={readonlyRow}><span style={{ color: '#8b97a4' }}>Reels / month</span><span>{selected.monthlyReels ? `${selected.monthlyReels}` : '—'}</span></div>
-                <div style={{ ...readonlyRow, borderBottom: 'none' }}><span style={{ color: '#8b97a4' }}>YouTube videos / month</span><span>{selected.monthlyYoutube ? `${selected.monthlyYoutube}` : '—'}</span></div>
+                <div style={readonlyRow}><span style={{ color: '#8b97a4' }}>Reels / month</span><span>{selected.monthlyReels > 0 ? `${selected.monthlyReels}` : '—'}</span></div>
+                <div style={{ ...readonlyRow, borderBottom: 'none' }}><span style={{ color: '#8b97a4' }}>YouTube videos / month</span><span>{selected.monthlyYoutube > 0 ? `${selected.monthlyYoutube}` : '—'}</span></div>
                 {selected.lastSyncedAt && <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 4 }}>Last synced {new Date(selected.lastSyncedAt).toLocaleString()}</div>}
               </div>
 
