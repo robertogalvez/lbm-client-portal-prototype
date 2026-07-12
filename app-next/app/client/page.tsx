@@ -402,7 +402,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                     <div style={{flex:1}}>
                       <div style={{fontWeight:600, fontSize:14}}>{t.clientFacingTitle || t.title}</div>
                     </div>
-                    <span style={{background:'#ede9e0', color:'#6b6455', fontSize:12, padding:'3px 10px', borderRadius:12}}>{norm(t.status)}</span>
+                    <span style={{background:'#e8eefc', color:'#2563eb', fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>{norm(t.status)}</span>
                     {t.rawDriveLink && (
                       <a href={t.rawDriveLink} target="_blank" rel="noopener noreferrer" style={{fontSize:12, color:'#6b6455', textDecoration:'none', padding:'4px 8px'}}>
                         📥
