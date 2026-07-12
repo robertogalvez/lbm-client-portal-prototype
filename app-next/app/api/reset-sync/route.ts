@@ -84,6 +84,7 @@ async function runReset() {
     const rawDriveField = find('Raw Drive Link (Videographer)');
     const amField       = find('Account Manager (AM)');
     const qcField       = find('QUALITY CHECK (Somu)');
+    const revisionsField = find('Revisions #');
 
     const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
     const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
@@ -98,6 +99,7 @@ async function runReset() {
     const amUsers    = amField?.value as { username?: string }[] | undefined;
     const amName     = amUsers?.[0]?.username ?? null;
     const editorName = (task.assignees as { username?: string }[])?.[0]?.username ?? null;
+    const revisions  = typeof revisionsField?.value === 'number' ? revisionsField.value : null;
 
     let dueDate: string | null = null;
     if (task.due_date) {
@@ -120,6 +122,7 @@ async function runReset() {
       assignedAmName:   amName,
       editorName,
       qualityCheck:     resolveOpt(opts('QUALITY CHECK (Somu)'), qcIdx),
+      revisions,
       dateUpdated:      task.date_updated ?? null,
       dueDate,
       lastSyncedAt:     new Date(),
