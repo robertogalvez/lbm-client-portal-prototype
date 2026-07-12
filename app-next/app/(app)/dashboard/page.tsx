@@ -304,18 +304,20 @@ export default async function DashboardPage({
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
 
   const POSTED = 'posted in socials';
-  const inProduction     = tasks.filter(t => norm(t.status) !== POSTED).length;
+  
+  // Use correct periodMetrics calculation for KPI display
+  const metrics = periodMetrics(tasks);
+  const inProduction = metrics.inProd;
+  const pendingApproval = metrics.pending;
+  const clientApproved = metrics.approved;
+  const firstPassCleanPct = metrics.firstPassClean;
+
   const reviewTasks      = tasks.filter(t => norm(t.status) === 'for client review');
-  const pendingApproval  = reviewTasks.length;
   const overdueInReview  = reviewTasks.filter(t => (now - parseDate(t.dateUpdated)) > 3 * DAY_MS);
   const overdueCount     = overdueInReview.length;
 
-  const clientApprovedTasks = tasks.filter(t => t.clientApproval?.toLowerCase() === 'approved');
-  const clientApproved      = clientApprovedTasks.length;
-
+  const clientApprovedTasks = tasks.filter(t => norm(t.status) === 'ready to be posted' && t.clientApproval?.toLowerCase() === 'approved');
   const inCorrectionsTasks = tasks.filter(t => norm(t.status) === 'in progress (corrections)');
-  const fpTotal = clientApproved + inCorrectionsTasks.length;
-  const firstPassCleanPct = fpTotal > 0 ? Math.round(clientApproved / fpTotal * 100) : null;
 
   // Quota pacing (Delivery/Footage) and the "Posted this month" KPI are both
   // always scoped to the current calendar month, independent of the browsed
