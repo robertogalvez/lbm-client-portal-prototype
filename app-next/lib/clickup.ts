@@ -184,12 +184,34 @@ export async function getTasksFromFolder(folderId: string, includeArchived = fal
     : lists;
 
   const results = await Promise.all(ordered.map(l => getTasksFromList(l.id, includeArchived)));
-  const seen = new Set<string>();
-  return results.flat().filter(t => {
-    if (seen.has(t.clickupTaskId)) return false;
-    seen.add(t.clickupTaskId);
-    return true;
-  });
+  const taskMap = new Map<string, MappedTask>();
+
+  // Merge task data from all lists: for each task ID, use the version with the most populated fields
+  // This handles cases where a task exists in multiple lists with list-specific custom fields
+  for (const tasks of results) {
+    for (const task of tasks) {
+      const existing = taskMap.get(task.clickupTaskId);
+      if (!existing) {
+        taskMap.set(task.clickupTaskId, task);
+      } else {
+        // Merge: prefer non-null values from either version
+        taskMap.set(task.clickupTaskId, {
+          ...existing,
+          revisions: existing.revisions ?? task.revisions,
+          qualityCheck: existing.qualityCheck ?? task.qualityCheck,
+          caption: existing.caption ?? task.caption,
+          frameLink: existing.frameLink ?? task.frameLink,
+          rawDriveLink: existing.rawDriveLink ?? task.rawDriveLink,
+          instagramUrl: existing.instagramUrl ?? task.instagramUrl,
+          captionApproval: existing.captionApproval ?? task.captionApproval,
+          publishingStatus: existing.publishingStatus ?? task.publishingStatus,
+          clientFacingTitle: existing.clientFacingTitle ?? task.clientFacingTitle,
+        });
+      }
+    }
+  }
+
+  return Array.from(taskMap.values());
 }
 
 export interface ClientQuota {
