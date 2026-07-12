@@ -24,18 +24,29 @@ async function fetchAllTasksFromList(listId: string, token: string) {
   return all;
 }
 
+async function fetchAllTasksFromFolder(folderId: string, token: string) {
+  const res = await fetch(`${BASE}/folder/${folderId}/list`, { headers: { Authorization: token } });
+  const data = await res.json();
+  const lists: any[] = data.lists ?? [];
+  const results = await Promise.all(lists.map((l: any) => fetchAllTasksFromList(l.id, token)));
+  return results.flat();
+}
+
 export async function POST() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const token = process.env.CLICKUP_API_TOKEN;
-  const listId = process.env.CLICKUP_LIST_ID;
+  const masterListId = process.env.CLICKUP_LIST_ID;
+  const folderId = process.env.CLICKUP_FOLDER_ID;
 
   if (!token) return NextResponse.json({ error: 'CLICKUP_API_TOKEN not set' }, { status: 500 });
-  if (!listId) return NextResponse.json({ error: 'CLICKUP_LIST_ID not set' }, { status: 500 });
+  if (!masterListId && !folderId) return NextResponse.json({ error: 'No ClickUp list/folder configured' }, { status: 500 });
 
   try {
-    const rawTasks = await fetchAllTasksFromList(listId, token);
+    const rawTasks = masterListId
+      ? await fetchAllTasksFromList(masterListId, token)
+      : await fetchAllTasksFromFolder(folderId!, token);
 
     // Build shared options map once — ClickUp only includes type_config on some tasks
     const fieldOptions: Record<string, any[]> = {};
