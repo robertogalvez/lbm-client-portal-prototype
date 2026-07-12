@@ -214,9 +214,10 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
             {reviewTasks.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>
-                  Needs your review
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#b06f06', background: '#fbeecf', padding: '2px 9px', borderRadius: 100 }}>{reviewTasks.length}</span>
+                  🔴 Needs your review
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', background: '#fee2e2', padding: '2px 9px', borderRadius: 100 }}>{reviewTasks.length}</span>
                 </div>
+                <p style={{ fontSize: 12, color: '#6b6455', margin: '0 0 4px', fontStyle: 'italic' }}>Please review these videos and approve or request changes</p>
                 {reviewTasks.map(t => (
                   <VideoReviewCard key={t.clickupTaskId} task={t} thumbnail={thumbnails[t.clickupTaskId] ?? null} />
                 ))}
@@ -224,15 +225,17 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
             )}
             {inProgress.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>In production</div>
+                <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>📹 In production</div>
+                <p style={{ fontSize: 12, color: '#6b6455', margin: '0 0 4px', fontStyle: 'italic' }}>Videos currently being edited and prepared for your review</p>
                 {inProgress.map(t => (
-                  <VideoRow key={t.clickupTaskId} task={t} color="#2563eb" colorBg="#e8eefc" />
+                  <VideoRow key={t.clickupTaskId} task={t} color="#2563eb" colorBg="#e8eefc" date={t.dueDate ? fmtDate(t.dueDate) : null} />
                 ))}
               </div>
             )}
             {postedTasks.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0', marginTop: 4 }}>Recently posted</div>
+                <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0', marginTop: 4 }}>✅ Recently posted</div>
+                <p style={{ fontSize: 12, color: '#6b6455', margin: '0 0 4px', fontStyle: 'italic' }}>Videos that have been approved and shared on social media</p>
                 {postedTasks.slice(0, 8).map(t => (
                   <VideoRow key={t.clickupTaskId} task={t} color="#14805f" colorBg="#e4f3ec" label="Posted" date={fmtDate(t.dateUpdated)} />
                 ))}
@@ -402,7 +405,11 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
             {/* Needs your review */}
             {reviewTasks.length > 0 && (
               <section style={{marginBottom:36}}>
-                <h2 style={{fontSize:18, fontWeight:700, marginBottom:16}}>Needs your review</h2>
+                <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:8}}>
+                  <h2 style={{fontSize:18, fontWeight:700, margin:0}}>🔴 Needs your review</h2>
+                  <span style={{fontSize:13, fontWeight:700, color:'#dc2626', background:'#fee2e2', padding:'4px 12px', borderRadius:20}}>Action required</span>
+                </div>
+                <p style={{fontSize:13, color:'#6b6455', margin:'0 0 16px', fontStyle:'italic'}}>Please review these videos and approve or request changes</p>
                 <div className="cd-review-grid">
                   {reviewTasks.map(t => <DesktopVideoCard key={t.clickupTaskId} t={t} />)}
                 </div>
@@ -412,12 +419,14 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
             {/* In production */}
             {inProgress.length > 0 && (
               <section style={{marginBottom:36}}>
-                <h2 style={{fontSize:18, fontWeight:700, marginBottom:12}}>In production</h2>
+                <h2 style={{fontSize:18, fontWeight:700, marginBottom:8}}>📹 In production</h2>
+                <p style={{fontSize:13, color:'#6b6455', margin:'0 0 12px', fontStyle:'italic'}}>Videos currently being edited and prepared for your review</p>
                 {inProgress.map(t => (
                   <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
                     <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
                     <div style={{flex:1}}>
                       <div style={{fontWeight:600, fontSize:14}}>{t.clientFacingTitle || t.title}</div>
+                      {t.dueDate && <div style={{fontSize:11, color:'#9d9488', marginTop:2}}>Due: {fmtDate(t.dueDate)}</div>}
                     </div>
                     <span style={{background:'#e8eefc', color:'#2563eb', fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>{norm(t.status)}</span>
                     {t.rawDriveLink && (
@@ -436,9 +445,14 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                 .filter(t => t.clientApproval === 'approved' || t.clientApproval === 'changes_requested')
                 .sort((a,b) => (Number(b.dateUpdated)||0) - (Number(a.dateUpdated)||0))
                 .slice(0, 6);
+              const approved = reviewed.filter(t => t.clientApproval === 'approved').length;
+              const changesRequested = reviewed.filter(t => t.clientApproval === 'changes_requested').length;
               return reviewed.length > 0 ? (
                 <section>
-                  <h2 style={{fontSize:18, fontWeight:700, marginBottom:12}}>Recently reviewed</h2>
+                  <h2 style={{fontSize:18, fontWeight:700, marginBottom:8}}>✅ Recently reviewed</h2>
+                  <p style={{fontSize:13, color:'#6b6455', margin:'0 0 12px', fontStyle:'italic'}}>
+                    Summary: <strong style={{color:'#1a6b35'}}>{approved} approved</strong> {changesRequested > 0 && <>, <strong style={{color:'#c2410c'}}>{changesRequested} changes requested</strong></>}
+                  </p>
                   {reviewed.map(t => (
                     <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
                       <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
@@ -449,8 +463,8 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                       <span style={{
                         background: t.clientApproval === 'approved' ? '#d4edda' : '#fde8d0',
                         color: t.clientApproval === 'approved' ? '#1a6b35' : '#c2410c',
-                        fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:600
-                      }}>{t.clientApproval === 'approved' ? 'Approved' : 'Changes requested'}</span>
+                        fontSize:12, padding:'4px 12px', borderRadius:12, fontWeight:600, display:'inline-flex', alignItems:'center', gap:4
+                      }}>{t.clientApproval === 'approved' ? '✅ Approved' : '⚠️ Changes requested'}</span>
                       {t.instagramUrl && <InstagramLink url={t.instagramUrl} label="Instagram" compact />}
                       <a href={`/client/videos/${t.clickupTaskId}`} style={{fontSize:13, color:'#f97316', fontWeight:600}}>View →</a>
                     </div>
@@ -517,26 +531,20 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
       {/* Body */}
       <div style={{ padding: '13px 15px 15px', display: 'flex', flexDirection: 'column', gap: 11 }}>
         <div style={{ fontSize: 15.5, fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.25 }}>
-          {task.title}
+          {task.clientFacingTitle || task.title}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const, fontSize: 12, color: '#9d9488', fontWeight: 500 }}>
-          {task.assignedAmName && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{
-                width: 22, height: 22, borderRadius: '50%', background: '#5e6b7a',
-                color: '#fff', display: 'grid', placeItems: 'center',
-                fontSize: 9.5, fontWeight: 700, flexShrink: 0,
-              }}>{initials(task.assignedAmName)}</span>
-              <span>Account Manager · {task.assignedAmName}</span>
-            </span>
-          )}
-          <span style={{ width: 3, height: 3, borderRadius: '50%', background: '#9d9488' }} />
           <span>{waiting === 0 ? 'Today' : waiting === 1 ? 'Yesterday' : `${waiting}d ago`}</span>
           {task.dueDate && (
             <>
               <span style={{ width: 3, height: 3, borderRadius: '50%', background: '#9d9488' }} />
-              <span>Due {fmtDate(task.dueDate)}</span>
+              <span style={{
+                color: new Date(task.dueDate).getTime() < Date.now() ? '#dc2626' : '#9d9488',
+                fontWeight: new Date(task.dueDate).getTime() < Date.now() ? 600 : 500,
+              }}>
+                {new Date(task.dueDate).getTime() < Date.now() ? '⚠️ Overdue' : 'Due'} {fmtDate(task.dueDate)}
+              </span>
             </>
           )}
         </div>
