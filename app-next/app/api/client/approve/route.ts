@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { authUsers } from '@/lib/db/schema';
+import { authUsers, clients } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { getViewAsClient } from '@/lib/view-as';
 
 const BASE = 'https://api.clickup.com/api/v2';
 
@@ -25,7 +26,22 @@ export async function POST(req: Request) {
     .limit(1);
 
   const userRow = rows[0];
-  if (!userRow || userRow.role !== 'client' || !userRow.clientName) {
+  if (!userRow) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  // Support both actual clients and admins viewing as clients
+  let effectiveClientName = userRow.clientName;
+  const isStaff = userRow.role === 'admin' || userRow.role === 'account_manager';
+  if (isStaff) {
+    const viewAsClient = await getViewAsClient();
+    if (viewAsClient) {
+      effectiveClientName = viewAsClient.name;
+    }
+  }
+
+  if (!effectiveClientName) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  if (userRow.role !== 'client' && !isStaff) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
