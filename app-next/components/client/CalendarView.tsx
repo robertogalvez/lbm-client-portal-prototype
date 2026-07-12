@@ -5,8 +5,10 @@ import { useState } from 'react';
 export interface CalTask {
   clickupTaskId: string;
   title: string;
+  clientFacingTitle: string | null;
   status: string;
   dueDate: string | null;
+  dateUpdated: string;
   clientApproval: string | null;
   frameLink: string | null;
   rawDriveLink: string | null;
@@ -30,6 +32,12 @@ function isInProcess(t: CalTask): boolean {
   return !['posted in socials', 'for client review', 'ready to be posted'].includes(s) && t.clientApproval !== 'approved';
 }
 
+function getDisplayDate(t: CalTask): string | null {
+  const s = norm(t.status);
+  if (s === 'posted in socials') return t.dateUpdated;
+  return t.dueDate;
+}
+
 function toKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
@@ -47,11 +55,12 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
   const todayKey = toKey(now);
   const monthLabel = firstOfMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
-  // Group tasks by due-date key (include ALL tasks with due dates)
+  // Group tasks by date (due date for unpublished, dateUpdated for published)
   const byDate: Record<string, CalTask[]> = {};
   for (const t of tasks) {
-    if (!t.dueDate) continue;
-    const k = toKey(new Date(t.dueDate));
+    const displayDate = getDisplayDate(t);
+    if (!displayDate) continue;
+    const k = toKey(new Date(displayDate));
     (byDate[k] ??= []).push(t);
   }
 
@@ -72,8 +81,11 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
 
   // Upcoming sidebar: next 6 tasks due after today, sorted by date
   const upcomingTasks = tasks
-    .filter(t => t.dueDate && new Date(t.dueDate).getTime() > now.getTime())
-    .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
+    .filter(t => {
+      const displayDate = getDisplayDate(t);
+      return displayDate && new Date(displayDate).getTime() > now.getTime() && norm(t.status) !== 'posted in socials';
+    })
+    .sort((a, b) => new Date(getDisplayDate(a)!).getTime() - new Date(getDisplayDate(b)!).getTime())
     .slice(0, 6);
 
   // ── List view ─────────────────────────────────────────────
@@ -82,19 +94,19 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
     const WEEK = 7 * DAY;
     const monday = now.getTime() - ((now.getDay() || 7) - 1) * DAY;
     const weeks = Array.from({ length: 5 }, (_, i) => monday - WEEK + i * WEEK);
-    const withDue = tasks.filter(t => t.dueDate).sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+    const withDate = tasks.filter(t => getDisplayDate(t)).sort((a, b) => new Date(getDisplayDate(a)!).getTime() - new Date(getDisplayDate(b)!).getTime());
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <ViewToggle view={view} setView={setView} />
-        {withDue.length === 0 ? (
+        {withDate.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9d9488' }}>
             <div style={{ fontSize: 28, marginBottom: 8 }}>📅</div>
             <p style={{ fontSize: 13, margin: 0 }}>No scheduled videos yet.</p>
           </div>
         ) : weeks.map(ws => {
           const we = ws + WEEK;
-          const wt = withDue.filter(t => { const d = new Date(t.dueDate!).getTime(); return d >= ws && d < we; });
+          const wt = withDate.filter(t => { const d = new Date(getDisplayDate(t)!).getTime(); return d >= ws && d < we; });
           if (!wt.length) return null;
           const diff = Math.round((ws - monday) / WEEK);
           const wLabel = diff === 0 ? 'This week' : diff === -1 ? 'Last week' : diff === 1 ? 'Next week'
@@ -105,7 +117,8 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {wt.map(t => {
                   const { color, bg, label } = statusStyle(t);
-                  const due = new Date(t.dueDate!);
+                  const displayDate = getDisplayDate(t)!;
+                  const due = new Date(displayDate);
                   const overdue = due.getTime() < now.getTime() && norm(t.status) !== 'posted in socials';
                   return (
                     <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}?from=calendar`} style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -115,7 +128,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                           <div style={{ fontSize: 10, fontWeight: 600, color: '#9d9488', textTransform: 'uppercase' }}>{due.toLocaleString('en-US', { month: 'short' })}</div>
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#221e18', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#221e18', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.clientFacingTitle || t.title}</div>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color, background: bg, padding: '2px 6px', borderRadius: 5, marginTop: 3 }}>
                             <span style={{ width: 5, height: 5, borderRadius: '50%', background: color }} />{label}
                           </span>
@@ -194,7 +207,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                       return (
                         <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}?from=calendar`} style={{ textDecoration: 'none', color: 'inherit' }} onClick={e => e.stopPropagation()}>
                           <div style={{ fontSize: 11, fontWeight: 700, color, background: bg, padding: '1px 3px', borderRadius: 3, marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }}>
-                            {t.title}
+                            {t.clientFacingTitle || t.title}
                           </div>
                         </a>
                       );
@@ -223,7 +236,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid #f0e8df' }}>
                       <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.clientFacingTitle || t.title}</div>
                         <span style={{ fontSize: 10.5, fontWeight: 700, color, background: bg, padding: '1px 6px', borderRadius: 5 }}>{label}</span>
                         {isInProcess(t) && t.rawDriveLink && (
                           <span
@@ -251,7 +264,8 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
               <div style={{ fontSize: 12, color: '#9d9488' }}>No upcoming videos.</div>
             ) : upcomingTasks.map(t => {
               const { color, bg, label } = statusStyle(t);
-              const due = new Date(t.dueDate!);
+              const displayDate = getDisplayDate(t)!;
+              const due = new Date(displayDate);
               return (
                 <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}?from=calendar`} style={{ textDecoration: 'none', color: 'inherit' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderTop: '1px solid #f0e8df' }}>
@@ -260,7 +274,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                       <div style={{ fontSize: 9, fontWeight: 600, color: '#9d9488', textTransform: 'uppercase' }}>{due.toLocaleString('en-US', { month: 'short' })}</div>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.clientFacingTitle || t.title}</div>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color, background: bg, padding: '1px 5px', borderRadius: 4, marginTop: 2 }}>
                         <span style={{ width: 4, height: 4, borderRadius: '50%', background: color }} />{label}
                       </span>

@@ -254,8 +254,10 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
             <CalendarView tasks={clientTasks.map(t => ({
               clickupTaskId: t.clickupTaskId,
               title: t.title,
+              clientFacingTitle: t.clientFacingTitle,
               status: t.status,
               dueDate: t.dueDate,
+              dateUpdated: t.dateUpdated,
               clientApproval: t.clientApproval,
               frameLink: t.frameLink,
               rawDriveLink: t.rawDriveLink,
@@ -478,8 +480,10 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
         {showCalendar && effectiveTab === 'calendar' && <CalendarView tasks={clientTasks.map(t => ({
           clickupTaskId: t.clickupTaskId,
           title: t.title,
+          clientFacingTitle: t.clientFacingTitle,
           status: t.status,
           dueDate: t.dueDate,
+          dateUpdated: t.dateUpdated,
           clientApproval: t.clientApproval,
           frameLink: t.frameLink,
           rawDriveLink: t.rawDriveLink,
