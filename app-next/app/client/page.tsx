@@ -430,8 +430,8 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                     </div>
                     <span style={{background:'#e8eefc', color:'#2563eb', fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>{norm(t.status)}</span>
                     {t.rawDriveLink && (
-                      <a href={t.rawDriveLink} target="_blank" rel="noopener noreferrer" style={{fontSize:12, color:'#6b6455', textDecoration:'none', padding:'4px 8px'}}>
-                        📥
+                      <a href={t.rawDriveLink} target="_blank" rel="noopener noreferrer" style={{fontSize:12, color:'#FF6000', textDecoration:'none', padding:'4px 8px', fontWeight:600}}>
+                        Raw file →
                       </a>
                     )}
                   </div>
@@ -629,8 +629,8 @@ function VideoRow({ task, color, colorBg, label, date }: { task: MappedTask; col
         {label ?? task.status}
       </span>
       {task.rawDriveLink && (
-        <a href={task.rawDriveLink} target="_blank" rel="noopener noreferrer" style={{fontSize:11, color:'#9d9488', textDecoration:'none', padding:'4px 8px', flexShrink:0}}>
-          📥
+        <a href={task.rawDriveLink} target="_blank" rel="noopener noreferrer" style={{fontSize:11, color:'#FF6000', textDecoration:'none', padding:'4px 8px', flexShrink:0, fontWeight:600}}>
+          Raw →
         </a>
       )}
     </div>
