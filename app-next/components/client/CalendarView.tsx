@@ -18,6 +18,11 @@ function norm(s: string) {
   return s.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
+function displayTitle(clientFacingTitle: string | null, title: string, maxLength = 40): string {
+  const display = clientFacingTitle || title;
+  return display.length > maxLength ? display.slice(0, maxLength) + '…' : display;
+}
+
 function statusStyle(t: CalTask): { color: string; bg: string; label: string } {
   const s = norm(t.status);
   if (s === 'posted in socials') return { color: '#14805f', bg: '#e4f3ec', label: 'Posted' };
@@ -128,7 +133,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                           <div style={{ fontSize: 10, fontWeight: 600, color: '#9d9488', textTransform: 'uppercase' }}>{due.toLocaleString('en-US', { month: 'short' })}</div>
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#221e18', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.clientFacingTitle || t.title}</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#221e18', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color, background: bg, padding: '2px 6px', borderRadius: 5, marginTop: 3 }}>
                             <span style={{ width: 5, height: 5, borderRadius: '50%', background: color }} />{label}
                           </span>
@@ -206,8 +211,8 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                       const { color, bg } = statusStyle(t);
                       return (
                         <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}?from=calendar`} style={{ textDecoration: 'none', color: 'inherit' }} onClick={e => e.stopPropagation()}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color, background: bg, padding: '1px 3px', borderRadius: 3, marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }}>
-                            {t.clientFacingTitle || t.title}
+                          <div style={{ fontSize: 11, fontWeight: 700, color, background: bg, padding: '1px 3px', borderRadius: 3, marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }} title={t.clientFacingTitle || t.title}>
+                            {displayTitle(t.clientFacingTitle, t.title, 30)}
                           </div>
                         </a>
                       );
@@ -236,7 +241,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid #f0e8df' }}>
                       <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.clientFacingTitle || t.title}</div>
+                        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
                         <span style={{ fontSize: 10.5, fontWeight: 700, color, background: bg, padding: '1px 6px', borderRadius: 5 }}>{label}</span>
                         {isInProcess(t) && t.rawDriveLink && (
                           <span
@@ -274,7 +279,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                       <div style={{ fontSize: 9, fontWeight: 600, color: '#9d9488', textTransform: 'uppercase' }}>{due.toLocaleString('en-US', { month: 'short' })}</div>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.clientFacingTitle || t.title}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color, background: bg, padding: '1px 5px', borderRadius: 4, marginTop: 2 }}>
                         <span style={{ width: 4, height: 4, borderRadius: '50%', background: color }} />{label}
                       </span>
