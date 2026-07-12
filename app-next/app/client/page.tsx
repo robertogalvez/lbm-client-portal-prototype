@@ -97,9 +97,11 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     fetchError = e instanceof Error ? e.message : 'Unknown error';
   }
 
-  const [clientRecord] = await db.select({ showCalendar: clients.showCalendar, showInvoices: clients.showInvoices }).from(clients).where(eq(clients.name, clientName)).limit(1);
+  const [clientRecord] = await db.select({ showCalendar: clients.showCalendar, showInvoices: clients.showInvoices, monthlyReels: clients.monthlyReels, monthlyYoutube: clients.monthlyYoutube }).from(clients).where(eq(clients.name, clientName)).limit(1);
   const showCalendar = clientRecord?.showCalendar ?? false;
   const showInvoices = clientRecord?.showInvoices ?? false;
+  const agreedReels = clientRecord?.monthlyReels ?? 0;
+  const agreedYoutube = clientRecord?.monthlyYoutube ?? 0;
   const clientInvoices = showInvoices ? await getInvoicesForClient(clientName) : [];
   const quickbooksConnected = isQuickBooksConfigured();
   const effectiveTab =
@@ -115,6 +117,8 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   );
   const monthStart  = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
   const postedThisMonth = postedTasks.filter(t => new Date(t.dateUpdated).getTime() >= monthStart).length;
+  const deliveredReels = postedTasks.filter(t => new Date(t.dateUpdated).getTime() >= monthStart && !t.isYoutube).length;
+  const deliveredYoutube = postedTasks.filter(t => new Date(t.dateUpdated).getTime() >= monthStart && t.isYoutube).length;
   const displayName = (name ?? clientName).split(' ')[0];
   const pct = clientTasks.length > 0 ? Math.round((postedTasks.length / clientTasks.length) * 100) : 0;
 
@@ -208,20 +212,10 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                 </div>
               </div>
             </div>
-            {/* Breakdown stats */}
+            {/* Agreed vs Delivered */}
             <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'rgba(255,255,255,.8)', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <div>Awaiting you:</div>
-                <div style={{ fontWeight: 700 }}>
-                  {reviewTasks.filter(t => !t.isYoutube).length} Reels, {reviewTasks.filter(t => t.isYoutube).length} YT
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <div>In progress:</div>
-                <div style={{ fontWeight: 700 }}>
-                  {inProgress.filter(t => !t.isYoutube).length} Reels, {inProgress.filter(t => t.isYoutube).length} YT
-                </div>
-              </div>
+              <div>Reels - Agreed: <span style={{ fontWeight: 700 }}>{agreedReels}</span> | Delivered: <span style={{ fontWeight: 700 }}>{deliveredReels}</span></div>
+              <div>YT - Agreed: <span style={{ fontWeight: 700 }}>{agreedYoutube}</span> | Delivered: <span style={{ fontWeight: 700 }}>{deliveredYoutube}</span></div>
             </div>
           </div>
 
