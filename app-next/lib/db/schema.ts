@@ -63,8 +63,6 @@ export const clients = pgTable('clients', {
   showCalendar:      boolean('show_calendar').default(false),
   showInvoices:      boolean('show_invoices').default(false),
   monthlyQuota:      integer('monthly_quota'),
-  monthlyReels:      integer('monthly_reels').default(0),
-  monthlyYoutube:    integer('monthly_youtube').default(0),
   frameioProjectId:  varchar('frameio_project_id', { length: 100 }),
   whatsappNumber:    varchar('whatsapp_number', { length: 30 }),
   brandingConfig:    jsonb('branding_config'),
