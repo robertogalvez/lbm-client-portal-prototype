@@ -61,6 +61,7 @@ export interface MappedTask {
   assignedAmName: string | null;
   editorName: string | null;
   isYoutube: boolean;
+  revisions: number | null;
   dateUpdated: string;
   dueDate: string | null;
 }
@@ -82,6 +83,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
   const amField       = findField(task, 'Account Manager (AM)');
   const qcField       = findField(task, 'QUALITY CHECK (Somu)');
   const clientFacingTitleField = findField(task, 'Client-Facing Title');
+  const revisionsField = findField(task, 'Revisions #');
 
   const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
   const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
@@ -110,6 +112,8 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     return field.type_config?.options?.[idx]?.id ?? sharedOptions[field.name]?.[idx]?.id ?? null;
   };
 
+  const revisions = typeof revisionsField?.value === 'number' ? revisionsField.value : null;
+
   return {
     clickupTaskId:    task.id,
     title:            task.name,
@@ -129,6 +133,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     assignedAmName:   amName,
     editorName,
     isYoutube,
+    revisions,
     dateUpdated:      task.date_updated,
     dueDate,
   };
