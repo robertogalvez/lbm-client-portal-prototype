@@ -353,7 +353,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
         </div>
 
         {/* Pipeline stats banner */}
-        <div style={{background:'#1a1714', borderRadius:16, padding:'24px 32px', marginBottom:28, display:'flex', alignItems:'center', gap:32, color:'#fff'}}>
+        <div style={{background:'#1a1714', borderRadius:16, padding:'20px 16px', marginBottom:28, display:'flex', alignItems:'center', gap:12, color:'#fff', flexWrap:'wrap', justifyContent:'space-between'}}>
           {/* Conic progress ring */}
           <div style={{position:'relative', width:72, height:72, flexShrink:0}}>
             <svg width="72" height="72" viewBox="0 0 72 72">
@@ -430,8 +430,8 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                     </div>
                     <span style={{background:'#e8eefc', color:'#2563eb', fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>{norm(t.status)}</span>
                     {t.rawDriveLink && (
-                      <a href={t.rawDriveLink} target="_blank" rel="noopener noreferrer" style={{fontSize:12, color:'#6b6455', textDecoration:'none', padding:'4px 8px'}}>
-                        📥
+                      <a href={t.rawDriveLink} target="_blank" rel="noopener noreferrer" style={{fontSize:12, color:'#f97316', fontWeight:600, textDecoration:'none', padding:'4px 8px'}}>
+                        Raw file →
                       </a>
                     )}
                   </div>
@@ -629,8 +629,8 @@ function VideoRow({ task, color, colorBg, label, date }: { task: MappedTask; col
         {label ?? task.status}
       </span>
       {task.rawDriveLink && (
-        <a href={task.rawDriveLink} target="_blank" rel="noopener noreferrer" style={{fontSize:11, color:'#9d9488', textDecoration:'none', padding:'4px 8px', flexShrink:0}}>
-          📥
+        <a href={task.rawDriveLink} target="_blank" rel="noopener noreferrer" style={{fontSize:11, color:'#f97316', fontWeight:600, textDecoration:'none', padding:'4px 8px', flexShrink:0}}>
+          Raw →
         </a>
       )}
     </div>
