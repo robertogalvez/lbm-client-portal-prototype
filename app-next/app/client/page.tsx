@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { authUsers, clients } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { getTasksFromList } from '@/lib/clickup';
+import { getTasksFromList, getClientQuotas } from '@/lib/clickup';
 import type { MappedTask } from '@/lib/clickup';
 import { ApprovalButtons } from '@/components/client/ApprovalButtons';
 import { NotificationBell } from '@/components/client/NotificationBell';
@@ -90,9 +90,11 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   }
 
   let allTasks: MappedTask[] = [];
+  let clientQuotas = [];
   let fetchError: string | null = null;
   try {
     allTasks = await getTasksFromList(process.env.CLICKUP_LIST_ID!, false);
+    clientQuotas = await getClientQuotas();
   } catch (e) {
     fetchError = e instanceof Error ? e.message : 'Unknown error';
   }
@@ -100,9 +102,10 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   const [clientRecord] = await db.select({ showCalendar: clients.showCalendar, showInvoices: clients.showInvoices }).from(clients).where(eq(clients.name, clientName)).limit(1);
   const showCalendar = clientRecord?.showCalendar ?? false;
   const showInvoices = clientRecord?.showInvoices ?? false;
-  // TODO: Query monthlyReels and monthlyYoutube after migration is applied
-  const agreedReels = 0;
-  const agreedYoutube = 0;
+
+  const clientQuota = clientQuotas.find(q => q.name === clientName);
+  const agreedReels = clientQuota?.reelsPerMonth ?? 0;
+  const agreedYoutube = clientQuota?.ytPerMonth ?? 0;
   const clientInvoices = showInvoices ? await getInvoicesForClient(clientName) : [];
   const quickbooksConnected = isQuickBooksConfigured();
   const effectiveTab =
