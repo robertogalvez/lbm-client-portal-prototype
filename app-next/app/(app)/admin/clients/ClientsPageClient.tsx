@@ -76,8 +76,6 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
 
   // Portal-only fields (the only ones an admin can edit — everything else comes from ClickUp)
   const [fType, setFType] = useState<'retainer' | 'one_time' | null>(null);
-  const [fFrameio, setFFrameio] = useState('');
-  const [fVistaSocial, setFVistaSocial] = useState('');
   const [fCalendar, setFCalendar] = useState(false);
   const [fInvoices, setFInvoices] = useState(false);
 
@@ -91,9 +89,6 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
   function openEdit(c: ClientRecord) {
     setSelected(c);
     setFType((c.type as 'retainer' | 'one_time' | null) ?? null);
-    setFFrameio(c.frameioProjectId ?? '');
-    const vs = (c.brandingConfig as { vistaSocialProfileIds?: string })?.vistaSocialProfileIds ?? '';
-    setFVistaSocial(vs);
     setFCalendar(c.showCalendar ?? false);
     setFInvoices(c.showInvoices ?? false);
     setMsg(''); setInviteOpen(false);
@@ -108,8 +103,6 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
     setSaving(true); setMsg('');
     const body = {
       type: fType,
-      frameioProjectId: fFrameio || null,
-      vistaSocialProfileIds: fVistaSocial || null,
       showCalendar: fCalendar,
       showInvoices: fInvoices,
     };
@@ -387,16 +380,16 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                 </div>
               </div>
 
-              {/* Frame.io */}
+              {/* Frame.io (from ClickUp) */}
               <div>
-                <span style={label}>Frame.io project ID <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></span>
-                <input value={fFrameio} onChange={e => setFFrameio(e.target.value)} placeholder="abc123" style={inp} />
+                <span style={label}>Frame.io project ID</span>
+                <div style={readonlyRow}><span style={{ color: '#111c28', wordBreak: 'break-all' }}>{selected.frameioProjectId || '—'}</span></div>
               </div>
 
-              {/* Vista Social */}
+              {/* Vista Social (from ClickUp) */}
               <div>
-                <span style={label}>Vista Social profile IDs <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(comma-separated, optional)</span></span>
-                <input value={fVistaSocial} onChange={e => setFVistaSocial(e.target.value)} placeholder="id1, id2" style={inp} />
+                <span style={label}>Vista Social profile IDs</span>
+                <div style={readonlyRow}><span style={{ color: '#111c28', wordBreak: 'break-all' }}>{((selected.brandingConfig as { vistaSocialProfileIds?: string })?.vistaSocialProfileIds) || '—'}</span></div>
               </div>
 
               {/* Calendar toggle */}
