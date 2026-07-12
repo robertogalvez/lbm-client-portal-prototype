@@ -254,8 +254,8 @@ export async function getMasterClientRecords(): Promise<{ records: MasterClientR
     const phoneField        = findField(t, 'Phone Number');
     const reelsField        = findField(t, 'Reels / mo');
     const ytField           = findField(t, 'YT videos / mo');
-    const frameioField      = findField(t, 'FRAME.IO PROJECT ID');
-    const vistaSocialField  = findField(t, 'VISTA SOCIAL PROFILE IDS');
+    const frameioField      = findField(t, 'Frame.io ID');
+    const vistaSocialField  = findField(t, 'VistaSocial Profile IDs');
 
     const reels = typeof reelsField?.value === 'number' ? reelsField.value : Number(reelsField?.value ?? 0) || 0;
     const yt    = typeof ytField?.value === 'number' ? ytField.value : Number(ytField?.value ?? 0) || 0;
