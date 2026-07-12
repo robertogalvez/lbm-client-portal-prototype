@@ -52,6 +52,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
   const [view, setView] = useState<'month' | 'list'>('month');
   const [current, setCurrent] = useState({ year: now.getFullYear(), month: now.getMonth() });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [weekOffset, setWeekOffset] = useState(0);
 
   const firstOfMonth = new Date(current.year, current.month, 1);
   const lastOfMonth = new Date(current.year, current.month + 1, 0);
@@ -98,18 +99,33 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
     const DAY = 86_400_000;
     const WEEK = 7 * DAY;
     const monday = now.getTime() - ((now.getDay() || 7) - 1) * DAY;
-    const weeks = Array.from({ length: 5 }, (_, i) => monday - WEEK + i * WEEK);
+    const weekStart = monday + weekOffset * WEEK;
+    const weeks = Array.from({ length: 5 }, (_, i) => weekStart - WEEK + i * WEEK);
     const withDate = tasks.filter(t => getDisplayDate(t)).sort((a, b) => new Date(getDisplayDate(a)!).getTime() - new Date(getDisplayDate(b)!).getTime());
+
+    const weekLabel = new Date(weeks[0]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' – ' +
+                      new Date(weeks[0] + 6 * DAY).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <ViewToggle view={view} setView={setView} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={() => setWeekOffset(w => w - 1)} style={navBtn}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="m15 18-6-6 6-6" /></svg>
+          </button>
+          <div style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#221e18' }}>{weekLabel}</div>
+          <button onClick={() => setWeekOffset(w => w + 1)} style={navBtn}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="m9 18 6-6-6-6" /></svg>
+          </button>
+          <ViewToggle view={view} setView={setView} />
+        </div>
         {withDate.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9d9488' }}>
             <div style={{ fontSize: 28, marginBottom: 8 }}>📅</div>
             <p style={{ fontSize: 13, margin: 0 }}>No scheduled videos yet.</p>
           </div>
-        ) : weeks.map(ws => {
+        ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {weeks.map(ws => {
           const we = ws + WEEK;
           const wt = withDate.filter(t => { const d = new Date(getDisplayDate(t)!).getTime(); return d >= ws && d < we; });
           if (!wt.length) return null;
@@ -155,6 +171,8 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
             </div>
           );
         })}
+        </div>
+        )}
       </div>
     );
   }
