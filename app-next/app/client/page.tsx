@@ -141,7 +141,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
           )}
         </div>
         <div style={{padding:16}}>
-          <div style={{fontWeight:700, fontSize:15, marginBottom:10, lineHeight:1.3}}>{t.title}</div>
+          <div style={{fontWeight:700, fontSize:15, marginBottom:10, lineHeight:1.3}}>{t.clientFacingTitle || t.title}</div>
           <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
             <div style={{width:28,height:28,borderRadius:'50%',background:'#f97316',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#fff'}}>{initials(t.assignedAmName||'AM')}</div>
             <span style={{fontSize:12, color:'#6b6455'}}>{t.assignedAmName}</span>
@@ -400,9 +400,14 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                   <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
                     <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
                     <div style={{flex:1}}>
-                      <div style={{fontWeight:600, fontSize:14}}>{t.title}</div>
+                      <div style={{fontWeight:600, fontSize:14}}>{t.clientFacingTitle || t.title}</div>
                     </div>
                     <span style={{background:'#ede9e0', color:'#6b6455', fontSize:12, padding:'3px 10px', borderRadius:12}}>{norm(t.status)}</span>
+                    {t.rawDriveLink && (
+                      <a href={t.rawDriveLink} target="_blank" rel="noopener noreferrer" style={{fontSize:12, color:'#6b6455', textDecoration:'none', padding:'4px 8px'}}>
+                        📥
+                      </a>
+                    )}
                   </div>
                 ))}
               </section>
@@ -421,7 +426,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                     <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
                       <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
                       <div style={{flex:1}}>
-                        <div style={{fontWeight:600, fontSize:14}}>{t.title}</div>
+                        <div style={{fontWeight:600, fontSize:14}}>{t.clientFacingTitle || t.title}</div>
                       </div>
                       <span style={{fontSize:12, color:'#888'}}>{t.dateUpdated ? fmtDate(t.dateUpdated) : ''}</span>
                       <span style={{
@@ -583,7 +588,7 @@ function VideoRow({ task, color, colorBg, label, date }: { task: MappedTask; col
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13.5, fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {task.title}
+          {task.clientFacingTitle || task.title}
         </div>
         <div style={{ fontSize: 11.5, color: '#9d9488', fontWeight: 500, marginTop: 3, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
           <span>{task.status}{date ? ` · ${date}` : ''}</span>
@@ -598,6 +603,11 @@ function VideoRow({ task, color, colorBg, label, date }: { task: MappedTask; col
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: color }} />
         {label ?? task.status}
       </span>
+      {task.rawDriveLink && (
+        <a href={task.rawDriveLink} target="_blank" rel="noopener noreferrer" style={{fontSize:11, color:'#9d9488', textDecoration:'none', padding:'4px 8px', flexShrink:0}}>
+          📥
+        </a>
+      )}
     </div>
   );
 }
