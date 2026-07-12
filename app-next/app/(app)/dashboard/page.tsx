@@ -338,7 +338,7 @@ export default async function DashboardPage({
   const clients     = buildClients(tasks, monthlyPosted, clientQuotas, backlogRows);
   const editors     = buildEditors(tasks);
   const agreedVsDelivered = buildAgreedVsDelivered(monthlyPosted, clientQuotas);
-  const statusTasks: StatusTask[] = tasks.map(t => ({
+  const statusTasks: StatusTask[] = allTasks.map(t => ({
     id: t.clickupTaskId,
     title: t.title,
     clientName: t.clientName,
