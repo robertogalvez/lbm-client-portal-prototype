@@ -97,11 +97,12 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     fetchError = e instanceof Error ? e.message : 'Unknown error';
   }
 
-  const [clientRecord] = await db.select({ showCalendar: clients.showCalendar, showInvoices: clients.showInvoices, monthlyReels: clients.monthlyReels, monthlyYoutube: clients.monthlyYoutube }).from(clients).where(eq(clients.name, clientName)).limit(1);
+  const [clientRecord] = await db.select({ showCalendar: clients.showCalendar, showInvoices: clients.showInvoices }).from(clients).where(eq(clients.name, clientName)).limit(1);
   const showCalendar = clientRecord?.showCalendar ?? false;
   const showInvoices = clientRecord?.showInvoices ?? false;
-  const agreedReels = clientRecord?.monthlyReels ?? 0;
-  const agreedYoutube = clientRecord?.monthlyYoutube ?? 0;
+  // TODO: Query monthlyReels and monthlyYoutube after migration is applied
+  const agreedReels = 0;
+  const agreedYoutube = 0;
   const clientInvoices = showInvoices ? await getInvoicesForClient(clientName) : [];
   const quickbooksConnected = isQuickBooksConfigured();
   const effectiveTab =
