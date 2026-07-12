@@ -41,6 +41,11 @@ function norm(s: string) {
   return s.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
+function displayTitle(clientFacingTitle: string | null, title: string, maxLength = 40): string {
+  const display = clientFacingTitle || title;
+  return display.length > maxLength ? display.slice(0, maxLength) + '…' : display;
+}
+
 function fmtDate(iso: string | null) {
   if (!iso) return null;
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -427,7 +432,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                   <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
                     <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
                     <div style={{flex:1}}>
-                      <div style={{fontWeight:600, fontSize:14}}>{t.clientFacingTitle || t.title}</div>
+                      <div style={{fontWeight:600, fontSize:14}} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
                       {t.dueDate && <div style={{fontSize:11, color:'#9d9488', marginTop:2}}>Due: {fmtDate(t.dueDate)}</div>}
                     </div>
                     <span style={{background:'#e8eefc', color:'#2563eb', fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>{norm(t.status)}</span>
@@ -459,7 +464,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                     <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
                       <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
                       <div style={{flex:1}}>
-                        <div style={{fontWeight:600, fontSize:14}}>{t.clientFacingTitle || t.title}</div>
+                        <div style={{fontWeight:600, fontSize:14}} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
                       </div>
                       <span style={{fontSize:12, color:'#888'}}>{t.dateUpdated ? fmtDate(t.dateUpdated) : ''}</span>
                       <span style={{
@@ -616,8 +621,8 @@ function VideoRow({ task, color, colorBg, label, date }: { task: MappedTask; col
         </svg>
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {task.clientFacingTitle || task.title}
+        <div style={{ fontSize: 13.5, fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }} title={task.clientFacingTitle || task.title}>
+          {displayTitle(task.clientFacingTitle, task.title)}
         </div>
         <div style={{ fontSize: 11.5, color: '#9d9488', fontWeight: 500, marginTop: 3, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
           <span>{task.status}{date ? ` · ${date}` : ''}</span>
