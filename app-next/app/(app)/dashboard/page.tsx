@@ -46,13 +46,31 @@ function previousWindowBounds(range: string, cutoff: number): [number, number] |
 }
 
 function periodMetrics(list: MappedTask[]) {
-  const POSTED = 'posted in socials';
-  const inProd = list.filter(t => norm(t.status) !== POSTED).length;
+  // In production: videos actively being worked on
+  const inProdStatuses = new Set([
+    'qc final - am',
+    'tc - qc (somu)',
+    'in progress (corrections)',
+    'in progress (editor)',
+  ]);
+  const inProd = list.filter(t => inProdStatuses.has(norm(t.status))).length;
+
+  // Pending approval: videos in client hands
   const pending = list.filter(t => norm(t.status) === 'for client review').length;
-  const approved = list.filter(t => t.clientApproval?.toLowerCase() === 'approved').length;
+
+  // Client-approved: READY TO BE POSTED with CLIENT APPROVAL = Approved
+  const approved = list.filter(t =>
+    norm(t.status) === 'ready to be posted' &&
+    t.clientApproval?.toLowerCase() === 'approved'
+  ).length;
+
+  // First-pass clean: videos that moved to client approval with 0 revisions
+  // (This requires the revisions field from ClickUp, which may not be in MappedTask yet)
+  // For now, calculate as: approved / (approved + corrections)
   const corrections = list.filter(t => norm(t.status) === 'in progress (corrections)').length;
   const fpTotal = approved + corrections;
   const firstPassClean = fpTotal > 0 ? Math.round(approved / fpTotal * 100) : null;
+
   return { inProd, pending, approved, firstPassClean };
 }
 
