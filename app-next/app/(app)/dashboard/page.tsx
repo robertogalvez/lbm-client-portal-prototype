@@ -20,6 +20,10 @@ function daysAgo(dateStr: string): number {
 }
 
 function rangeCutoff(range: string): number {
+  if (range === 'month') {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  }
   if (range === '30d')  return Date.now() - 30  * 86_400_000;
   if (range === '90d')  return Date.now() - 90  * 86_400_000;
   if (range === '1y')   return Date.now() - 365 * 86_400_000;
@@ -29,6 +33,12 @@ function rangeCutoff(range: string): number {
 // The equal-length window immediately preceding `cutoff`, used to compute
 // KPI trend deltas. 'all' has no meaningful "prior" window.
 function previousWindowBounds(range: string, cutoff: number): [number, number] | null {
+  if (range === 'month') {
+    const d = new Date(cutoff);
+    const prevMonth = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+    const currMonth = new Date(cutoff);
+    return [prevMonth.getTime(), currMonth.getTime()];
+  }
   if (range === '30d')  return [cutoff - 30  * 86_400_000, cutoff];
   if (range === '90d')  return [cutoff - 90  * 86_400_000, cutoff];
   if (range === '1y')   return [cutoff - 365 * 86_400_000, cutoff];
@@ -220,7 +230,7 @@ export default async function DashboardPage({
     );
   }
 
-  const { range = 'all', member = '', am = '', client: clientFilter = '', inactive = '' } = await searchParams;
+  const { range = 'month', member = '', am = '', client: clientFilter = '', inactive = '' } = await searchParams;
   const showInactive = inactive === '1';
   const masterListId = process.env.CLICKUP_LIST_ID;
   const folderId     = process.env.CLICKUP_FOLDER_ID;
@@ -289,16 +299,17 @@ export default async function DashboardPage({
   const fpTotal = clientApproved + inCorrectionsTasks.length;
   const firstPassCleanPct = fpTotal > 0 ? Math.round(clientApproved / fpTotal * 100) : null;
 
-  const postedThisMonth = tasks.filter(t => norm(t.status) === POSTED && parseDate(t.dateUpdated) >= monthStart).length;
-
-  // Quota pacing (Delivery/Footage) is always scoped to the current calendar
-  // month, independent of the browsed range — an agreed monthly quota doesn't
-  // mean anything prorated over the account's entire history.
+  // Quota pacing (Delivery/Footage) and the "Posted this month" KPI are both
+  // always scoped to the current calendar month, independent of the browsed
+  // range — a monthly quota (or "this month" label) doesn't mean anything
+  // prorated over a different window.
   const monthlyPosted = allTasks
     .filter(t => norm(t.status) === POSTED && parseDate(t.dateUpdated) >= monthStart)
     .filter(t => !member       || t.editorName     === member)
     .filter(t => !am           || t.assignedAmName === am)
     .filter(t => !clientFilter || t.clientName     === clientFilter);
+
+  const postedThisMonth = monthlyPosted.length;
 
   const pipeline    = buildPipeline(tasks);
   const approvals   = buildApprovals(tasks);
@@ -366,12 +377,12 @@ export default async function DashboardPage({
     },
     {
       label: 'First-pass clean', value: firstPassCleanPct !== null ? `${firstPassCleanPct}%` : '—', dotColor: '#14805f',
-      tip: 'Approved ÷ (Approved + Rework). Higher means fewer revision rounds.',
+      tip: 'Approved ÷ (Approved + currently in Corrections), within this range. A snapshot of current rework load, not a per-task history of revision rounds.',
       delta: firstPassCleanPct !== null ? kpiDelta(firstPassCleanPct, prevMetrics?.firstPassClean, true, 'pts') : undefined,
     },
     {
       label: 'Client-approved', value: clientApproved, dotColor: '#14805f',
-      tip: 'Total videos the client has marked Approved, including already-posted ones.',
+      tip: 'Videos the client has marked Approved in this range. Not exclusive of the other tiles — overlaps with In production (not yet posted) and Posted this month.',
       delta: kpiDelta(clientApproved, prevMetrics?.approved, true),
     },
     {

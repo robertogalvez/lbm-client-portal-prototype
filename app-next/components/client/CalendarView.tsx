@@ -108,7 +108,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                   const due = new Date(t.dueDate!);
                   const overdue = due.getTime() < now.getTime() && norm(t.status) !== 'posted in socials';
                   return (
-                    <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}?from=calendar`} style={{ textDecoration: 'none', color: 'inherit' }}>
                       <div style={{ background: '#fff', border: '1px solid #ece4d8', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ textAlign: 'center', minWidth: 32, flexShrink: 0 }}>
                           <div style={{ fontSize: 17, fontWeight: 800, lineHeight: 1, color: overdue ? '#cf3f36' : '#221e18' }}>{due.getDate()}</div>
@@ -192,7 +192,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                     {cell.tasks.slice(0, 2).map(t => {
                       const { color, bg } = statusStyle(t);
                       return (
-                        <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}`} style={{ textDecoration: 'none', color: 'inherit' }} onClick={e => e.stopPropagation()}>
+                        <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}?from=calendar`} style={{ textDecoration: 'none', color: 'inherit' }} onClick={e => e.stopPropagation()}>
                           <div style={{ fontSize: 11, fontWeight: 700, color, background: bg, padding: '1px 3px', borderRadius: 3, marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }}>
                             {t.title}
                           </div>
@@ -219,7 +219,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
               ) : selectedTasks.map(t => {
                 const { color, bg, label } = statusStyle(t);
                 return (
-                  <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}?from=calendar`} style={{ textDecoration: 'none', color: 'inherit' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid #f0e8df' }}>
                       <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -253,7 +253,7 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
               const { color, bg, label } = statusStyle(t);
               const due = new Date(t.dueDate!);
               return (
-                <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}?from=calendar`} style={{ textDecoration: 'none', color: 'inherit' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderTop: '1px solid #f0e8df' }}>
                     <div style={{ textAlign: 'center', minWidth: 28, flexShrink: 0 }}>
                       <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1, color: '#221e18' }}>{due.getDate()}</div>

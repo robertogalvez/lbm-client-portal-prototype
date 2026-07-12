@@ -41,8 +41,9 @@ function toFrameioEmbedUrl(url: string): string {
   return `${cleaned.replace(/\/$/, '')}`;
 }
 
-export default async function VideoDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function VideoDetailPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams: Promise<{ from?: string }> }) {
   const { id } = await params;
+  const { from } = await searchParams;
 
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect('/login');
@@ -136,8 +137,9 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
     </div>
   );
 
+  const backHref = from === 'calendar' ? '/client?tab=calendar' : '/client';
   const backLink = (
-    <Link href="/client" style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', display: 'grid', placeItems: 'center', color: '#fff', textDecoration: 'none', flexShrink: 0 }}>
+    <Link href={backHref} style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', display: 'grid', placeItems: 'center', color: '#fff', textDecoration: 'none', flexShrink: 0 }}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{width:18,height:18}}><path d="m15 18-6-6 6-6"/></svg>
     </Link>
   );
@@ -148,7 +150,7 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
     <main className="vd-shell">
       {/* Mobile-only header */}
       <div className="vd-mobile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px', background: '#faf6f0', flexShrink: 0 }}>
-        <Link href="/client" style={{ width: 40, height: 40, borderRadius: 12, background: '#fff', border: '1px solid #ece4d8', display: 'grid', placeItems: 'center', color: '#221e18', textDecoration: 'none' }}>
+        <Link href={backHref} style={{ width: 40, height: 40, borderRadius: 12, background: '#fff', border: '1px solid #ece4d8', display: 'grid', placeItems: 'center', color: '#221e18', textDecoration: 'none' }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{width:19,height:19}}><path d="m15 18-6-6 6-6"/></svg>
         </Link>
         <div style={{ fontSize: 14, fontWeight: 700 }}>Review video</div>
@@ -169,10 +171,10 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
       <div className="vd-right">
         <div className="vd-right-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Link href="/client" style={{ width: 30, height: 30, borderRadius: 8, background: '#f7f2ea', border: '1px solid #ece4d8', display: 'grid', placeItems: 'center', color: '#221e18', textDecoration: 'none' }}>
+            <Link href={backHref} style={{ width: 30, height: 30, borderRadius: 8, background: '#f7f2ea', border: '1px solid #ece4d8', display: 'grid', placeItems: 'center', color: '#221e18', textDecoration: 'none' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{width:15,height:15}}><path d="m15 18-6-6 6-6"/></svg>
             </Link>
-            <span style={{ fontSize: 12, color: '#9d9488', fontWeight: 500 }}>Reviews</span>
+            <span style={{ fontSize: 12, color: '#9d9488', fontWeight: 500 }}>{from === 'calendar' ? 'Calendar' : 'Reviews'}</span>
           </div>
           <span style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>Details</span>
         </div>

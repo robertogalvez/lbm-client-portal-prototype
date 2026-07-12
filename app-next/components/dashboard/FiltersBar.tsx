@@ -4,10 +4,11 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useCallback } from 'react';
 
 const DATE_RANGES = [
-  { label: 'All time', value: 'all' },
+  { label: 'This month', value: 'month' },
   { label: 'Last 30 days', value: '30d' },
   { label: 'Last 3 months', value: '90d' },
   { label: 'This year', value: '365d' },
+  { label: 'All time', value: 'all' },
 ];
 
 interface Props {
@@ -29,7 +30,7 @@ export function FiltersBar({ members, ams, clients, hideDateRange }: Props) {
     router.push(`${pathname}?${next.toString()}`);
   }, [params, pathname, router]);
 
-  const range    = params.get('range')    ?? 'all';
+  const range    = params.get('range')    ?? 'month';
   const member   = params.get('member')   ?? '';
   const am       = params.get('am')       ?? '';
   const client   = params.get('client')   ?? '';
