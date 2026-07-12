@@ -68,21 +68,24 @@ export function CaptionApprovalButtons({ taskId, currentApproval }: Props) {
   // Already decided — show badge
   if (state === 'done' || (result && state === 'idle')) {
     const approved = result?.toLowerCase().includes('approv') && !result?.toLowerCase().includes('changes');
+    const changed = result?.toLowerCase().includes('change');
     return (
       <div style={{
         display: 'inline-flex', alignItems: 'center', gap: 7,
         padding: '10px 14px', borderRadius: 13,
-        background: approved ? '#e4f3ec' : '#fbe7e2',
+        background: approved ? '#e4f3ec' : changed ? '#fbe7e2' : '#f4f6f8',
         fontSize: 14, fontWeight: 700,
-        color: approved ? '#14805f' : '#cf3f36',
+        color: approved ? '#14805f' : changed ? '#cf3f36' : '#8b97a4',
       }}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{width:15,height:15}}>
           {approved
             ? <path d="M20 6 9 17l-5-5"/>
-            : <><path d="M18 6 6 18"/><path d="M6 6l12 12"/></>
+            : changed
+            ? <><path d="M18 6 6 18"/><path d="M6 6l12 12"/></>
+            : <circle cx="12" cy="12" r="9"/>
           }
         </svg>
-        Caption {result}
+        Caption {result || 'Pending'}
       </div>
     );
   }
