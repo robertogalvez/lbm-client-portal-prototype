@@ -306,7 +306,8 @@ export default async function DashboardPage({
   const POSTED = 'posted in socials';
   
   // Use correct periodMetrics calculation for KPI display
-  const metrics = periodMetrics(tasks);
+  // Status counts should ignore date filters - a video's status doesn't change based on update recency
+  const metrics = periodMetrics(allTasks);
   const inProduction = metrics.inProd;
   const pendingApproval = metrics.pending;
   const clientApproved = metrics.approved;
@@ -331,8 +332,8 @@ export default async function DashboardPage({
 
   const postedThisMonth = monthlyPosted.length;
 
-  const pipeline    = buildPipeline(tasks);
-  const approvals   = buildApprovals(tasks);
+  const pipeline    = buildPipeline(allTasks);
+  const approvals   = buildApprovals(allTasks);
   const backlogRows = buildBacklog(allTasks);
   const clients     = buildClients(tasks, monthlyPosted, clientQuotas, backlogRows);
   const editors     = buildEditors(tasks);
