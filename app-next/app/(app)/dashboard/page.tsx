@@ -289,16 +289,17 @@ export default async function DashboardPage({
   const fpTotal = clientApproved + inCorrectionsTasks.length;
   const firstPassCleanPct = fpTotal > 0 ? Math.round(clientApproved / fpTotal * 100) : null;
 
-  const postedThisMonth = tasks.filter(t => norm(t.status) === POSTED && parseDate(t.dateUpdated) >= monthStart).length;
-
-  // Quota pacing (Delivery/Footage) is always scoped to the current calendar
-  // month, independent of the browsed range — an agreed monthly quota doesn't
-  // mean anything prorated over the account's entire history.
+  // Quota pacing (Delivery/Footage) and the "Posted this month" KPI are both
+  // always scoped to the current calendar month, independent of the browsed
+  // range — a monthly quota (or "this month" label) doesn't mean anything
+  // prorated over a different window.
   const monthlyPosted = allTasks
     .filter(t => norm(t.status) === POSTED && parseDate(t.dateUpdated) >= monthStart)
     .filter(t => !member       || t.editorName     === member)
     .filter(t => !am           || t.assignedAmName === am)
     .filter(t => !clientFilter || t.clientName     === clientFilter);
+
+  const postedThisMonth = monthlyPosted.length;
 
   const pipeline    = buildPipeline(tasks);
   const approvals   = buildApprovals(tasks);
@@ -366,12 +367,12 @@ export default async function DashboardPage({
     },
     {
       label: 'First-pass clean', value: firstPassCleanPct !== null ? `${firstPassCleanPct}%` : '—', dotColor: '#14805f',
-      tip: 'Approved ÷ (Approved + Rework). Higher means fewer revision rounds.',
+      tip: 'Approved ÷ (Approved + currently in Corrections), within this range. A snapshot of current rework load, not a per-task history of revision rounds.',
       delta: firstPassCleanPct !== null ? kpiDelta(firstPassCleanPct, prevMetrics?.firstPassClean, true, 'pts') : undefined,
     },
     {
       label: 'Client-approved', value: clientApproved, dotColor: '#14805f',
-      tip: 'Total videos the client has marked Approved, including already-posted ones.',
+      tip: 'Videos the client has marked Approved in this range. Not exclusive of the other tiles — overlaps with In production (not yet posted) and Posted this month.',
       delta: kpiDelta(clientApproved, prevMetrics?.approved, true),
     },
     {
