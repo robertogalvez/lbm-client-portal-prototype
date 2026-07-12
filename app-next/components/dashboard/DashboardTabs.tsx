@@ -307,7 +307,7 @@ const PIPELINE_GROUPS = ['To do', 'In progress', 'Quality check', 'Review & ship
 
 export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, attentionClients, topEditors, statusTasks, agreedVsDelivered, periodLabel, defaultTab }: Props) {
   const [activeTab, setActiveTab] = useState<'overview' | 'approvals' | 'clients' | 'editors'>(
-    (defaultTab as 'approvals') ?? 'overview'
+    (defaultTab as 'overview' | 'approvals' | 'clients' | 'editors') ?? 'overview'
   );
   const [approvalSearch, setApprovalSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
