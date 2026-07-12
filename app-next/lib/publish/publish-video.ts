@@ -146,30 +146,22 @@ export async function publishVideo(clickupTaskId: string): Promise<PublishOutcom
     return markError(clickupTaskId,AM_MESSAGES.noProfile(clientName));
   }
 
-  // 4. Ingest media into Vista Social (falls back to the direct URL if needed).
-  let mediaId: string | undefined;
-  try {
-    mediaId = await vista.createMedia(asset.downloadUrl);
-  } catch {
-    mediaId = undefined; // fall back to media_url on schedule()
-  }
-
-  // 5. Schedule the post.
+  // 4. Create the post — Vista Social fetches the media from the Frame.io URL.
   let result: vista.SchedulePostResult;
   try {
     result = await vista.schedulePost({
       profileIds,
       caption: captions,
       publishAtMs,
-      mediaId,
-      mediaUrl: mediaId ? undefined : asset.downloadUrl,
+      mediaUrl: asset.downloadUrl,
+      instagramPublishAs: 'REELS',
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return markError(clickupTaskId,AM_MESSAGES.publishFailed(profileIds.join(', '), msg));
   }
 
-  // 6. Success — store post ids (Published state lives in the cache; ClickUp has
+  // 5. Success — store post ids (Published state lives in the cache; ClickUp has
   // no Publishing Status field), then comment.
   await cacheAfterPublish(clickupTaskId, result.ids, publishAtMs);
   await clickup.postComment(clickupTaskId, AM_MESSAGES.publishSuccess());

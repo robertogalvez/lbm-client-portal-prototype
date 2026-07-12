@@ -15,7 +15,7 @@
 //  - schedule/create returns post ids (one per profile/network); the live
 //    Instagram permalink does NOT exist yet and is fetched later via getPost.
 
-const BASE = (process.env.VISTASOCIAL_API_BASE ?? 'https://api.vistasocial.com/v1').replace(/\/$/, '');
+const BASE = (process.env.VISTASOCIAL_API_BASE || 'https://dev.vistasocial.com/api/integration').replace(/\/$/, '');
 
 export class RateLimitError extends Error {
   constructor(msg = 'Vista Social rate limit hit') { super(msg); this.name = 'RateLimitError'; }
@@ -72,45 +72,38 @@ async function request<T = unknown>(
   return body as T;
 }
 
-// ── Create media ─────────────────────────────────────────────────────────────
-// Uploads media (by remote URL) into the Vista Social library and returns its id.
-// Preferred over passing a raw Frame.io signed URL to schedule(), because that
-// URL can expire before a future scheduled publish; Vista Social hosts its own copy.
-export async function createMedia(mediaUrl: string): Promise<string> {
-  const body = await request<Record<string, unknown>>('/media', {
-    method: 'POST',
-    body: JSON.stringify({ url: mediaUrl }),
-  });
-  const id = extractId(body);
-  if (!id) throw new VistaSocialError('createMedia: no media id in response', undefined, body);
-  return id;
-}
-
 export interface SchedulePostInput {
   profileIds: string[];
   caption: string;
   publishAtMs: number;        // epoch ms (from ClickUp Publish Date)
-  mediaId?: string;           // preferred (from createMedia)
-  mediaUrl?: string;          // fallback (direct remote URL)
+  mediaUrl: string;           // remote URL — Vista Social ingests it directly
+  instagramPublishAs?: 'REELS' | 'STORY' | 'FEED';
 }
 
 export interface SchedulePostResult {
-  ids: string[];              // Vista Social post ids, one per profile/network
+  ids: string[];              // Vista Social post id(s)
   raw: unknown;
 }
 
-// ── Schedule / create a post ─────────────────────────────────────────────────
+// ── Create a post ────────────────────────────────────────────────────────────
+// POST /posts per the Vista Social integration API:
+//   { message, profile_id: [..], publish_at, media_url: [..] }
+// publish_at accepts "now", ISO 8601, or a unix timestamp — we send a unix
+// timestamp (seconds) so there's no timezone ambiguity. Vista Social fetches the
+// media from media_url itself (we never download the file).
 export async function schedulePost(input: SchedulePostInput): Promise<SchedulePostResult> {
+  const profileIds = input.profileIds.map(p => {
+    const n = Number(p);
+    return Number.isFinite(n) && p.trim() !== '' ? n : p;
+  });
+
   const payload: Record<string, unknown> = {
-    profiles: input.profileIds,
     message: input.caption,
-    publish_at: 'specific_time',
-    // Vista Social expects an ISO 8601 timestamp; ClickUp gives epoch ms.
-    time: new Date(input.publishAtMs).toISOString(),
-    shortening: true,
+    profile_id: profileIds,
+    publish_at: Math.floor(input.publishAtMs / 1000),
+    media_url: [input.mediaUrl],
   };
-  if (input.mediaId) payload.media = [input.mediaId];
-  else if (input.mediaUrl) payload.media_url = input.mediaUrl;
+  if (input.instagramPublishAs) payload.instagram_publish_as = input.instagramPublishAs;
 
   const raw = await request<Record<string, unknown>>('/posts', {
     method: 'POST',
@@ -118,7 +111,7 @@ export async function schedulePost(input: SchedulePostInput): Promise<SchedulePo
   });
 
   const ids = extractIds(raw);
-  if (ids.length === 0) throw new VistaSocialError('schedulePost: no ids in response', undefined, raw);
+  if (ids.length === 0) throw new VistaSocialError('schedulePost: no post id in response', undefined, raw);
   return { ids, raw };
 }
 
