@@ -12,6 +12,7 @@ import { LogoutButton } from '@/components/client/LogoutButton';
 import { CalendarView } from '@/components/client/CalendarView';
 import { InvoicesView } from '@/components/client/InvoicesView';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
+import { BannerStats } from '@/components/client/BannerStats';
 import { getViewAsClient } from '@/lib/view-as';
 import { getInvoicesForClient, isQuickBooksConfigured } from '@/lib/quickbooks';
 import { InstagramLink } from '@/components/InstagramLink';
@@ -366,17 +367,33 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
             </div>
             <div style={{fontSize:20, fontWeight:700}}>{clientTasks.length} videos this month</div>
           </div>
-          {/* Stat columns */}
-          {[
-            {label:'Awaiting you', val: reviewTasks.length, color:'#f59e0b'},
-            {label:'Published', val: postedTasks.length, color:'#22c55e'},
-            {label:'In production', val: inProgress.length, color:'#60a5fa'},
-          ].map(s => (
-            <div key={s.label} style={{textAlign:'center', minWidth:80}}>
-              <div style={{fontSize:32, fontWeight:800, color: s.color}}>{s.val}</div>
-              <div style={{fontSize:12, color:'#aaa', marginTop:2}}>{s.label}</div>
-            </div>
-          ))}
+          {/* Stat columns - made interactive with Reels/YouTube breakdown */}
+          <BannerStats stats={[
+            {
+              label:'Awaiting you',
+              count: reviewTasks.length,
+              reelCount: reviewTasks.filter(t => !t.isYoutube).length,
+              youtubeCount: reviewTasks.filter(t => t.isYoutube).length,
+              color:'#f59e0b',
+              tasks: reviewTasks,
+            },
+            {
+              label:'Published',
+              count: postedTasks.length,
+              reelCount: postedTasks.filter(t => !t.isYoutube).length,
+              youtubeCount: postedTasks.filter(t => t.isYoutube).length,
+              color:'#22c55e',
+              tasks: postedTasks,
+            },
+            {
+              label:'In production',
+              count: inProgress.length,
+              reelCount: inProgress.filter(t => !t.isYoutube).length,
+              youtubeCount: inProgress.filter(t => t.isYoutube).length,
+              color:'#60a5fa',
+              tasks: inProgress,
+            },
+          ]} />
         </div>
 
         {/* Tab content */}
