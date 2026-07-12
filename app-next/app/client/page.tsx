@@ -188,22 +188,39 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
         {/* Scrollable body */}
         <div className="cp-body">
           {/* Pipeline banner — always shown */}
-          <div style={{ background: '#221e18', color: '#fff', borderRadius: 20, padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' as const }}>
-                {new Date().toLocaleString('en-US', { month: 'long' }).toUpperCase()} CONTENT
+          <div style={{ background: '#221e18', color: '#fff', borderRadius: 20, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' as const }}>
+                  {new Date().toLocaleString('en-US', { month: 'long' }).toUpperCase()} CONTENT
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 700, marginTop: 2, letterSpacing: '-0.01em' }}>
+                  {clientTasks.length} video{clientTasks.length !== 1 ? 's' : ''} in pipeline
+                </div>
               </div>
-              <div style={{ fontSize: 17, fontWeight: 700, marginTop: 2, letterSpacing: '-0.01em' }}>
-                {clientTasks.length} video{clientTasks.length !== 1 ? 's' : ''} in pipeline
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums' as const }}>{reviewTasks.length}</div>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', fontWeight: 600 }}>to review</div>
+                </div>
+                <div style={{ width: 46, height: 46, borderRadius: '50%', background: `conic-gradient(#FF6000 ${pct}%, rgba(255,255,255,.16) 0)`, display: 'grid', placeItems: 'center' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#221e18', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800, color: '#fff' }}>{postedThisMonth}</div>
+                </div>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums' as const }}>{reviewTasks.length}</div>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', fontWeight: 600 }}>to review</div>
+            {/* Breakdown stats */}
+            <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'rgba(255,255,255,.8)', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div>Awaiting you:</div>
+                <div style={{ fontWeight: 700 }}>
+                  {reviewTasks.filter(t => !t.isYoutube).length} Reels, {reviewTasks.filter(t => t.isYoutube).length} YT
+                </div>
               </div>
-              <div style={{ width: 46, height: 46, borderRadius: '50%', background: `conic-gradient(#FF6000 ${pct}%, rgba(255,255,255,.16) 0)`, display: 'grid', placeItems: 'center' }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#221e18', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800, color: '#fff' }}>{postedThisMonth}</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div>In progress:</div>
+                <div style={{ fontWeight: 700 }}>
+                  {inProgress.filter(t => !t.isYoutube).length} Reels, {inProgress.filter(t => t.isYoutube).length} YT
+                </div>
               </div>
             </div>
           </div>
