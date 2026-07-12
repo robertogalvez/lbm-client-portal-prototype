@@ -7,6 +7,7 @@ export async function getTasksFromDB(): Promise<MappedTask[]> {
   return rows.map((row: VideoCache) => ({
     clickupTaskId:    row.clickupTaskId,
     title:            row.title ?? '',
+    clientFacingTitle: row.clientFacingTitle ?? null,
     status:           row.status ?? '',
     clientOptionId:   row.clientId ?? null,
     clientName:       row.clientName ?? null,

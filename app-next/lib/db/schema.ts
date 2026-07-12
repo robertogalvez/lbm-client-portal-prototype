@@ -79,6 +79,7 @@ export const videoCache = pgTable('video_cache', {
   editorId:          varchar('editor_id', { length: 100 }),
   assignedAmId:      varchar('assigned_am_id', { length: 100 }),
   title:             text('title'),
+  clientFacingTitle: text('client_facing_title'),
   status:            varchar('status', { length: 100 }),
   clientApproval:    varchar('client_approval', { length: 50 }),
   videoLevel:        varchar('video_level', { length: 50 }),

@@ -20,6 +20,10 @@ function daysAgo(dateStr: string): number {
 }
 
 function rangeCutoff(range: string): number {
+  if (range === 'month') {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  }
   if (range === '30d')  return Date.now() - 30  * 86_400_000;
   if (range === '90d')  return Date.now() - 90  * 86_400_000;
   if (range === '1y')   return Date.now() - 365 * 86_400_000;
@@ -29,6 +33,12 @@ function rangeCutoff(range: string): number {
 // The equal-length window immediately preceding `cutoff`, used to compute
 // KPI trend deltas. 'all' has no meaningful "prior" window.
 function previousWindowBounds(range: string, cutoff: number): [number, number] | null {
+  if (range === 'month') {
+    const d = new Date(cutoff);
+    const prevMonth = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+    const currMonth = new Date(cutoff);
+    return [prevMonth.getTime(), currMonth.getTime()];
+  }
   if (range === '30d')  return [cutoff - 30  * 86_400_000, cutoff];
   if (range === '90d')  return [cutoff - 90  * 86_400_000, cutoff];
   if (range === '1y')   return [cutoff - 365 * 86_400_000, cutoff];
@@ -220,7 +230,7 @@ export default async function DashboardPage({
     );
   }
 
-  const { range = 'all', member = '', am = '', client: clientFilter = '', inactive = '' } = await searchParams;
+  const { range = 'month', member = '', am = '', client: clientFilter = '', inactive = '' } = await searchParams;
   const showInactive = inactive === '1';
   const masterListId = process.env.CLICKUP_LIST_ID;
   const folderId     = process.env.CLICKUP_FOLDER_ID;
