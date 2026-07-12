@@ -117,9 +117,21 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     !['for client review', 'posted in socials'].includes(norm(t.status))
   );
   const monthStart  = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-  const postedThisMonth = postedTasks.filter(t => new Date(t.dateUpdated).getTime() >= monthStart).length;
-  const deliveredReels = postedTasks.filter(t => new Date(t.dateUpdated).getTime() >= monthStart && !t.isYoutube).length;
-  const deliveredYoutube = postedTasks.filter(t => new Date(t.dateUpdated).getTime() >= monthStart && t.isYoutube).length;
+  const postedThisMonth = postedTasks.filter(t => {
+    const ts = Number(t.dateUpdated);
+    const date = isNaN(ts) ? new Date(t.dateUpdated) : new Date(ts);
+    return date.getTime() >= monthStart;
+  }).length;
+  const deliveredReels = postedTasks.filter(t => {
+    const ts = Number(t.dateUpdated);
+    const date = isNaN(ts) ? new Date(t.dateUpdated) : new Date(ts);
+    return date.getTime() >= monthStart && !t.isYoutube;
+  }).length;
+  const deliveredYoutube = postedTasks.filter(t => {
+    const ts = Number(t.dateUpdated);
+    const date = isNaN(ts) ? new Date(t.dateUpdated) : new Date(ts);
+    return date.getTime() >= monthStart && t.isYoutube;
+  }).length;
   const displayName = (name ?? clientName).split(' ')[0];
   const pct = clientTasks.length > 0 ? Math.round((postedTasks.length / clientTasks.length) * 100) : 0;
 
