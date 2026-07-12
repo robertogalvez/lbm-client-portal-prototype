@@ -5,7 +5,7 @@ import { db } from '@/lib/db';
 import { authUsers, clients } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getTasksFromList, getClientQuotas } from '@/lib/clickup';
-import type { MappedTask } from '@/lib/clickup';
+import type { MappedTask, ClientQuota } from '@/lib/clickup';
 import { ApprovalButtons } from '@/components/client/ApprovalButtons';
 import { NotificationBell } from '@/components/client/NotificationBell';
 import { LogoutButton } from '@/components/client/LogoutButton';
@@ -90,7 +90,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   }
 
   let allTasks: MappedTask[] = [];
-  let clientQuotas = [];
+  let clientQuotas: ClientQuota[] = [];
   let fetchError: string | null = null;
   try {
     allTasks = await getTasksFromList(process.env.CLICKUP_LIST_ID!, false);
