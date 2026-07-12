@@ -483,7 +483,7 @@ export default async function DashboardPage({
         statusTasks={statusTasks}
         agreedVsDelivered={agreedVsDelivered}
         periodLabel={periodLabel}
-        defaultTab={overdueCount > 0 ? 'approvals' : 'overview'}
+        defaultTab='overview'
       />
     </main>
   );
