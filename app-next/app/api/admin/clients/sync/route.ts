@@ -27,16 +27,24 @@ export async function POST() {
       contactName:    r.contactName,
       contactEmail:   r.contactEmail,
       whatsappNumber: r.whatsappNumber,
+      frameioProjectId: r.frameioProjectId,
       clientStatus:   r.clientStatus,
       monthlyQuota:   r.monthlyQuota,
       lastSyncedAt:   new Date(),
     };
 
-    // Capture the prior name for this task so a rename can cascade to linked users.
-    const [existing] = await db.select({ name: clients.name })
+    // Capture existing client data (branding config and name for cascading renames)
+    const [existingClient] = await db.select({ name: clients.name, brandingConfig: clients.brandingConfig })
       .from(clients)
       .where(eq(clients.clickupTaskId, r.clickupTaskId))
       .limit(1);
+
+    const existingConfig = (existingClient?.brandingConfig as Record<string, unknown>) ?? {};
+    if (r.vistaSocialProfileIds) {
+      existingConfig.vistaSocialProfileIds = r.vistaSocialProfileIds;
+    }
+    const brandingConfig = Object.keys(existingConfig).length > 0 ? existingConfig : null;
+    const rowWithBranding = { ...row, brandingConfig };
 
     // Reconcile hand-created rows (pre-dating ClickUp sync) onto the real task ID by name match.
     const [legacy] = await db.select({ id: clients.id, name: clients.name })
@@ -45,14 +53,14 @@ export async function POST() {
       .limit(1);
 
     if (legacy) {
-      await db.update(clients).set(row).where(eq(clients.id, legacy.id));
+      await db.update(clients).set(rowWithBranding).where(eq(clients.id, legacy.id));
     } else {
-      await db.insert(clients).values(row).onConflictDoUpdate({ target: clients.clickupTaskId, set: row });
+      await db.insert(clients).values(rowWithBranding).onConflictDoUpdate({ target: clients.clickupTaskId, set: rowWithBranding });
     }
 
     // Portal users link to a client by name string (auth_user.client_name); when
     // the ClickUp-owned name changes, cascade it so the link isn't orphaned.
-    const prevName = existing?.name ?? legacy?.name;
+    const prevName = existingClient?.name ?? legacy?.name;
     if (prevName && prevName !== r.name) {
       await db.update(authUsers).set({ clientName: r.name }).where(eq(authUsers.clientName, prevName));
     }

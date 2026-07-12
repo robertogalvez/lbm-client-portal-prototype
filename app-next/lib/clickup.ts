@@ -199,6 +199,8 @@ export interface MasterClientRecord {
   contactName: string | null;
   contactEmail: string | null;
   whatsappNumber: string | null;
+  frameioProjectId: string | null;
+  vistaSocialProfileIds: string | null;
   clientStatus: string;
   monthlyQuota: number;
 }
@@ -252,6 +254,8 @@ export async function getMasterClientRecords(): Promise<{ records: MasterClientR
     const phoneField        = findField(t, 'Phone Number');
     const reelsField        = findField(t, 'Reels / mo');
     const ytField           = findField(t, 'YT videos / mo');
+    const frameioField      = findField(t, 'FRAME.IO PROJECT ID');
+    const vistaSocialField  = findField(t, 'VISTA SOCIAL PROFILE IDS');
 
     const reels = typeof reelsField?.value === 'number' ? reelsField.value : Number(reelsField?.value ?? 0) || 0;
     const yt    = typeof ytField?.value === 'number' ? ytField.value : Number(ytField?.value ?? 0) || 0;
@@ -262,6 +266,8 @@ export async function getMasterClientRecords(): Promise<{ records: MasterClientR
       contactName:    typeof contactNameField?.value === 'string' ? contactNameField.value : null,
       contactEmail:   typeof contactEmailField?.value === 'string' ? contactEmailField.value : null,
       whatsappNumber: typeof phoneField?.value === 'string' ? phoneField.value : null,
+      frameioProjectId: typeof frameioField?.value === 'string' ? frameioField.value : null,
+      vistaSocialProfileIds: typeof vistaSocialField?.value === 'string' ? vistaSocialField.value : null,
       clientStatus:   clientStatus.trim(),
       monthlyQuota:   reels + yt,
     });
