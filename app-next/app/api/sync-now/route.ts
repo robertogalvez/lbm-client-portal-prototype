@@ -87,7 +87,14 @@ export async function POST() {
       const amUsers    = amField?.value as { username?: string }[] | undefined;
       const amName     = amUsers?.[0]?.username ?? null;
       const editorName = (task.assignees as { username?: string }[])?.[0]?.username ?? null;
-      const revisions  = typeof revisionsField?.value === 'number' ? revisionsField.value : typeof revisionsField?.value === 'string' ? parseInt(revisionsField.value, 10) : null;
+
+      let revisions: number | null = null;
+      if (typeof revisionsField?.value === 'number') {
+        revisions = revisionsField.value;
+      } else if (typeof revisionsField?.value === 'string') {
+        const parsed = parseInt(revisionsField.value, 10);
+        revisions = isNaN(parsed) ? null : parsed;
+      }
 
       let dueDate: string | null = null;
       if (task.due_date) {
