@@ -96,6 +96,13 @@ export async function POST() {
         revisions = isNaN(parsed) ? null : parsed;
       }
 
+      if (revisionsField) {
+        console.log(`[Task ${task.id}] Revision # field: type=${typeof revisionsField.value}, value=${JSON.stringify(revisionsField.value)}, parsed=${revisions}`);
+      } else {
+        const fieldNames = fields.map((f: any) => f.name).join(', ');
+        console.log(`[Task ${task.id}] Revision # field NOT FOUND. Available fields: ${fieldNames}`);
+      }
+
       let dueDate: string | null = null;
       if (task.due_date) {
         const ms = Number(task.due_date);
