@@ -34,6 +34,14 @@ async function fetchAllTasks(listId: string, token: string) {
   return all;
 }
 
+async function fetchAllTasksFromFolder(folderId: string, token: string) {
+  const res = await fetch(`${BASE}/folder/${folderId}/list`, { headers: { Authorization: token } });
+  const data = await res.json();
+  const lists: any[] = data.lists ?? [];
+  const results = await Promise.all(lists.map((l: any) => fetchAllTasks(l.id, token)));
+  return results.flat();
+}
+
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -50,11 +58,14 @@ async function runReset() {
   try {
   const token = process.env.CLICKUP_API_TOKEN;
   const listId = process.env.CLICKUP_LIST_ID;
+  const folderId = process.env.CLICKUP_FOLDER_ID;
   if (!token) return NextResponse.json({ error: 'CLICKUP_API_TOKEN not set' }, { status: 500 });
-  if (!listId) return NextResponse.json({ error: 'CLICKUP_LIST_ID not set' }, { status: 500 });
+  if (!listId && !folderId) return NextResponse.json({ error: 'CLICKUP_LIST_ID or CLICKUP_FOLDER_ID not set' }, { status: 500 });
 
-  // 1. Fetch all tasks from the list first — bail before touching DB if this fails
-  const rawTasks = await fetchAllTasks(listId, token);
+  // 1. Fetch all tasks — prioritize folder to get Quality Control Board with Revision # field
+  const rawTasks = folderId
+    ? await fetchAllTasksFromFolder(folderId, token)
+    : await fetchAllTasks(listId!, token);
   if (rawTasks.length === 0) {
     return NextResponse.json({ error: 'No tasks returned from ClickUp — aborting to avoid data loss' }, { status: 500 });
   }

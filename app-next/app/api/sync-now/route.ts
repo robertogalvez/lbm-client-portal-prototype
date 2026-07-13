@@ -44,9 +44,10 @@ export async function POST() {
   if (!masterListId && !folderId) return NextResponse.json({ error: 'No ClickUp list/folder configured' }, { status: 500 });
 
   try {
-    const rawTasks = masterListId
-      ? await fetchAllTasksFromList(masterListId, token)
-      : await fetchAllTasksFromFolder(folderId!, token);
+    // Prioritize folder to get tasks from all lists (Quality Control Board has Revision # field)
+    const rawTasks = folderId
+      ? await fetchAllTasksFromFolder(folderId, token)
+      : await fetchAllTasksFromList(masterListId!, token);
 
     // Build shared options map once — ClickUp only includes type_config on some tasks
     const fieldOptions: Record<string, any[]> = {};
