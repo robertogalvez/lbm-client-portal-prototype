@@ -92,7 +92,7 @@ export async function POST(req: Request) {
     const rawDriveField = find('Raw Drive Link (Videographer)');
     const amField       = find('Account Manager (AM)');
     const qcField       = find('QUALITY CHECK (Somu)');
-    const revisionsField = find('Revisions #');
+    const revisionsField = find('Revision #');
 
     const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
     const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;

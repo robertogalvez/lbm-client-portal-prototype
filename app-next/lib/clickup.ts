@@ -83,7 +83,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
   const amField       = findField(task, 'Account Manager (AM)');
   const qcField       = findField(task, 'QUALITY CHECK (Somu)');
   const clientFacingTitleField = findField(task, 'Client-Facing Title');
-  const revisionsField = findField(task, 'Revisions #');
+  const revisionsField = findField(task, 'Revision #');
 
   const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
   const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
