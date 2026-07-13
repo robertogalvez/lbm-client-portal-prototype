@@ -63,12 +63,39 @@ export async function POST() {
     const resolveOptId = (name: string, idx: number | null) =>
       idx !== null ? (fieldOptions[name]?.[idx]?.id ?? null) : null;
 
+    // Merge tasks from multiple lists — prefer non-null field values
+    // (e.g., Revision # field only exists on Quality Control Board instance)
+    const taskMap = new Map<string, any>();
+    for (const task of rawTasks) {
+      const existing = taskMap.get(task.id);
+      if (!existing) {
+        taskMap.set(task.id, task);
+      } else {
+        // Merge custom fields: collect all fields from both instances
+        const mergedFields = [...(existing.custom_fields ?? [])];
+        const existingFieldNames = new Set(mergedFields.map((f: any) => f.name));
+        for (const f of task.custom_fields ?? []) {
+          if (!existingFieldNames.has(f.name)) {
+            mergedFields.push(f);
+          } else {
+            // Replace with non-null value from task
+            const idx = mergedFields.findIndex((mf: any) => mf.name === f.name);
+            if (f.value !== null && f.value !== undefined) {
+              mergedFields[idx] = f;
+            }
+          }
+        }
+        taskMap.set(task.id, { ...existing, custom_fields: mergedFields });
+      }
+    }
+    const mergedTasks = Array.from(taskMap.values());
+
     // Build all rows
     let tasksWithRevisions = 0;
     let tasksWithoutRevisionField = 0;
     let revisionFieldExamples: any[] = [];
 
-    const rows = rawTasks.map((task: any) => {
+    const rows = mergedTasks.map((task: any) => {
       const fields = task.custom_fields ?? [];
       const find = (name: string) => fields.find((f: any) => f.name === name);
 
@@ -169,7 +196,7 @@ export async function POST() {
     }
 
     // Delete rows that no longer exist in ClickUp (webhook may have missed deletions)
-    const clickupIds = rawTasks.map((t: any) => t.id as string);
+    const clickupIds = mergedTasks.map((t: any) => t.id as string);
     let deleted = 0;
     if (clickupIds.length > 0) {
       const result = await db.delete(videoCache)
