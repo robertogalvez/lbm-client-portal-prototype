@@ -23,6 +23,7 @@ export async function getTasksFromDB(): Promise<MappedTask[]> {
     assignedAmName:   row.assignedAmName ?? null,
     editorName:       row.editorName ?? null,
     isYoutube:        row.isYoutube ?? false,
+    revisions:        row.revisions ?? null,
     dateUpdated:      row.dateUpdated ?? String(row.lastSyncedAt?.getTime() ?? Date.now()),
     dueDate:          row.dueDate ?? null,
   }));

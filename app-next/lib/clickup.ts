@@ -61,6 +61,7 @@ export interface MappedTask {
   assignedAmName: string | null;
   editorName: string | null;
   isYoutube: boolean;
+  revisions: number | null;
   dateUpdated: string;
   dueDate: string | null;
 }
@@ -82,6 +83,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
   const amField       = findField(task, 'Account Manager (AM)');
   const qcField       = findField(task, 'QUALITY CHECK (Somu)');
   const clientFacingTitleField = findField(task, 'Client-Facing Title');
+  const revisionsField = findField(task, 'Revision #');
 
   const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
   const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
@@ -110,6 +112,14 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     return field.type_config?.options?.[idx]?.id ?? sharedOptions[field.name]?.[idx]?.id ?? null;
   };
 
+  let revisions: number | null = null;
+  if (typeof revisionsField?.value === 'number') {
+    revisions = revisionsField.value;
+  } else if (typeof revisionsField?.value === 'string') {
+    const parsed = parseInt(revisionsField.value, 10);
+    revisions = isNaN(parsed) ? null : parsed;
+  }
+
   return {
     clickupTaskId:    task.id,
     title:            task.name,
@@ -129,6 +139,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     assignedAmName:   amName,
     editorName,
     isYoutube,
+    revisions,
     dateUpdated:      task.date_updated,
     dueDate,
   };
@@ -179,12 +190,34 @@ export async function getTasksFromFolder(folderId: string, includeArchived = fal
     : lists;
 
   const results = await Promise.all(ordered.map(l => getTasksFromList(l.id, includeArchived)));
-  const seen = new Set<string>();
-  return results.flat().filter(t => {
-    if (seen.has(t.clickupTaskId)) return false;
-    seen.add(t.clickupTaskId);
-    return true;
-  });
+  const taskMap = new Map<string, MappedTask>();
+
+  // Merge task data from all lists: for each task ID, use the version with the most populated fields
+  // This handles cases where a task exists in multiple lists with list-specific custom fields
+  for (const tasks of results) {
+    for (const task of tasks) {
+      const existing = taskMap.get(task.clickupTaskId);
+      if (!existing) {
+        taskMap.set(task.clickupTaskId, task);
+      } else {
+        // Merge: prefer non-null values from either version
+        taskMap.set(task.clickupTaskId, {
+          ...existing,
+          revisions: existing.revisions ?? task.revisions,
+          qualityCheck: existing.qualityCheck ?? task.qualityCheck,
+          caption: existing.caption ?? task.caption,
+          frameLink: existing.frameLink ?? task.frameLink,
+          rawDriveLink: existing.rawDriveLink ?? task.rawDriveLink,
+          instagramUrl: existing.instagramUrl ?? task.instagramUrl,
+          captionApproval: existing.captionApproval ?? task.captionApproval,
+          publishingStatus: existing.publishingStatus ?? task.publishingStatus,
+          clientFacingTitle: existing.clientFacingTitle ?? task.clientFacingTitle,
+        });
+      }
+    }
+  }
+
+  return Array.from(taskMap.values());
 }
 
 export interface ClientQuota {

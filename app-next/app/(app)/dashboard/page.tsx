@@ -64,12 +64,12 @@ function periodMetrics(list: MappedTask[]) {
     t.clientApproval?.toLowerCase() === 'approved'
   ).length;
 
-  // First-pass clean: videos that moved to client approval with 0 revisions
-  // (This requires the revisions field from ClickUp, which may not be in MappedTask yet)
-  // For now, calculate as: approved / (approved + corrections)
-  const corrections = list.filter(t => norm(t.status) === 'in progress (corrections)').length;
-  const fpTotal = approved + corrections;
-  const firstPassClean = fpTotal > 0 ? Math.round(approved / fpTotal * 100) : null;
+  // First-pass clean: videos that reached client approval with 0 revisions (never sent back to editor)
+  // Denominator: all videos in "ready to be posted" status (some with revisions=0, some with revisions>=1)
+  // Numerator: videos in "ready to be posted" with revisions=0 (no corrections needed)
+  const readyToPost = list.filter(t => norm(t.status) === 'ready to be posted');
+  const cleanPass = readyToPost.filter(t => t.revisions === 0).length;
+  const firstPassClean = readyToPost.length > 0 ? Math.round(cleanPass / readyToPost.length * 100) : null;
 
   return { inProd, pending, approved, firstPassClean };
 }
