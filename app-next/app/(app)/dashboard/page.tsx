@@ -64,11 +64,11 @@ function periodMetrics(list: MappedTask[]) {
     t.clientApproval?.toLowerCase() === 'approved'
   ).length;
 
-  // First-pass clean: videos that reached client approval with 0 revisions (never sent back to editor)
-  // Denominator: all videos in "ready to be posted" status (some with revisions=0, some with revisions>=1)
-  // Numerator: videos in "ready to be posted" with revisions=0 (no corrections needed)
+  // First-pass clean: videos that reached posting with 0 or null revisions
+  // Null revisions = video bypassed QC Board (went Backlog → Posted directly, no revisions needed)
+  // 0 revisions = video passed QC Board on first pass without corrections
   const readyToPost = list.filter(t => norm(t.status) === 'ready to be posted');
-  const cleanPass = readyToPost.filter(t => t.revisions === 0).length;
+  const cleanPass = readyToPost.filter(t => t.revisions === 0 || t.revisions === null).length;
   const firstPassClean = readyToPost.length > 0 ? Math.round(cleanPass / readyToPost.length * 100) : null;
 
   return { inProd, pending, approved, firstPassClean };
