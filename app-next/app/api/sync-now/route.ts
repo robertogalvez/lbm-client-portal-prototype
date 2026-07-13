@@ -63,6 +63,10 @@ export async function POST() {
       idx !== null ? (fieldOptions[name]?.[idx]?.id ?? null) : null;
 
     // Build all rows
+    let tasksWithRevisions = 0;
+    let tasksWithoutRevisionField = 0;
+    let revisionFieldExamples: any[] = [];
+
     const rows = rawTasks.map((task: any) => {
       const fields = task.custom_fields ?? [];
       const find = (name: string) => fields.find((f: any) => f.name === name);
@@ -97,10 +101,12 @@ export async function POST() {
       }
 
       if (revisionsField) {
-        console.log(`[Task ${task.id}] Revision # field: type=${typeof revisionsField.value}, value=${JSON.stringify(revisionsField.value)}, parsed=${revisions}`);
+        if (revisions !== null) tasksWithRevisions++;
+        if (revisionFieldExamples.length < 5) {
+          revisionFieldExamples.push({ taskId: task.id, type: typeof revisionsField.value, value: revisionsField.value, parsed: revisions });
+        }
       } else {
-        const fieldNames = fields.map((f: any) => f.name).join(', ');
-        console.log(`[Task ${task.id}] Revision # field NOT FOUND. Available fields: ${fieldNames}`);
+        tasksWithoutRevisionField++;
       }
 
       let dueDate: string | null = null;
@@ -170,7 +176,16 @@ export async function POST() {
       deleted = result.rowCount ?? 0;
     }
 
-    return NextResponse.json({ synced: rows.length, total: rawTasks.length, deleted });
+    return NextResponse.json({
+      synced: rows.length,
+      total: rawTasks.length,
+      deleted,
+      debug: {
+        tasksWithRevisions,
+        tasksWithoutRevisionField,
+        revisionFieldExamples,
+      },
+    });
   } catch (e) {
     const msg   = e instanceof Error ? e.message : String(e);
     const cause = e instanceof Error ? String((e as any).cause ?? '') : '';
