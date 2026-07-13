@@ -66,7 +66,19 @@ export async function POST() {
     // Merge tasks from multiple lists — prefer non-null field values
     // (e.g., Revision # field only exists on Quality Control Board instance)
     const taskMap = new Map<string, any>();
+    let tasksWithRevisionField = 0;
+    let tasksWithRevisionValue = 0;
+
     for (const task of rawTasks) {
+      const hasRevField = (task.custom_fields ?? []).some((f: any) => f.name === 'Revision #');
+      if (hasRevField) {
+        const revField = (task.custom_fields ?? []).find((f: any) => f.name === 'Revision #');
+        if (revField?.value !== null && revField?.value !== undefined) {
+          tasksWithRevisionValue++;
+        }
+        tasksWithRevisionField++;
+      }
+
       const existing = taskMap.get(task.id);
       if (!existing) {
         taskMap.set(task.id, task);
@@ -89,6 +101,7 @@ export async function POST() {
       }
     }
     const mergedTasks = Array.from(taskMap.values());
+    console.log(`[SYNC] Raw tasks: ${rawTasks.length}, Merged tasks: ${mergedTasks.length}, With Revision field: ${tasksWithRevisionField}, With Revision value: ${tasksWithRevisionValue}`);
 
     // Build all rows
     let tasksWithRevisions = 0;
@@ -209,7 +222,11 @@ export async function POST() {
       total: rawTasks.length,
       deleted,
       debug: {
-        tasksWithRevisions,
+        rawTasksCount: rawTasks.length,
+        mergedTasksCount: mergedTasks.length,
+        tasksWithRevisionFieldInRaw: tasksWithRevisionField,
+        tasksWithRevisionValueInRaw: tasksWithRevisionValue,
+        tasksWithRevisionsAfterParsing: tasksWithRevisions,
         tasksWithoutRevisionField,
         revisionFieldExamples,
       },
