@@ -105,7 +105,7 @@ export async function POST(req: Request) {
     const editorName = (task.assignees as { username?: string }[])?.[0]?.username ?? null;
     const clientName   = resolveOpt('Client Name (AM)', clientIdx);
     const qualityCheck = resolveOpt('QUALITY CHECK (Somu)', qcIdx);
-    const revisions    = typeof revisionsField?.value === 'number' ? revisionsField.value : null;
+    const revisions    = typeof revisionsField?.value === 'number' ? revisionsField.value : typeof revisionsField?.value === 'string' ? parseInt(revisionsField.value, 10) : null;
 
     let dueDate: string | null = null;
     if (task.due_date) {

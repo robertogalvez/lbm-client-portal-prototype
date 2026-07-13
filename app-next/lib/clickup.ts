@@ -112,7 +112,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     return field.type_config?.options?.[idx]?.id ?? sharedOptions[field.name]?.[idx]?.id ?? null;
   };
 
-  const revisions = typeof revisionsField?.value === 'number' ? revisionsField.value : null;
+  const revisions = typeof revisionsField?.value === 'number' ? revisionsField.value : typeof revisionsField?.value === 'string' ? parseInt(revisionsField.value, 10) : null;
 
   return {
     clickupTaskId:    task.id,
