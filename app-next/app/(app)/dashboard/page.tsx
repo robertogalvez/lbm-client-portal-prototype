@@ -3,7 +3,7 @@ import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask, getClie
 import { getTasksFromDB } from '@/lib/db/queries';
 import { db } from '@/lib/db';
 import { clients as clientsTable } from '@/lib/db/schema';
-import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask, AgreedDeliveredRow, BacklogRow, KpiData } from '@/components/dashboard/DashboardTabs';
+import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask, AgreedDeliveredRow, BacklogRow, KpiData, PipelineReportClient } from '@/components/dashboard/DashboardTabs';
 import { EDITOR_PHASE_COLS } from '@/components/dashboard/editor-phases';
 import { FiltersBar } from '@/components/dashboard/FiltersBar';
 
@@ -120,6 +120,29 @@ function buildBacklog(tasks: MappedTask[]): BacklogRow[] {
   return Array.from(map.entries())
     .map(([name, backlogCount]) => ({ name, backlogCount }))
     .sort((a, b) => a.backlogCount - b.backlogCount);
+}
+
+// Per-client pipeline snapshot for the Reports tab: raw footage waiting to be
+// edited (supply health) plus what's left downstream toward publishing.
+const NEW_FOOTAGE_STATUSES = new Set(['not ready', 'not assigned', 'in progress (editor)']);
+const QC_STATUSES = new Set(['tc - qc (somu)', 'qc final - am']);
+
+function buildPipelineReport(tasks: MappedTask[]): PipelineReportClient[] {
+  const map = new Map<string, PipelineReportClient>();
+  for (const t of tasks) {
+    const name = t.clientName ?? 'Unknown';
+    if (!map.has(name)) {
+      map.set(name, { name, newFootage: 0, corrections: 0, qc: 0, clientReview: 0, readyToPublish: 0 });
+    }
+    const r = map.get(name)!;
+    const s = norm(t.status);
+    if (NEW_FOOTAGE_STATUSES.has(s)) r.newFootage++;
+    else if (s === 'in progress (corrections)') r.corrections++;
+    else if (QC_STATUSES.has(s)) r.qc++;
+    else if (s === 'for client review') r.clientReview++;
+    else if (s === 'ready to be posted') r.readyToPublish++;
+  }
+  return Array.from(map.values());
 }
 
 function buildApprovals(tasks: MappedTask[]): ApprovalRow[] {
@@ -482,6 +505,8 @@ export default async function DashboardPage({
         topEditors={topEditors}
         statusTasks={statusTasks}
         agreedVsDelivered={agreedVsDelivered}
+        pipelineReport={buildPipelineReport(allTasks)}
+        reportAsOf={new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
         periodLabel={periodLabel}
         defaultTab='overview'
       />

@@ -4,7 +4,9 @@ import { useState, Fragment } from 'react';
 import { InfoPopover } from '@/components/ui/Tooltip';
 import { EDITOR_PHASE_COLS } from './editor-phases';
 import { AgreedVsDeliveredChart } from './AgreedVsDeliveredChart';
+import { PipelineReport, type PipelineReportClient } from './PipelineReport';
 import { InstagramLink } from '@/components/InstagramLink';
+export type { PipelineReportClient } from './PipelineReport';
 export { EDITOR_PHASE_COLS } from './editor-phases';
 
 export interface ApprovalRow {
@@ -100,6 +102,8 @@ interface Props {
   topEditors: TopEditor[];
   statusTasks: StatusTask[];
   agreedVsDelivered: AgreedDeliveredRow[];
+  pipelineReport: PipelineReportClient[];
+  reportAsOf: string;
   periodLabel: string;
   defaultTab?: string;
 }
@@ -305,7 +309,7 @@ const tdNum: React.CSSProperties = { ...td, textAlign: 'center', fontFamily: 'va
 
 const PIPELINE_GROUPS = ['To do', 'In progress', 'Quality check', 'Review & ship'];
 
-export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, attentionClients, topEditors, statusTasks, agreedVsDelivered, periodLabel, defaultTab }: Props) {
+export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, attentionClients, topEditors, statusTasks, agreedVsDelivered, pipelineReport, reportAsOf, periodLabel, defaultTab }: Props) {
   const [activeTab, setActiveTab] = useState<'overview' | 'approvals' | 'clients' | 'editors' | 'reports'>(
     (defaultTab as 'overview' | 'approvals' | 'clients' | 'editors' | 'reports') ?? 'overview'
   );
@@ -805,6 +809,11 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, att
             </table>
           </div>
         </div>
+      </div>
+
+      {/* ── Reports tab ── */}
+      <div style={{ display: activeTab === 'reports' ? 'block' : 'none', padding: '20px 24px 26px' }}>
+        <PipelineReport clients={pipelineReport} asOf={reportAsOf} />
       </div>
     </div>
   );
