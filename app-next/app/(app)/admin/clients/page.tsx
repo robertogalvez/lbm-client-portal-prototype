@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm';
 import { getClientQuotas } from '@/lib/clickup';
 import { ClientsPageClient } from './ClientsPageClient';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 export default async function AdminClientsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
