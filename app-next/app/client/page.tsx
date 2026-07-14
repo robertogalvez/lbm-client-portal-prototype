@@ -271,7 +271,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
             <MonthlyReport clientName={clientName} videos={postedTasks.map(t => ({
               clickupTaskId: t.clickupTaskId,
               title: t.title,
-              datePosted: t.dateUpdated,
+              datePosted: t.publishDate ?? t.dateUpdated,
               frameLink: t.frameLink,
               instagramUrl: t.instagramUrl,
             }))} />
@@ -478,7 +478,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
           <MonthlyReport clientName={clientName} videos={postedTasks.map(t => ({
             clickupTaskId: t.clickupTaskId,
             title: t.title,
-            datePosted: t.dateUpdated,
+            datePosted: t.publishDate ?? t.dateUpdated,
             frameLink: t.frameLink,
             instagramUrl: t.instagramUrl,
           }))} />

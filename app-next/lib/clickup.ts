@@ -62,6 +62,7 @@ export interface MappedTask {
   isYoutube: boolean;
   dateUpdated: string;
   dueDate: string | null;
+  publishDate: string | null;   // ClickUp "Publish Date" — the scheduled go-live date
 }
 
 function findField(task: ClickUpTask, name: string): ClickUpField | undefined {
@@ -80,6 +81,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
   const instagramUrlField = findField(task, 'Instagram URL');
   const amField       = findField(task, 'Account Manager (AM)');
   const qcField       = findField(task, 'QUALITY CHECK (Somu)');
+  const publishDateField = findField(task, 'Publish Date');
 
   const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
   const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
@@ -98,6 +100,11 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     const ms = Number(task.due_date);
     dueDate = isNaN(ms) ? task.due_date : new Date(ms).toISOString();
   }
+
+  // "Publish Date" is a ClickUp date field — its value is epoch ms (string|number).
+  let publishDate: string | null = null;
+  const pubMs = Number(publishDateField?.value);
+  if (Number.isFinite(pubMs) && pubMs > 0) publishDate = new Date(pubMs).toISOString();
 
   const resolve = (field: ClickUpField | undefined, idx: number | null): string | null => {
     if (!field || idx === null) return null;
@@ -128,6 +135,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     isYoutube,
     dateUpdated:      task.date_updated,
     dueDate,
+    publishDate,
   };
 }
 
