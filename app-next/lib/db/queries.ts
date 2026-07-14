@@ -26,5 +26,6 @@ export async function getTasksFromDB(): Promise<MappedTask[]> {
     revisions:        row.revisions ?? null,
     dateUpdated:      row.dateUpdated ?? String(row.lastSyncedAt?.getTime() ?? Date.now()),
     dueDate:          row.dueDate ?? null,
+    publishDate:      row.vistasocialScheduledAt?.toISOString() ?? null,
   }));
 }

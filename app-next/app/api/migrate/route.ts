@@ -113,6 +113,7 @@ export async function POST(req: Request) {
       sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS client_status varchar(20)`,
       sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS last_synced_at timestamp`,
       sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS show_invoices boolean DEFAULT false`,
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS show_report boolean DEFAULT false`,
       sql`ALTER TABLE clients ALTER COLUMN type DROP NOT NULL`,
       sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS is_youtube boolean DEFAULT false`,
       sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS raw_drive_link text`,
