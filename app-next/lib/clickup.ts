@@ -8,7 +8,7 @@ function headers() {
 }
 
 async function get(path: string) {
-  const res = await fetch(`${BASE}${path}`, { headers: headers(), cache: 'no-store' });
+  const res = await fetch(`${BASE}${path}`, { headers: headers(), next: { revalidate: 60 } });
   if (!res.ok) throw new Error(`ClickUp ${res.status}: ${path}`);
   return res.json();
 }

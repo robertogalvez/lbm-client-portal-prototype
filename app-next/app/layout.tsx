@@ -7,6 +7,8 @@ import { db } from "@/lib/db";
 import { authUsers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   title: "LBM Portal",
   description: "Legacy Building Media — Internal Operations Portal",
