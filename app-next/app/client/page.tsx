@@ -11,6 +11,7 @@ import { NotificationBell } from '@/components/client/NotificationBell';
 import { LogoutButton } from '@/components/client/LogoutButton';
 import { CalendarView } from '@/components/client/CalendarView';
 import { InvoicesView } from '@/components/client/InvoicesView';
+import { MonthlyReport } from '@/components/client/MonthlyReport';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { getViewAsClient } from '@/lib/view-as';
 import { getInvoicesForClient, isQuickBooksConfigured } from '@/lib/quickbooks';
@@ -91,13 +92,14 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     fetchError = e instanceof Error ? e.message : 'Unknown error';
   }
 
-  const [clientRecord] = await db.select({ showCalendar: clients.showCalendar, showInvoices: clients.showInvoices }).from(clients).where(eq(clients.name, clientName)).limit(1);
+  const [clientRecord] = await db.select({ showCalendar: clients.showCalendar, showInvoices: clients.showInvoices, showReport: clients.showReport }).from(clients).where(eq(clients.name, clientName)).limit(1);
   const showCalendar = clientRecord?.showCalendar ?? false;
   const showInvoices = clientRecord?.showInvoices ?? false;
+  const showReport = clientRecord?.showReport ?? false;
   const clientInvoices = showInvoices ? await getInvoicesForClient(clientName) : [];
   const quickbooksConnected = isQuickBooksConfigured();
   const effectiveTab =
-    (tab === 'invoices' && !showInvoices) || (tab === 'calendar' && !showCalendar)
+    (tab === 'invoices' && !showInvoices) || (tab === 'calendar' && !showCalendar) || (tab === 'report' && !showReport)
       ? 'reviews'
       : tab;
 
@@ -122,6 +124,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     { label: 'Reviews', href: '/client?tab=reviews', badge: reviewTasks.length, active: effectiveTab === 'reviews', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg> },
     ...(showCalendar ? [{ label: 'Calendar', href: '/client?tab=calendar', badge: 0, active: effectiveTab === 'calendar', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> }] : []),
     ...(showInvoices ? [{ label: 'Invoices', href: '/client?tab=invoices', badge: 0, active: effectiveTab === 'invoices', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6M9 9h1"/></svg> }] : []),
+    ...(showReport ? [{ label: 'Report', href: '/client?tab=report', badge: 0, active: effectiveTab === 'report', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/></svg> }] : []),
     { label: 'Account', href: '/client?tab=account', badge: 0, active: effectiveTab === 'account', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg> },
   ];
 
@@ -263,6 +266,17 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
             <InvoicesView invoices={clientInvoices} connected={quickbooksConnected} />
           )}
 
+          {/* ── Report tab ── */}
+          {showReport && effectiveTab === 'report' && (
+            <MonthlyReport clientName={clientName} videos={postedTasks.map(t => ({
+              clickupTaskId: t.clickupTaskId,
+              title: t.title,
+              datePosted: t.dateUpdated,
+              frameLink: t.frameLink,
+              instagramUrl: t.instagramUrl,
+            }))} />
+          )}
+
           {/* ── Account tab ── */}
           {effectiveTab === 'account' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -321,6 +335,9 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
             )}
             {showInvoices && (
               <a href="/client?tab=invoices" className={`cd-tab${effectiveTab === 'invoices' ? ' cd-active' : ''}`}>Invoices</a>
+            )}
+            {showReport && (
+              <a href="/client?tab=report" className={`cd-tab${effectiveTab === 'report' ? ' cd-active' : ''}`}>Report</a>
             )}
             <a href="/client?tab=account" className={`cd-tab${effectiveTab === 'account' ? ' cd-active' : ''}`}>Account</a>
           </div>
@@ -455,6 +472,16 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
           <div style={{ maxWidth: 480 }}>
             <InvoicesView invoices={clientInvoices} connected={quickbooksConnected} />
           </div>
+        )}
+
+        {showReport && effectiveTab === 'report' && (
+          <MonthlyReport clientName={clientName} videos={postedTasks.map(t => ({
+            clickupTaskId: t.clickupTaskId,
+            title: t.title,
+            datePosted: t.dateUpdated,
+            frameLink: t.frameLink,
+            instagramUrl: t.instagramUrl,
+          }))} />
         )}
 
         {effectiveTab === 'account' && (

@@ -21,6 +21,7 @@ interface ClientRecord {
   brandingConfig: Record<string, unknown> | null;
   showCalendar: boolean | null;
   showInvoices: boolean | null;
+  showReport: boolean | null;
   contactName: string | null;
   contactEmail: string | null;
   clientStatus: string | null;
@@ -73,6 +74,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
   const [fVistaSocial, setFVistaSocial] = useState('');
   const [fCalendar, setFCalendar] = useState(false);
   const [fInvoices, setFInvoices] = useState(false);
+  const [fReport, setFReport] = useState(false);
 
   // Invite sub-form
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -89,6 +91,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
     setFVistaSocial(vs);
     setFCalendar(c.showCalendar ?? false);
     setFInvoices(c.showInvoices ?? false);
+    setFReport(c.showReport ?? false);
     setMsg(''); setInviteOpen(false);
     setInvName(c.portalUsers.length === 0 ? (c.contactName ?? '') : '');
     setInvEmail(c.portalUsers.length === 0 ? (c.contactEmail ?? '') : '');
@@ -105,6 +108,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
       vistaSocialProfileIds: fVistaSocial || null,
       showCalendar: fCalendar,
       showInvoices: fInvoices,
+      showReport: fReport,
     };
     try {
       const res = await fetch(`/api/admin/clients/${selected.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -403,6 +407,17 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                 </div>
                 <div onClick={() => setFInvoices(v => !v)} style={{ width: 40, height: 22, borderRadius: 11, background: fInvoices ? '#FF6000' : '#d4dbe2', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
                   <div style={{ position: 'absolute', top: 3, left: fInvoices ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
+                </div>
+              </div>
+
+              {/* Report toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#111c28' }}>Show posted-on-socials report</div>
+                  <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Client can see a monthly report of published videos in their portal</div>
+                </div>
+                <div onClick={() => setFReport(v => !v)} style={{ width: 40, height: 22, borderRadius: 11, background: fReport ? '#FF6000' : '#d4dbe2', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                  <div style={{ position: 'absolute', top: 3, left: fReport ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
                 </div>
               </div>
 
