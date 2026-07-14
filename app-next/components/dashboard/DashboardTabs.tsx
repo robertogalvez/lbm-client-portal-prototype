@@ -306,8 +306,8 @@ const tdNum: React.CSSProperties = { ...td, textAlign: 'center', fontFamily: 'va
 const PIPELINE_GROUPS = ['To do', 'In progress', 'Quality check', 'Review & ship'];
 
 export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, attentionClients, topEditors, statusTasks, agreedVsDelivered, periodLabel, defaultTab }: Props) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'approvals' | 'clients' | 'editors'>(
-    (defaultTab as 'approvals') ?? 'overview'
+  const [activeTab, setActiveTab] = useState<'overview' | 'approvals' | 'clients' | 'editors' | 'reports'>(
+    (defaultTab as 'overview' | 'approvals' | 'clients' | 'editors' | 'reports') ?? 'overview'
   );
   const [approvalSearch, setApprovalSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
@@ -474,12 +474,13 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, att
 
       {/* Tab bar */}
       <div className="db-tab-strip">
-        {(['overview', 'approvals', 'clients', 'editors'] as const).map(t => (
+        {(['overview', 'approvals', 'clients', 'editors', 'reports'] as const).map(t => (
           <button key={t} style={tabStyle(t)} onClick={() => setActiveTab(t)}>
             {t === 'overview' && 'Overview'}
             {t === 'approvals' && (<>Approvals <span style={ct(approvals.length, approvals.length > 0 ? 'amber' : undefined)}>{approvals.length}</span></>)}
             {t === 'clients' && (<>Clients <span style={ct(clients.length)}>{clients.length}</span></>)}
             {t === 'editors' && (<>Editors <span style={ct(editors.length)}>{editors.length}</span></>)}
+            {t === 'reports' && 'Reports'}
           </button>
         ))}
       </div>

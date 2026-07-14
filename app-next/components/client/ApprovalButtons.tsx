@@ -7,55 +7,141 @@ interface Props {
   currentApproval: string | null;
 }
 
-type State = 'idle' | 'loading' | 'done' | 'error';
+type State = 'idle' | 'revising' | 'loading' | 'done' | 'error';
 
 export function ApprovalButtons({ taskId, currentApproval }: Props) {
   const [state, setState] = useState<State>('idle');
   const [result, setResult] = useState<string | null>(currentApproval);
+  const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
 
-  async function act(action: 'approve' | 'changes') {
+  async function approve() {
     setState('loading');
     setError('');
     try {
       const res = await fetch('/api/client/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId, action }),
+        body: JSON.stringify({ taskId, action: 'approve' }),
       });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error ?? 'Request failed');
       }
-      setResult(action === 'approve' ? 'Approved' : 'Changes Requested');
+      setResult('Approved');
       setState('done');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
-      setState('error');
+      setState('idle');
     }
   }
 
+  async function submitChangesRequest() {
+    setState('loading');
+    setError('');
+    try {
+      // Request changes in ClickUp
+      const approveRes = await fetch('/api/client/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, action: 'changes' }),
+      });
+      if (!approveRes.ok) {
+        const data = await approveRes.json();
+        throw new Error(data.error ?? 'Request failed');
+      }
+      // Post feedback as comment if provided
+      if (feedback.trim()) {
+        await fetch('/api/client/comment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskId, text: `🎬 Video feedback: ${feedback.trim()}` }),
+        });
+      }
+      setResult('Changes Requested');
+      setState('done');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong');
+      setState('revising');
+    }
+  }
+
+  // Already decided — show badge
   if (state === 'done' || (result && state === 'idle')) {
     const approved = result?.toLowerCase().includes('approv') && !result?.toLowerCase().includes('changes');
+    const changed = result?.toLowerCase().includes('change');
     return (
       <div style={{
         display: 'inline-flex', alignItems: 'center', gap: 7,
         padding: '10px 14px', borderRadius: 13,
-        background: approved ? '#e4f3ec' : '#fbe7e2',
+        background: approved ? '#e4f3ec' : changed ? '#fbe7e2' : '#f4f6f8',
         fontSize: 14, fontWeight: 700,
-        color: approved ? '#14805f' : '#cf3f36',
+        color: approved ? '#14805f' : changed ? '#cf3f36' : '#8b97a4',
       }}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{width:15,height:15}}>
           {approved
             ? <path d="M20 6 9 17l-5-5"/>
-            : <><path d="M18 6 6 18"/><path d="M6 6l12 12"/></>
+            : changed
+            ? <><path d="M18 6 6 18"/><path d="M6 6l12 12"/></>
+            : <circle cx="12" cy="12" r="9"/>
           }
         </svg>
-        {result}
+        {result || 'Pending'}
       </div>
     );
   }
 
+  // Revision flow — text area + submit
+  if (state === 'revising') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {error && <div style={{ fontSize: 12, color: '#cf3f36' }}>{error}</div>}
+        <textarea
+          autoFocus
+          placeholder="What needs to change in the video? (optional)"
+          value={feedback}
+          onChange={e => setFeedback(e.target.value)}
+          rows={3}
+          style={{
+            width: '100%', boxSizing: 'border-box' as const,
+            padding: '10px 12px', borderRadius: 10,
+            border: '1px solid #e0d8ce', background: '#faf6f0',
+            fontSize: 16, color: '#221e18', lineHeight: 1.5,
+            fontFamily: 'inherit', resize: 'vertical' as const,
+            outline: 'none',
+          }}
+        />
+        <div style={{ display: 'flex', gap: 9 }}>
+          <button
+            onClick={() => { setState('idle'); setFeedback(''); setError(''); }}
+            style={{
+              flex: 1, padding: '11px 14px', borderRadius: 13,
+              border: '1px solid #ece4d8', background: '#fff',
+              color: '#6c6357', fontWeight: 600, fontSize: 13,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={submitChangesRequest}
+            style={{
+              flex: 2, padding: '11px 14px', borderRadius: 13, border: 'none',
+              background: '#cf3f36',
+              color: '#fff',
+              fontWeight: 700, fontSize: 13,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            Request changes
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Default — two action buttons
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {error && <div style={{ fontSize: 12, color: '#cf3f36' }}>{error}</div>}
@@ -66,7 +152,7 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
 
       <div style={{ display: 'flex', gap: 9 }}>
         <button
-          onClick={() => act('changes')}
+          onClick={() => setState('revising')}
           disabled={state === 'loading'}
           style={{
             flex: 1, padding: '12px 14px', borderRadius: 13,
@@ -84,7 +170,7 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
         </button>
 
         <button
-          onClick={() => act('approve')}
+          onClick={approve}
           disabled={state === 'loading'}
           style={{
             flex: 1, padding: '12px 14px', borderRadius: 13, border: 'none',

@@ -20,6 +20,10 @@ function daysAgo(dateStr: string): number {
 }
 
 function rangeCutoff(range: string): number {
+  if (range === 'month') {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  }
   if (range === '30d')  return Date.now() - 30  * 86_400_000;
   if (range === '90d')  return Date.now() - 90  * 86_400_000;
   if (range === '1y')   return Date.now() - 365 * 86_400_000;
@@ -29,6 +33,12 @@ function rangeCutoff(range: string): number {
 // The equal-length window immediately preceding `cutoff`, used to compute
 // KPI trend deltas. 'all' has no meaningful "prior" window.
 function previousWindowBounds(range: string, cutoff: number): [number, number] | null {
+  if (range === 'month') {
+    const d = new Date(cutoff);
+    const prevMonth = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+    const currMonth = new Date(cutoff);
+    return [prevMonth.getTime(), currMonth.getTime()];
+  }
   if (range === '30d')  return [cutoff - 30  * 86_400_000, cutoff];
   if (range === '90d')  return [cutoff - 90  * 86_400_000, cutoff];
   if (range === '1y')   return [cutoff - 365 * 86_400_000, cutoff];
@@ -36,13 +46,31 @@ function previousWindowBounds(range: string, cutoff: number): [number, number] |
 }
 
 function periodMetrics(list: MappedTask[]) {
-  const POSTED = 'posted in socials';
-  const inProd = list.filter(t => norm(t.status) !== POSTED).length;
+  // In production: videos actively being worked on
+  const inProdStatuses = new Set([
+    'qc final - am',
+    'tc - qc (somu)',
+    'in progress (corrections)',
+    'in progress (editor)',
+  ]);
+  const inProd = list.filter(t => inProdStatuses.has(norm(t.status))).length;
+
+  // Pending approval: videos in client hands
   const pending = list.filter(t => norm(t.status) === 'for client review').length;
-  const approved = list.filter(t => t.clientApproval?.toLowerCase() === 'approved').length;
-  const corrections = list.filter(t => norm(t.status) === 'in progress (corrections)').length;
-  const fpTotal = approved + corrections;
-  const firstPassClean = fpTotal > 0 ? Math.round(approved / fpTotal * 100) : null;
+
+  // Client-approved: READY TO BE POSTED with CLIENT APPROVAL = Approved
+  const approved = list.filter(t =>
+    norm(t.status) === 'ready to be posted' &&
+    t.clientApproval?.toLowerCase() === 'approved'
+  ).length;
+
+  // First-pass clean: videos that reached posting with 0 or null revisions
+  // Null revisions = video bypassed QC Board (went Backlog → Posted directly, no revisions needed)
+  // 0 revisions = video passed QC Board on first pass without corrections
+  const readyToPost = list.filter(t => norm(t.status) === 'ready to be posted');
+  const cleanPass = readyToPost.filter(t => t.revisions === 0 || t.revisions === null).length;
+  const firstPassClean = readyToPost.length > 0 ? Math.round(cleanPass / readyToPost.length * 100) : null;
+
   return { inProd, pending, approved, firstPassClean };
 }
 
@@ -220,7 +248,7 @@ export default async function DashboardPage({
     );
   }
 
-  const { range = 'all', member = '', am = '', client: clientFilter = '', inactive = '' } = await searchParams;
+  const { range = 'month', member = '', am = '', client: clientFilter = '', inactive = '' } = await searchParams;
   const showInactive = inactive === '1';
   const masterListId = process.env.CLICKUP_LIST_ID;
   const folderId     = process.env.CLICKUP_FOLDER_ID;
@@ -276,37 +304,41 @@ export default async function DashboardPage({
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
 
   const POSTED = 'posted in socials';
-  const inProduction     = tasks.filter(t => norm(t.status) !== POSTED).length;
+  
+  // Use correct periodMetrics calculation for KPI display
+  // Status counts should ignore date filters - a video's status doesn't change based on update recency
+  const metrics = periodMetrics(allTasks);
+  const inProduction = metrics.inProd;
+  const pendingApproval = metrics.pending;
+  const clientApproved = metrics.approved;
+  const firstPassCleanPct = metrics.firstPassClean;
+
   const reviewTasks      = tasks.filter(t => norm(t.status) === 'for client review');
-  const pendingApproval  = reviewTasks.length;
   const overdueInReview  = reviewTasks.filter(t => (now - parseDate(t.dateUpdated)) > 3 * DAY_MS);
   const overdueCount     = overdueInReview.length;
 
-  const clientApprovedTasks = tasks.filter(t => t.clientApproval?.toLowerCase() === 'approved');
-  const clientApproved      = clientApprovedTasks.length;
-
+  const clientApprovedTasks = tasks.filter(t => norm(t.status) === 'ready to be posted' && t.clientApproval?.toLowerCase() === 'approved');
   const inCorrectionsTasks = tasks.filter(t => norm(t.status) === 'in progress (corrections)');
-  const fpTotal = clientApproved + inCorrectionsTasks.length;
-  const firstPassCleanPct = fpTotal > 0 ? Math.round(clientApproved / fpTotal * 100) : null;
 
-  const postedThisMonth = tasks.filter(t => norm(t.status) === POSTED && parseDate(t.dateUpdated) >= monthStart).length;
-
-  // Quota pacing (Delivery/Footage) is always scoped to the current calendar
-  // month, independent of the browsed range — an agreed monthly quota doesn't
-  // mean anything prorated over the account's entire history.
+  // Quota pacing (Delivery/Footage) and the "Posted this month" KPI are both
+  // always scoped to the current calendar month, independent of the browsed
+  // range — a monthly quota (or "this month" label) doesn't mean anything
+  // prorated over a different window.
   const monthlyPosted = allTasks
     .filter(t => norm(t.status) === POSTED && parseDate(t.dateUpdated) >= monthStart)
     .filter(t => !member       || t.editorName     === member)
     .filter(t => !am           || t.assignedAmName === am)
     .filter(t => !clientFilter || t.clientName     === clientFilter);
 
-  const pipeline    = buildPipeline(tasks);
-  const approvals   = buildApprovals(tasks);
+  const postedThisMonth = monthlyPosted.length;
+
+  const pipeline    = buildPipeline(allTasks);
+  const approvals   = buildApprovals(allTasks);
   const backlogRows = buildBacklog(allTasks);
   const clients     = buildClients(tasks, monthlyPosted, clientQuotas, backlogRows);
   const editors     = buildEditors(tasks);
   const agreedVsDelivered = buildAgreedVsDelivered(monthlyPosted, clientQuotas);
-  const statusTasks: StatusTask[] = tasks.map(t => ({
+  const statusTasks: StatusTask[] = allTasks.map(t => ({
     id: t.clickupTaskId,
     title: t.title,
     clientName: t.clientName,
@@ -366,12 +398,12 @@ export default async function DashboardPage({
     },
     {
       label: 'First-pass clean', value: firstPassCleanPct !== null ? `${firstPassCleanPct}%` : '—', dotColor: '#14805f',
-      tip: 'Approved ÷ (Approved + Rework). Higher means fewer revision rounds.',
+      tip: 'Approved ÷ (Approved + currently in Corrections), within this range. A snapshot of current rework load, not a per-task history of revision rounds.',
       delta: firstPassCleanPct !== null ? kpiDelta(firstPassCleanPct, prevMetrics?.firstPassClean, true, 'pts') : undefined,
     },
     {
       label: 'Client-approved', value: clientApproved, dotColor: '#14805f',
-      tip: 'Total videos the client has marked Approved, including already-posted ones.',
+      tip: 'Videos the client has marked Approved in this range. Not exclusive of the other tiles — overlaps with In production (not yet posted) and Posted this month.',
       delta: kpiDelta(clientApproved, prevMetrics?.approved, true),
     },
     {
@@ -451,7 +483,7 @@ export default async function DashboardPage({
         statusTasks={statusTasks}
         agreedVsDelivered={agreedVsDelivered}
         periodLabel={periodLabel}
-        defaultTab={overdueCount > 0 ? 'approvals' : 'overview'}
+        defaultTab='overview'
       />
     </main>
   );

@@ -15,6 +15,8 @@ interface ClientRecord {
   name: string;
   type: string | null;
   monthlyQuota: number | null;
+  monthlyReels: number;
+  monthlyYoutube: number;
   clickupTaskId: string;
   frameioProjectId: string | null;
   whatsappNumber: string | null;
@@ -38,6 +40,11 @@ function avatarColor(id: string) {
 }
 function initials(name: string) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+function isValidClickUpTaskId(taskId: string): boolean {
+  // Valid task IDs are alphanumeric strings (usually 7-10 chars), e.g. "86aed7r1z"
+  // Invalid ones contain spaces or look like names, e.g. "ClickUp Testing", "Sebastian Velasquez"
+  return /^[a-z0-9]+$/i.test(taskId) && taskId.length >= 7;
 }
 
 const inp: React.CSSProperties = {
@@ -70,8 +77,6 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
 
   // Portal-only fields (the only ones an admin can edit — everything else comes from ClickUp)
   const [fType, setFType] = useState<'retainer' | 'one_time' | null>(null);
-  const [fFrameio, setFFrameio] = useState('');
-  const [fVistaSocial, setFVistaSocial] = useState('');
   const [fCalendar, setFCalendar] = useState(false);
   const [fInvoices, setFInvoices] = useState(false);
   const [fReport, setFReport] = useState(false);
@@ -86,9 +91,6 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
   function openEdit(c: ClientRecord) {
     setSelected(c);
     setFType((c.type as 'retainer' | 'one_time' | null) ?? null);
-    setFFrameio(c.frameioProjectId ?? '');
-    const vs = (c.brandingConfig as { vistaSocialProfileIds?: string })?.vistaSocialProfileIds ?? '';
-    setFVistaSocial(vs);
     setFCalendar(c.showCalendar ?? false);
     setFInvoices(c.showInvoices ?? false);
     setFReport(c.showReport ?? false);
@@ -104,8 +106,6 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
     setSaving(true); setMsg('');
     const body = {
       type: fType,
-      frameioProjectId: fFrameio || null,
-      vistaSocialProfileIds: fVistaSocial || null,
       showCalendar: fCalendar,
       showInvoices: fInvoices,
       showReport: fReport,
@@ -260,14 +260,14 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #e7ebef' }}>
-                  {['Client', 'Type', 'Quota', 'Status', 'Portal users', ''].map(h => (
+                  {['Client', 'Type', 'Reels/mo', 'YouTube/mo', 'Status', 'Portal users', ''].map(h => (
                     <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#8b97a4', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'inherit' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {visibleClients.length === 0 && (
-                  <tr><td colSpan={6} style={{ padding: '48px 16px', textAlign: 'center', color: '#8b97a4', fontSize: 14 }}>{clients.length === 0 ? <>No clients yet. Click &quot;Sync now&quot; to pull clients from ClickUp&apos;s Master Clients List.</> : 'No active clients. Check "Show inactive" to see them.'}</td></tr>
+                  <tr><td colSpan={7} style={{ padding: '48px 16px', textAlign: 'center', color: '#8b97a4', fontSize: 14 }}>{clients.length === 0 ? <>No clients yet. Click &quot;Sync now&quot; to pull clients from ClickUp&apos;s Master Clients List.</> : 'No active clients. Check "Show inactive" to see them.'}</td></tr>
                 )}
                 {visibleClients.map((c, i) => (
                   <tr key={c.id} onClick={() => openEdit(c)} style={{ borderBottom: i < visibleClients.length - 1 ? '1px solid #f4f6f8' : 'none', cursor: 'pointer', background: selected?.id === c.id ? '#fff8f5' : 'transparent' }}>
@@ -284,8 +284,11 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                           </span>
                         : <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 9px', borderRadius: 100, color: '#b06f06', background: '#fdf3e1' }}>Needs setup</span>}
                     </td>
-                    <td style={{ padding: '12px 16px', color: c.monthlyQuota ? '#111c28' : '#8b97a4', fontWeight: c.monthlyQuota ? 600 : 400 }}>
-                      {c.monthlyQuota ? `${c.monthlyQuota}/mo` : '—'}
+                    <td style={{ padding: '12px 16px', color: c.monthlyReels > 0 ? '#111c28' : '#8b97a4', fontWeight: c.monthlyReels > 0 ? 600 : 400 }}>
+                      {c.monthlyReels > 0 ? `${c.monthlyReels}` : '—'}
+                    </td>
+                    <td style={{ padding: '12px 16px', color: c.monthlyYoutube > 0 ? '#111c28' : '#8b97a4', fontWeight: c.monthlyYoutube > 0 ? 600 : 400 }}>
+                      {c.monthlyYoutube > 0 ? `${c.monthlyYoutube}` : '—'}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       {c.clientStatus
@@ -347,13 +350,18 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={label}>From ClickUp</span>
-                  <a href={`https://app.clickup.com/t/${selected.clickupTaskId}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 600, color: '#FF6000', textDecoration: 'none' }}>Open in ClickUp →</a>
+                  {isValidClickUpTaskId(selected.clickupTaskId) ? (
+                    <a href={`https://app.clickup.com/t/${selected.clickupTaskId}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 600, color: '#FF6000', textDecoration: 'none' }}>Open in ClickUp →</a>
+                  ) : (
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#cf3f36' }}>Invalid task ID</span>
+                  )}
                 </div>
                 <div style={readonlyRow}><span style={{ color: '#8b97a4' }}>Contact</span><span>{selected.contactName || '—'}</span></div>
                 <div style={readonlyRow}><span style={{ color: '#8b97a4' }}>Email</span><span>{selected.contactEmail || '—'}</span></div>
                 <div style={readonlyRow}><span style={{ color: '#8b97a4' }}>Phone</span><span>{selected.whatsappNumber || '—'}</span></div>
                 <div style={readonlyRow}><span style={{ color: '#8b97a4' }}>Client status</span><span>{selected.clientStatus || '—'}</span></div>
-                <div style={{ ...readonlyRow, borderBottom: 'none' }}><span style={{ color: '#8b97a4' }}>Monthly quota</span><span>{selected.monthlyQuota ? `${selected.monthlyQuota}/mo` : '—'}</span></div>
+                <div style={readonlyRow}><span style={{ color: '#8b97a4' }}>Reels / month</span><span>{selected.monthlyReels > 0 ? `${selected.monthlyReels}` : '—'}</span></div>
+                <div style={{ ...readonlyRow, borderBottom: 'none' }}><span style={{ color: '#8b97a4' }}>YouTube videos / month</span><span>{selected.monthlyYoutube > 0 ? `${selected.monthlyYoutube}` : '—'}</span></div>
                 {selected.lastSyncedAt && <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 4 }}>Last synced {new Date(selected.lastSyncedAt).toLocaleString()}</div>}
               </div>
 
@@ -376,16 +384,16 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                 </div>
               </div>
 
-              {/* Frame.io */}
+              {/* Frame.io (from ClickUp) */}
               <div>
-                <span style={label}>Frame.io project ID <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></span>
-                <input value={fFrameio} onChange={e => setFFrameio(e.target.value)} placeholder="abc123" style={inp} />
+                <span style={label}>Frame.io project ID</span>
+                <div style={readonlyRow}><span style={{ color: '#111c28', wordBreak: 'break-all' }}>{selected.frameioProjectId || '—'}</span></div>
               </div>
 
-              {/* Vista Social */}
+              {/* Vista Social (from ClickUp) */}
               <div>
-                <span style={label}>Vista Social profile IDs <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(comma-separated, optional)</span></span>
-                <input value={fVistaSocial} onChange={e => setFVistaSocial(e.target.value)} placeholder="id1, id2" style={inp} />
+                <span style={label}>Vista Social profile IDs</span>
+                <div style={readonlyRow}><span style={{ color: '#111c28', wordBreak: 'break-all' }}>{((selected.brandingConfig as { vistaSocialProfileIds?: string })?.vistaSocialProfileIds) || '—'}</span></div>
               </div>
 
               {/* Calendar toggle */}

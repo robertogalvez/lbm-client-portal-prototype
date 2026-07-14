@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { authUsers, clients } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { getClientQuotas } from '@/lib/clickup';
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -13,6 +14,7 @@ export async function GET() {
   if (caller[0]?.role === 'client') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const allClients = await db.select().from(clients).orderBy(clients.createdAt);
+  const quotas = await getClientQuotas();
 
   // Count linked portal users per client (matched by name)
   const portalUsers = await db
@@ -20,10 +22,15 @@ export async function GET() {
     .from(authUsers)
     .where(eq(authUsers.role, 'client'));
 
-  const result = allClients.map(c => ({
-    ...c,
-    portalUsers: portalUsers.filter(u => u.clientName === c.name),
-  }));
+  const result = allClients.map(c => {
+    const quota = quotas.find(q => q.name === c.name);
+    return {
+      ...c,
+      monthlyReels: quota?.reelsPerMonth ?? 0,
+      monthlyYoutube: quota?.ytPerMonth ?? 0,
+      portalUsers: portalUsers.filter(u => u.clientName === c.name),
+    };
+  });
 
   return NextResponse.json(result);
 }

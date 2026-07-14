@@ -45,6 +45,7 @@ export interface ClickUpTask {
 export interface MappedTask {
   clickupTaskId: string;
   title: string;
+  clientFacingTitle: string | null;
   status: string;
   clientOptionId: string | null;
   clientName: string | null;
@@ -60,6 +61,7 @@ export interface MappedTask {
   assignedAmName: string | null;
   editorName: string | null;
   isYoutube: boolean;
+  revisions: number | null;
   dateUpdated: string;
   dueDate: string | null;
   publishDate: string | null;   // ClickUp "Publish Date" — the scheduled go-live date
@@ -82,6 +84,8 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
   const amField       = findField(task, 'Account Manager (AM)');
   const qcField       = findField(task, 'QUALITY CHECK (Somu)');
   const publishDateField = findField(task, 'Publish Date');
+  const clientFacingTitleField = findField(task, 'Client-Facing Title');
+  const revisionsField = findField(task, 'Revision #');
 
   const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
   const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
@@ -115,9 +119,18 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     return field.type_config?.options?.[idx]?.id ?? sharedOptions[field.name]?.[idx]?.id ?? null;
   };
 
+  let revisions: number | null = null;
+  if (typeof revisionsField?.value === 'number') {
+    revisions = revisionsField.value;
+  } else if (typeof revisionsField?.value === 'string') {
+    const parsed = parseInt(revisionsField.value, 10);
+    revisions = isNaN(parsed) ? null : parsed;
+  }
+
   return {
     clickupTaskId:    task.id,
     title:            task.name,
+    clientFacingTitle: typeof clientFacingTitleField?.value === 'string' ? clientFacingTitleField.value : null,
     status:           task.status.status,
     clientOptionId:   resolveId(clientField, clientIdx),
     clientName:       resolve(clientField, clientIdx),
@@ -133,6 +146,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     assignedAmName:   amName,
     editorName,
     isYoutube,
+    revisions,
     dateUpdated:      task.date_updated,
     dueDate,
     publishDate,
@@ -184,12 +198,34 @@ export async function getTasksFromFolder(folderId: string, includeArchived = fal
     : lists;
 
   const results = await Promise.all(ordered.map(l => getTasksFromList(l.id, includeArchived)));
-  const seen = new Set<string>();
-  return results.flat().filter(t => {
-    if (seen.has(t.clickupTaskId)) return false;
-    seen.add(t.clickupTaskId);
-    return true;
-  });
+  const taskMap = new Map<string, MappedTask>();
+
+  // Merge task data from all lists: for each task ID, use the version with the most populated fields
+  // This handles cases where a task exists in multiple lists with list-specific custom fields
+  for (const tasks of results) {
+    for (const task of tasks) {
+      const existing = taskMap.get(task.clickupTaskId);
+      if (!existing) {
+        taskMap.set(task.clickupTaskId, task);
+      } else {
+        // Merge: prefer non-null values from either version
+        taskMap.set(task.clickupTaskId, {
+          ...existing,
+          revisions: existing.revisions ?? task.revisions,
+          qualityCheck: existing.qualityCheck ?? task.qualityCheck,
+          caption: existing.caption ?? task.caption,
+          frameLink: existing.frameLink ?? task.frameLink,
+          rawDriveLink: existing.rawDriveLink ?? task.rawDriveLink,
+          instagramUrl: existing.instagramUrl ?? task.instagramUrl,
+          captionApproval: existing.captionApproval ?? task.captionApproval,
+          publishingStatus: existing.publishingStatus ?? task.publishingStatus,
+          clientFacingTitle: existing.clientFacingTitle ?? task.clientFacingTitle,
+        });
+      }
+    }
+  }
+
+  return Array.from(taskMap.values());
 }
 
 export interface ClientQuota {
@@ -204,6 +240,8 @@ export interface MasterClientRecord {
   contactName: string | null;
   contactEmail: string | null;
   whatsappNumber: string | null;
+  frameioProjectId: string | null;
+  vistaSocialProfileIds: string | null;
   clientStatus: string;
   monthlyQuota: number;
 }
@@ -257,6 +295,8 @@ export async function getMasterClientRecords(): Promise<{ records: MasterClientR
     const phoneField        = findField(t, 'Phone Number');
     const reelsField        = findField(t, 'Reels / mo');
     const ytField           = findField(t, 'YT videos / mo');
+    const frameioField      = findField(t, 'Frame.io ID');
+    const vistaSocialField  = findField(t, 'VistaSocial Profile IDs');
 
     const reels = typeof reelsField?.value === 'number' ? reelsField.value : Number(reelsField?.value ?? 0) || 0;
     const yt    = typeof ytField?.value === 'number' ? ytField.value : Number(ytField?.value ?? 0) || 0;
@@ -267,6 +307,8 @@ export async function getMasterClientRecords(): Promise<{ records: MasterClientR
       contactName:    typeof contactNameField?.value === 'string' ? contactNameField.value : null,
       contactEmail:   typeof contactEmailField?.value === 'string' ? contactEmailField.value : null,
       whatsappNumber: typeof phoneField?.value === 'string' ? phoneField.value : null,
+      frameioProjectId: typeof frameioField?.value === 'string' ? frameioField.value : null,
+      vistaSocialProfileIds: typeof vistaSocialField?.value === 'string' ? vistaSocialField.value : null,
       clientStatus:   clientStatus.trim(),
       monthlyQuota:   reels + yt,
     });
@@ -299,20 +341,26 @@ export async function getActiveTasks(includeArchived = false): Promise<MappedTas
   throw new Error('Set CLICKUP_FOLDER_ID or CLICKUP_LIST_ID');
 }
 
-// Task ids that are flagged "Ready to Publish?" and not yet "Published" — the
-// reconcile trigger for native publishing (backup for missed ClickUp webhooks).
+// Task ids ordered to publish — "Posted Status" = "Post on Socials" AND the
+// "Ready to Publish?" validation checkbox is checked. This is the reconcile
+// trigger for native publishing (backup for missed ClickUp webhooks).
+// "Do not post" (or unset) means the client decides — never sent to Vista Social.
 export async function getPublishableTaskIds(listId: string): Promise<string[]> {
   const all = await fetchRawTasks(listId);
+  const postedOptions = buildFieldOptions(all, 'Posted Status');
   const ids: string[] = [];
   for (const t of all) {
+    const posted = findField(t, 'Posted Status');
+    const idx = typeof posted?.value === 'number' ? posted.value : null;
+    const postedName = idx !== null
+      ? (posted?.type_config?.options?.[idx]?.name ?? postedOptions[idx]?.name ?? null)
+      : null;
+    if (!postedName || !/post on socials/i.test(postedName)) continue;
+
     const ready = findField(t, 'Ready to Publish?');
     const isReady = ready?.value === true || ready?.value === 'true' || ready?.value === 1;
     if (!isReady) continue;
-    const pub = findField(t, 'Publishing Status');
-    const pubName = typeof pub?.value === 'number'
-      ? (pub.type_config?.options?.[pub.value]?.name ?? null)
-      : null;
-    if (pubName === 'Published') continue;
+
     ids.push(t.id);
   }
   return ids;

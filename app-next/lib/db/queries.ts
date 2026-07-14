@@ -7,6 +7,7 @@ export async function getTasksFromDB(): Promise<MappedTask[]> {
   return rows.map((row: VideoCache) => ({
     clickupTaskId:    row.clickupTaskId,
     title:            row.title ?? '',
+    clientFacingTitle: row.clientFacingTitle ?? null,
     status:           row.status ?? '',
     clientOptionId:   row.clientId ?? null,
     clientName:       row.clientName ?? null,
@@ -22,6 +23,7 @@ export async function getTasksFromDB(): Promise<MappedTask[]> {
     assignedAmName:   row.assignedAmName ?? null,
     editorName:       row.editorName ?? null,
     isYoutube:        row.isYoutube ?? false,
+    revisions:        row.revisions ?? null,
     dateUpdated:      row.dateUpdated ?? String(row.lastSyncedAt?.getTime() ?? Date.now()),
     dueDate:          row.dueDate ?? null,
     publishDate:      row.vistasocialScheduledAt?.toISOString() ?? null,

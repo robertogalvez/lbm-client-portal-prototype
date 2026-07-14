@@ -51,13 +51,41 @@ export async function POST(req: Request) {
   if (!token) return NextResponse.json({ error: 'CLICKUP_API_TOKEN not set' }, { status: 500 });
   if (!masterListId && !folderId) return NextResponse.json({ error: 'No ClickUp list/folder configured' }, { status: 500 });
 
-  const rawTasks = masterListId
-    ? await fetchAllTasksFromList(masterListId, token)
-    : await fetchAllTasksFromFolder(folderId!, token);
+  // Prioritize folder to get tasks from all lists (Quality Control Board has Revision # field)
+  const rawTasks = folderId
+    ? await fetchAllTasksFromFolder(folderId, token)
+    : await fetchAllTasksFromList(masterListId!, token);
+
+  // Merge tasks from multiple lists — prefer non-null field values
+  // (e.g., Revision # field only exists on Quality Control Board instance)
+  const taskMap = new Map<string, any>();
+  for (const task of rawTasks) {
+    const existing = taskMap.get(task.id);
+    if (!existing) {
+      taskMap.set(task.id, task);
+    } else {
+      // Merge custom fields: collect all fields from both instances
+      const mergedFields = [...(existing.custom_fields ?? [])];
+      const existingFieldNames = new Set(mergedFields.map((f: any) => f.name));
+      for (const f of task.custom_fields ?? []) {
+        if (!existingFieldNames.has(f.name)) {
+          mergedFields.push(f);
+        } else {
+          // Replace with non-null value from task
+          const idx = mergedFields.findIndex((mf: any) => mf.name === f.name);
+          if (f.value !== null && f.value !== undefined) {
+            mergedFields[idx] = f;
+          }
+        }
+      }
+      taskMap.set(task.id, { ...existing, custom_fields: mergedFields });
+    }
+  }
+  const mergedTasks = Array.from(taskMap.values());
 
   // Extract option maps once — ClickUp only includes type_config on some tasks, not all.
   const fieldOptions: Record<string, any[]> = {};
-  for (const t of rawTasks) {
+  for (const t of mergedTasks) {
     for (const f of (t.custom_fields ?? []) as any[]) {
       if (!fieldOptions[f.name] && f.type_config?.options?.length) {
         fieldOptions[f.name] = f.type_config.options;
@@ -72,7 +100,7 @@ export async function POST(req: Request) {
   let synced = 0;
   let skipped = 0;
 
-  for (const task of rawTasks) {
+  for (const task of mergedTasks) {
     const existing = await db.select({ dirty: videoCache.dirty })
       .from(videoCache)
       .where(eq(videoCache.clickupTaskId, task.id))
@@ -92,6 +120,7 @@ export async function POST(req: Request) {
     const rawDriveField = find('Raw Drive Link (Videographer)');
     const amField       = find('Account Manager (AM)');
     const qcField       = find('QUALITY CHECK (Somu)');
+    const revisionsField = find('Revision #');
 
     const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
     const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
@@ -104,6 +133,14 @@ export async function POST(req: Request) {
     const editorName = (task.assignees as { username?: string }[])?.[0]?.username ?? null;
     const clientName   = resolveOpt('Client Name (AM)', clientIdx);
     const qualityCheck = resolveOpt('QUALITY CHECK (Somu)', qcIdx);
+
+    let revisions: number | null = null;
+    if (typeof revisionsField?.value === 'number') {
+      revisions = revisionsField.value;
+    } else if (typeof revisionsField?.value === 'string') {
+      const parsed = parseInt(revisionsField.value, 10);
+      revisions = isNaN(parsed) ? null : parsed;
+    }
 
     let dueDate: string | null = null;
     if (task.due_date) {
@@ -124,6 +161,7 @@ export async function POST(req: Request) {
       editorName,
       clientName,
       qualityCheck,
+      revisions,
       dateUpdated:      task.date_updated ?? null,
       dueDate,
       lastSyncedAt:     new Date(),
