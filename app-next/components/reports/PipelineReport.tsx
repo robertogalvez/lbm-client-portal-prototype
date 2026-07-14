@@ -1,17 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-
-// Per-client pipeline snapshot: how much raw footage is waiting to be edited
-// (supply health) and what's left downstream toward publishing.
-export interface PipelineReportClient {
-  name: string;
-  newFootage: number;      // Not Ready + Not Assigned + In Progress (Editor)
-  corrections: number;     // In Progress (Corrections)
-  qc: number;              // TC/QC (Somu) + QC Final – AM
-  clientReview: number;    // For Client Review
-  readyToPublish: number;  // Ready to be Posted
-}
+import type { PipelineReportClient } from '@/lib/reports/pipeline';
 
 const GREEN = '#3f7a2f';
 const BORDER = '#c9d2c2';

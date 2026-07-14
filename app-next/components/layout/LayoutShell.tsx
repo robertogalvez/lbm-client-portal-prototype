@@ -16,6 +16,7 @@ export function LayoutShell({ children, showClientPortal }: { children: React.Re
     { label: 'Dashboard', href: '/dashboard', icon: '▦' },
     { label: 'Clients', href: '/admin/clients', icon: '◎' },
     { label: 'Invoices', href: '/invoices', icon: '▧' },
+    { label: 'Reports', href: '/reports', icon: '▤' },
     { label: 'Publishing', href: '#', icon: '⬆', disabled: true },
     ...(showClientPortal ? [{ label: 'My Client Portal', href: '/client', icon: '▤' }] : []),
     { label: 'Settings', href: '/settings', icon: '⚙' },
