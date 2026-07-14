@@ -7,7 +7,7 @@ import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, Attent
 import { EDITOR_PHASE_COLS } from '@/components/dashboard/editor-phases';
 import { FiltersBar } from '@/components/dashboard/FiltersBar';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 function norm(s: string) {
   return s.toLowerCase().replace(/\s+/g, ' ').trim();
