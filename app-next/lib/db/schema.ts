@@ -104,6 +104,18 @@ export const videoCache = pgTable('video_cache', {
   dirty:             boolean('dirty').default(false),
 });
 
+// OAuth token store (currently: Frame.io v4 OAuth 2.0 refresh/access tokens).
+export const oauthTokens = pgTable('oauth_tokens', {
+  provider:        varchar('provider', { length: 50 }).primaryKey(),
+  accessToken:     text('access_token'),
+  refreshToken:    text('refresh_token'),
+  expiresAt:       timestamp('expires_at'),
+  refreshIssuedAt: timestamp('refresh_issued_at'),
+  alertedAt:       timestamp('alerted_at'),
+  updatedAt:       timestamp('updated_at').defaultNow(),
+});
+
 export type AuthUser    = typeof authUsers.$inferSelect;
 export type Client      = typeof clients.$inferSelect;
 export type VideoCache  = typeof videoCache.$inferSelect;
+export type OAuthToken  = typeof oauthTokens.$inferSelect;

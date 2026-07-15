@@ -6,6 +6,10 @@ const PUBLIC_PATHS = [
   // must bypass the session redirect — they're called by ClickUp and the
   // scheduled functions, which have no session cookie.
   '/api/webhooks', '/api/publish', '/api/admin/publish',
+  // Frame.io OAuth callback: hit via redirect from Frame.io (no session); guarded
+  // by the PKCE state cookie in-handler. renew-check: called by the cron (no
+  // session), cron-secret guarded. (/start stays session-gated in-handler.)
+  '/api/frameio/oauth/callback', '/api/frameio/oauth/renew-check',
 ];
 
 export function proxy(request: NextRequest) {

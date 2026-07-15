@@ -4,13 +4,15 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { authUsers } from '@/lib/db/schema';
 import { eq, ne } from 'drizzle-orm';
+import { getConnectionStatus } from '@/lib/frameio';
 import { SettingsPageClient } from './SettingsPageClient';
 
 export const dynamic = 'force-dynamic';
 
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ frameio?: string; reason?: string }> }) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect('/login');
+  const sp = await searchParams;
 
   const [caller] = await db
     .select({ role: authUsers.role })
@@ -35,5 +37,16 @@ export default async function SettingsPage() {
     .where(ne(authUsers.role, 'client'))
     .orderBy(authUsers.createdAt);
 
-  return <SettingsPageClient users={users} currentUserId={session.user.id} />;
+  const conn = await getConnectionStatus().catch(() => null);
+  const frameio = {
+    connected: conn?.connected ?? false,
+    mode: conn?.mode ?? 'disconnected',
+    needsReauth: conn?.needsReauth ?? true,
+    daysUntilReauth: conn?.daysUntilReauth ?? null,
+    reauthDeadline: conn?.reauthDeadline ? conn.reauthDeadline.toISOString() : null,
+    banner: sp.frameio ?? null,
+    bannerReason: sp.reason ?? null,
+  };
+
+  return <SettingsPageClient users={users} currentUserId={session.user.id} frameio={frameio} />;
 }

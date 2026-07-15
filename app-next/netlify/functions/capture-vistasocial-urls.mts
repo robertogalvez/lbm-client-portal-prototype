@@ -20,11 +20,12 @@ export default async function handler() {
   };
 
   // Reconcile first (publish any Ready-to-Publish tasks a webhook may have missed),
-  // then capture live Instagram URLs for already-published posts.
+  // then capture live Instagram URLs, then check Frame.io auth expiry.
   const reconcile = await call('/api/publish/reconcile');
   const capture = await call('/api/publish/capture');
+  const frameioRenew = await call('/api/frameio/oauth/renew-check');
 
-  return new Response(JSON.stringify({ reconcile, capture }), {
+  return new Response(JSON.stringify({ reconcile, capture, frameioRenew }), {
     headers: { 'Content-Type': 'application/json' },
   });
 }
