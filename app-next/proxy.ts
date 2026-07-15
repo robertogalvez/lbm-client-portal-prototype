@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/api/auth', '/api/debug', '/api/migrate', '/api/debug-clickup'];
+const PUBLIC_PATHS = [
+  '/login', '/api/auth', '/api/debug', '/api/migrate', '/api/debug-clickup',
+  // Self-authenticating endpoints (cron secret / HMAC / migrate secret in-handler)
+  // must bypass the session redirect — they're called by ClickUp and the
+  // scheduled functions, which have no session cookie.
+  '/api/webhooks', '/api/publish', '/api/admin/publish',
+];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

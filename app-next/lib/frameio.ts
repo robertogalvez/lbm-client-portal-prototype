@@ -9,11 +9,14 @@
 //  - media_links requires the `api-version: experimental` header.
 //  - media_links.*.download_url can be null until transcoding completes; the
 //    URL is signed and time-limited. Callers treat "not ready" as retry-later.
-//  - Auth reuses FRAMEIO_API_TOKEN (same bearer token as the comment route).
+//  - Auth: Adobe IMS OAuth Server-to-Server (client_credentials). We mint and
+//    cache an access token from the client id/secret; FRAMEIO_API_TOKEN, if set,
+//    is used as a manual override (skips the OAuth exchange).
 
 const BASE = 'https://api.frame.io/v4';
+const IMS_URL = process.env.FRAMEIO_IMS_URL || 'https://ims-na1.adobelogin.com/ims/token/v3';
 
-export type FrameioStage = 'parse' | 'stack' | 'file';
+export type FrameioStage = 'parse' | 'stack' | 'file' | 'auth';
 
 export class FrameioError extends Error {
   status?: number;
@@ -27,25 +30,68 @@ export class FrameioError extends Error {
 }
 
 export function isConfigured(): boolean {
-  return !!(process.env.FRAMEIO_API_TOKEN && process.env.FRAMEIO_ACCOUNT_ID);
+  if (!process.env.FRAMEIO_ACCOUNT_ID) return false;
+  if (process.env.FRAMEIO_API_TOKEN) return true;
+  return !!(process.env.FRAMEIO_CLIENT_ID && process.env.FRAMEIO_CLIENT_SECRET);
 }
 
 function accountId(): string {
   const id = process.env.FRAMEIO_ACCOUNT_ID;
-  if (!id) throw new FrameioError('FRAMEIO_ACCOUNT_ID not set', 'stack');
+  if (!id) throw new FrameioError('FRAMEIO_ACCOUNT_ID not set', 'auth');
   return id;
 }
 
-function fioHeaders() {
+// Cache the minted token across warm invocations; refresh 60s before expiry.
+let tokenCache: { token: string; expiresAt: number } | null = null;
+
+async function getAccessToken(): Promise<string> {
+  // Manual override — a pre-minted access token.
+  if (process.env.FRAMEIO_API_TOKEN) return process.env.FRAMEIO_API_TOKEN;
+
+  if (tokenCache && tokenCache.expiresAt > Date.now() + 60_000) return tokenCache.token;
+
+  const clientId = process.env.FRAMEIO_CLIENT_ID;
+  const clientSecret = process.env.FRAMEIO_CLIENT_SECRET;
+  const scope = process.env.FRAMEIO_OAUTH_SCOPES;
+  if (!clientId || !clientSecret) {
+    throw new FrameioError('FRAMEIO_CLIENT_ID / FRAMEIO_CLIENT_SECRET not set', 'auth');
+  }
+  if (!scope) {
+    throw new FrameioError('FRAMEIO_OAUTH_SCOPES not set (copy the scopes from the Adobe Developer Console)', 'auth');
+  }
+
+  const body = new URLSearchParams({
+    grant_type: 'client_credentials',
+    client_id: clientId,
+    client_secret: clientSecret,
+    scope: scope.split(/[,\s]+/).filter(Boolean).join(','),
+  });
+
+  const res = await fetch(IMS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+    cache: 'no-store',
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.access_token) {
+    throw new FrameioError(`Adobe IMS token request failed (${res.status}): ${data.error ?? ''} ${data.error_description ?? ''}`.trim(), 'auth', res.status);
+  }
+  const expiresInMs = (Number(data.expires_in) || 3600) * 1000;
+  tokenCache = { token: data.access_token as string, expiresAt: Date.now() + expiresInMs };
+  return tokenCache.token;
+}
+
+async function fioHeaders(): Promise<Record<string, string>> {
   return {
-    Authorization: `Bearer ${process.env.FRAMEIO_API_TOKEN ?? ''}`,
+    Authorization: `Bearer ${await getAccessToken()}`,
     'Content-Type': 'application/json',
     'api-version': 'experimental',
   };
 }
 
 async function get<T = Record<string, unknown>>(path: string, stage: FrameioStage): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { headers: fioHeaders(), cache: 'no-store' });
+  const res = await fetch(`${BASE}${path}`, { headers: await fioHeaders(), cache: 'no-store' });
   if (!res.ok) throw new FrameioError(`Frame.io ${res.status}: ${path}`, stage, res.status);
   return res.json() as Promise<T>;
 }
