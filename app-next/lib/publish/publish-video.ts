@@ -80,7 +80,10 @@ export function publishConfigured(): boolean {
   return vista.isConfigured() && frameio.isConfigured();
 }
 
-export async function publishVideo(clickupTaskId: string): Promise<PublishOutcome> {
+export async function publishVideo(
+  clickupTaskId: string,
+  opts: { publishNow?: boolean } = {},
+): Promise<PublishOutcome> {
   if (!publishConfigured()) {
     return { status: 'deferred', reason: 'Vista Social / Frame.io not configured' };
   }
@@ -112,13 +115,19 @@ export async function publishVideo(clickupTaskId: string): Promise<PublishOutcom
     return { status: 'deferred', reason: 'Ready to Publish? is not checked' };
   }
 
-  // 1. Validate (Make "Task is valid" / "could not be scheduled").
-  if (!captions || !publishAtMs || publishAtMs <= Date.now()) {
+  // 1. Validate (Make "Task is valid" / "could not be scheduled"). publishNow
+  // (test override) skips the future-date requirement; a real publish needs a
+  // future Publish Date.
+  if (!captions) {
+    return markError(clickupTaskId, AM_MESSAGES.notSchedulable());
+  }
+  if (!opts.publishNow && (!publishAtMs || publishAtMs <= Date.now())) {
     return markError(clickupTaskId, AM_MESSAGES.notSchedulable());
   }
   if (!frameLink) {
     return markError(clickupTaskId, AM_MESSAGES.frameioStackFailed('No Frame.io link on the task'));
   }
+  const effectivePublishAtMs = opts.publishNow ? Date.now() : publishAtMs!;
 
   // 2. Resolve the final Frame.io asset.
   let asset: frameio.FinalAsset;
@@ -152,9 +161,10 @@ export async function publishVideo(clickupTaskId: string): Promise<PublishOutcom
     result = await vista.schedulePost({
       profileIds,
       caption: captions,
-      publishAtMs,
+      publishAtMs: effectivePublishAtMs,
       mediaUrl: asset.downloadUrl,
       instagramPublishAs: 'REELS',
+      publishNow: opts.publishNow,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -163,7 +173,7 @@ export async function publishVideo(clickupTaskId: string): Promise<PublishOutcom
 
   // 5. Success — store post ids (Published state lives in the cache; ClickUp has
   // no Publishing Status field), then comment.
-  await cacheAfterPublish(clickupTaskId, result.ids, publishAtMs);
+  await cacheAfterPublish(clickupTaskId, result.ids, effectivePublishAtMs);
   await clickup.postComment(clickupTaskId, AM_MESSAGES.publishSuccess());
 
   return { status: 'published', postIds: result.ids };

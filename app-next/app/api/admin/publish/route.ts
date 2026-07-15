@@ -30,11 +30,11 @@ export async function POST(req: Request) {
     }
   }
 
-  const { taskId } = (await req.json()) as { taskId?: string };
+  const { taskId, publishNow } = (await req.json()) as { taskId?: string; publishNow?: boolean };
   if (!taskId) return NextResponse.json({ error: 'Missing taskId' }, { status: 400 });
 
   try {
-    const outcome = await publishVideo(taskId);
+    const outcome = await publishVideo(taskId, { publishNow: !!publishNow });
     return NextResponse.json({ ok: true, ...outcome });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 502 });

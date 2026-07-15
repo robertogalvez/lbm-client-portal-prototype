@@ -96,6 +96,32 @@ async function get<T = Record<string, unknown>>(path: string, stage: FrameioStag
   return res.json() as Promise<T>;
 }
 
+// Read-only auth diagnostics for the debug endpoint. Never returns secret values —
+// only presence booleans and a short token prefix — so it's safe to expose.
+export async function authDiagnostics(): Promise<Record<string, unknown>> {
+  const overrideSet = !!process.env.FRAMEIO_API_TOKEN;
+  const base = {
+    mode: overrideSet ? 'override (FRAMEIO_API_TOKEN)' : 'adobe-ims',
+    frameioApiTokenSet: overrideSet,
+    clientIdSet: !!process.env.FRAMEIO_CLIENT_ID,
+    clientSecretSet: !!process.env.FRAMEIO_CLIENT_SECRET,
+    scopesSet: !!process.env.FRAMEIO_OAUTH_SCOPES,
+    accountIdSet: !!process.env.FRAMEIO_ACCOUNT_ID,
+    imsUrl: IMS_URL,
+  };
+  try {
+    const token = await getAccessToken();
+    return {
+      ...base,
+      tokenObtained: true,
+      tokenPrefix: token.slice(0, 8) + '…',
+      expiresInSec: tokenCache ? Math.round((tokenCache.expiresAt - Date.now()) / 1000) : null,
+    };
+  } catch (e) {
+    return { ...base, tokenObtained: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 // "https://f.io/abc123?foo=bar" or ".../version_stacks/abc123/" → "abc123"
 export function parseVersionStackId(frameLink: string): string | null {
   if (!frameLink) return null;
