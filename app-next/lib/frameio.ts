@@ -1,20 +1,32 @@
-// Frame.io v4 helper — resolves the final downloadable asset for a video task.
-// Mirrors the Make.com blueprint's Frame.io steps:
-//   parse version-stack id from the "Updated Frame Link (Editor)" URL
-//   → GET version_stacks/{id}          → head_version.id
-//   → GET files/{headVersionId}?include=media_links.high_quality
-//                                       → require status "transcoded" + download_url
+// Frame.io v4 helper — resolves the final downloadable asset for a video task,
+// authenticated via Frame.io's OAuth 2.0 (PKCE) app.
 //
-// Notes / constraints (verified):
-//  - media_links requires the `api-version: experimental` header.
-//  - media_links.*.download_url can be null until transcoding completes; the
-//    URL is signed and time-limited. Callers treat "not ready" as retry-later.
-//  - Auth: Adobe IMS OAuth Server-to-Server (client_credentials). We mint and
-//    cache an access token from the client id/secret; FRAMEIO_API_TOKEN, if set,
-//    is used as a manual override (skips the OAuth exchange).
+// Auth model (Frame.io Developer Portal OAuth app, not Adobe IMS):
+//  - One-time browser authorization (/api/frameio/oauth/start → /callback) yields
+//    a refresh token (needs the `offline` scope). Access tokens live ~1h; refresh
+//    tokens ~30 days, after which a human must re-authorize.
+//  - Tokens are persisted in the `oauth_tokens` table (provider = 'frameio').
+//  - `getAccessToken()` returns a valid access token, refreshing on demand.
+//  - `FRAMEIO_API_TOKEN`, if set, is a manual override (skips OAuth) — handy for a
+//    short-lived token during testing.
+//
+// Asset resolution mirrors the Make.com blueprint:
+//   parse version-stack id from "Updated Frame Link (Editor)"
+//   → GET version_stacks/{id} → head_version.id
+//   → GET files/{id}?include=media_links.high_quality → transcoded + download_url
+// (media_links requires the `api-version: experimental` header; download_url can
+//  be null until transcoding completes and is signed/time-limited.)
+
+import { db } from '@/lib/db';
+import { oauthTokens } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 
 const BASE = 'https://api.frame.io/v4';
-const IMS_URL = process.env.FRAMEIO_IMS_URL || 'https://ims-na1.adobelogin.com/ims/token/v3';
+const AUTH_URL = process.env.FRAMEIO_OAUTH_AUTH_URL || 'https://applications.frame.io/oauth2/auth';
+const TOKEN_URL = process.env.FRAMEIO_OAUTH_TOKEN_URL || 'https://applications.frame.io/oauth2/token';
+const SCOPES = process.env.FRAMEIO_OAUTH_SCOPES || 'asset.read account.read project.read offline';
+const PROVIDER = 'frameio';
+const REFRESH_TTL_DAYS = 30;
 
 export type FrameioStage = 'parse' | 'stack' | 'file' | 'auth';
 
@@ -32,7 +44,7 @@ export class FrameioError extends Error {
 export function isConfigured(): boolean {
   if (!process.env.FRAMEIO_ACCOUNT_ID) return false;
   if (process.env.FRAMEIO_API_TOKEN) return true;
-  return !!(process.env.FRAMEIO_CLIENT_ID && process.env.FRAMEIO_CLIENT_SECRET);
+  return !!process.env.FRAMEIO_CLIENT_ID;
 }
 
 function accountId(): string {
@@ -41,46 +53,169 @@ function accountId(): string {
   return id;
 }
 
-// Cache the minted token across warm invocations; refresh 60s before expiry.
-let tokenCache: { token: string; expiresAt: number } | null = null;
+function clientId(): string {
+  const id = process.env.FRAMEIO_CLIENT_ID;
+  if (!id) throw new FrameioError('FRAMEIO_CLIENT_ID not set', 'auth');
+  return id;
+}
 
-async function getAccessToken(): Promise<string> {
-  // Manual override — a pre-minted access token.
-  if (process.env.FRAMEIO_API_TOKEN) return process.env.FRAMEIO_API_TOKEN;
+// ── OAuth: authorization URL + code exchange (used by the bootstrap routes) ────
 
-  if (tokenCache && tokenCache.expiresAt > Date.now() + 60_000) return tokenCache.token;
-
-  const clientId = process.env.FRAMEIO_CLIENT_ID;
-  const clientSecret = process.env.FRAMEIO_CLIENT_SECRET;
-  const scope = process.env.FRAMEIO_OAUTH_SCOPES;
-  if (!clientId || !clientSecret) {
-    throw new FrameioError('FRAMEIO_CLIENT_ID / FRAMEIO_CLIENT_SECRET not set', 'auth');
-  }
-  if (!scope) {
-    throw new FrameioError('FRAMEIO_OAUTH_SCOPES not set (copy the scopes from the Adobe Developer Console)', 'auth');
-  }
-
-  const body = new URLSearchParams({
-    grant_type: 'client_credentials',
-    client_id: clientId,
-    client_secret: clientSecret,
-    scope: scope.split(/[,\s]+/).filter(Boolean).join(','),
+export function buildAuthUrl(redirectUri: string, state: string, codeChallenge: string): string {
+  const q = new URLSearchParams({
+    response_type: 'code',
+    client_id: clientId(),
+    redirect_uri: redirectUri,
+    scope: SCOPES.split(/[,\s]+/).filter(Boolean).join(' '),
+    state,
+    code_challenge: codeChallenge,
+    code_challenge_method: 'S256',
   });
+  return `${AUTH_URL}?${q.toString()}`;
+}
 
-  const res = await fetch(IMS_URL, {
+interface TokenResponse {
+  access_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
+  error?: string;
+  error_description?: string;
+}
+
+async function postToken(params: Record<string, string>): Promise<TokenResponse> {
+  const res = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
+    body: new URLSearchParams(params),
     cache: 'no-store',
   });
-  const data = await res.json().catch(() => ({}));
+  const data = (await res.json().catch(() => ({}))) as TokenResponse;
   if (!res.ok || !data.access_token) {
-    throw new FrameioError(`Adobe IMS token request failed (${res.status}): ${data.error ?? ''} ${data.error_description ?? ''}`.trim(), 'auth', res.status);
+    throw new FrameioError(
+      `Frame.io token request failed (${res.status}): ${data.error ?? ''} ${data.error_description ?? ''}`.trim(),
+      'auth',
+      res.status,
+    );
   }
-  const expiresInMs = (Number(data.expires_in) || 3600) * 1000;
-  tokenCache = { token: data.access_token as string, expiresAt: Date.now() + expiresInMs };
-  return tokenCache.token;
+  return data;
 }
+
+// Exchange the authorization code for tokens and persist them. Sets
+// refresh_issued_at = now (the 30-day clock) and clears any prior alert.
+export async function exchangeAndStoreTokens(code: string, codeVerifier: string, redirectUri: string): Promise<void> {
+  const data = await postToken({
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: redirectUri,
+    client_id: clientId(),
+    code_verifier: codeVerifier,
+  });
+  const now = new Date();
+  const row = {
+    provider: PROVIDER,
+    accessToken: data.access_token!,
+    refreshToken: data.refresh_token ?? null,
+    expiresAt: new Date(now.getTime() + (data.expires_in ?? 3600) * 1000),
+    refreshIssuedAt: now,
+    alertedAt: null,
+    updatedAt: now,
+  };
+  await db.insert(oauthTokens).values(row).onConflictDoUpdate({ target: oauthTokens.provider, set: row });
+}
+
+// Refresh the access token from the stored refresh token. Keeps refresh_issued_at
+// (Frame.io's 30-day expiry runs from the original login, not each refresh).
+async function refreshAccessToken(refreshToken: string): Promise<string> {
+  const data = await postToken({
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+    client_id: clientId(),
+  });
+  const now = new Date();
+  await db
+    .update(oauthTokens)
+    .set({
+      accessToken: data.access_token!,
+      refreshToken: data.refresh_token ?? refreshToken, // persist rotation if any
+      expiresAt: new Date(now.getTime() + (data.expires_in ?? 3600) * 1000),
+      updatedAt: now,
+    })
+    .where(eq(oauthTokens.provider, PROVIDER));
+  return data.access_token!;
+}
+
+async function getAccessToken(): Promise<string> {
+  if (process.env.FRAMEIO_API_TOKEN) return process.env.FRAMEIO_API_TOKEN;
+
+  const [row] = await db.select().from(oauthTokens).where(eq(oauthTokens.provider, PROVIDER)).limit(1);
+  if (!row || !row.refreshToken) {
+    throw new FrameioError('Frame.io is not connected — authorize it in Settings.', 'auth');
+  }
+  if (row.accessToken && row.expiresAt && row.expiresAt.getTime() > Date.now() + 60_000) {
+    return row.accessToken;
+  }
+  try {
+    return await refreshAccessToken(row.refreshToken);
+  } catch {
+    throw new FrameioError('Frame.io authorization expired — re-authorize it in Settings.', 'auth');
+  }
+}
+
+// Connection status for the Settings card + renewal check.
+export interface FrameioConnection {
+  connected: boolean;
+  mode: 'override' | 'oauth' | 'disconnected';
+  refreshIssuedAt: Date | null;
+  reauthDeadline: Date | null;
+  daysUntilReauth: number | null;
+  needsReauth: boolean;
+  alertedAt: Date | null;
+}
+
+export async function getConnectionStatus(): Promise<FrameioConnection> {
+  if (process.env.FRAMEIO_API_TOKEN) {
+    return { connected: true, mode: 'override', refreshIssuedAt: null, reauthDeadline: null, daysUntilReauth: null, needsReauth: false, alertedAt: null };
+  }
+  const [row] = await db.select().from(oauthTokens).where(eq(oauthTokens.provider, PROVIDER)).limit(1);
+  if (!row || !row.refreshToken || !row.refreshIssuedAt) {
+    return { connected: false, mode: 'disconnected', refreshIssuedAt: null, reauthDeadline: null, daysUntilReauth: null, needsReauth: true, alertedAt: null };
+  }
+  const deadline = new Date(row.refreshIssuedAt.getTime() + REFRESH_TTL_DAYS * 86_400_000);
+  const daysLeft = Math.ceil((deadline.getTime() - Date.now()) / 86_400_000);
+  return {
+    connected: true,
+    mode: 'oauth',
+    refreshIssuedAt: row.refreshIssuedAt,
+    reauthDeadline: deadline,
+    daysUntilReauth: daysLeft,
+    needsReauth: daysLeft <= 0,
+    alertedAt: row.alertedAt,
+  };
+}
+
+export async function markAlerted(): Promise<void> {
+  await db.update(oauthTokens).set({ alertedAt: new Date() }).where(eq(oauthTokens.provider, PROVIDER));
+}
+
+// Read-only auth diagnostics for /api/publish/debug. Never returns secrets.
+export async function authDiagnostics(): Promise<Record<string, unknown>> {
+  const conn = await getConnectionStatus().catch(e => ({ error: e instanceof Error ? e.message : String(e) }));
+  const base = {
+    overrideTokenSet: !!process.env.FRAMEIO_API_TOKEN,
+    clientIdSet: !!process.env.FRAMEIO_CLIENT_ID,
+    accountIdSet: !!process.env.FRAMEIO_ACCOUNT_ID,
+    scopes: SCOPES,
+    tokenUrl: TOKEN_URL,
+  };
+  try {
+    const token = await getAccessToken();
+    return { ...base, connection: conn, tokenObtained: true, tokenPrefix: token.slice(0, 8) + '…' };
+  } catch (e) {
+    return { ...base, connection: conn, tokenObtained: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+// ── Asset resolution ──────────────────────────────────────────────────────────
 
 async function fioHeaders(): Promise<Record<string, string>> {
   return {

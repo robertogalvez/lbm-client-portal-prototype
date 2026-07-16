@@ -78,6 +78,7 @@ export interface SchedulePostInput {
   publishAtMs: number;        // epoch ms (from ClickUp Publish Date)
   mediaUrl: string;           // remote URL — Vista Social ingests it directly
   instagramPublishAs?: 'REELS' | 'STORY' | 'FEED';
+  publishNow?: boolean;       // send publish_at: "now" (immediate) — for testing
 }
 
 export interface SchedulePostResult {
@@ -100,7 +101,7 @@ export async function schedulePost(input: SchedulePostInput): Promise<SchedulePo
   const payload: Record<string, unknown> = {
     message: input.caption,
     profile_id: profileIds,
-    publish_at: Math.floor(input.publishAtMs / 1000),
+    publish_at: input.publishNow ? 'now' : Math.floor(input.publishAtMs / 1000),
     media_url: [input.mediaUrl],
   };
   if (input.instagramPublishAs) payload.instagram_publish_as = input.instagramPublishAs;

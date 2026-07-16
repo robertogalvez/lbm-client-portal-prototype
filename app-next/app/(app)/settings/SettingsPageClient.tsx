@@ -14,9 +14,74 @@ interface User {
   clientName: string | null;
 }
 
+interface FrameioStatus {
+  connected: boolean;
+  mode: string;
+  needsReauth: boolean;
+  daysUntilReauth: number | null;
+  reauthDeadline: string | null;
+  banner: string | null;
+  bannerReason: string | null;
+}
+
 interface Props {
   users: User[];
   currentUserId: string;
+  frameio: FrameioStatus;
+}
+
+function FrameioConnectionSection({ frameio }: { frameio: FrameioStatus }) {
+  const { connected, mode, needsReauth, daysUntilReauth } = frameio;
+  const soon = connected && daysUntilReauth !== null && daysUntilReauth <= 5;
+
+  const statusText = mode === 'override'
+    ? 'Connected (manual token)'
+    : !connected || needsReauth
+      ? 'Not connected — authorization required'
+      : `Connected · expires in ${daysUntilReauth} day${daysUntilReauth === 1 ? '' : 's'}`;
+  const dotColor = (!connected || needsReauth) ? '#e5484d' : soon ? '#e59700' : '#14805f';
+
+  return (
+    <div style={{ marginTop: 32 }}>
+      <h2 style={{ fontSize: 15, fontWeight: 700, color: '#111c28', margin: '0 0 4px' }}>Frame.io connection</h2>
+      <p style={{ fontSize: 12.5, color: '#8b97a4', margin: '0 0 12px' }}>
+        Required for auto-publishing videos to Vista Social. Frame.io authorization must be renewed every 30 days.
+      </p>
+
+      {frameio.banner === 'connected' && (
+        <div style={{ background: '#e4f3ec', border: '1px solid #b7e0c9', color: '#14805f', borderRadius: 8, padding: '10px 14px', fontSize: 13, marginBottom: 12 }}>
+          ✓ Frame.io connected successfully.
+        </div>
+      )}
+      {frameio.banner === 'error' && (
+        <div style={{ background: '#fdedeb', border: '1px solid #f8d0cc', color: '#cf3f36', borderRadius: 8, padding: '10px 14px', fontSize: 13, marginBottom: 12 }}>
+          Frame.io authorization failed{frameio.bannerReason ? `: ${frameio.bannerReason}` : ''}. Please try again.
+        </div>
+      )}
+
+      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#111c28' }}>{statusText}</div>
+            {soon && (
+              <div style={{ fontSize: 12, color: '#e59700', marginTop: 3 }}>Renew soon to avoid interrupting publishing.</div>
+            )}
+          </div>
+        </div>
+        <a
+          href="/api/frameio/oauth/start"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600,
+            color: '#fff', background: (!connected || needsReauth || soon) ? '#FF6000' : '#54616f',
+            borderRadius: 8, padding: '9px 16px', textDecoration: 'none',
+          }}
+        >
+          {connected && !needsReauth ? 'Renew authorization' : 'Connect Frame.io'}
+        </a>
+      </div>
+    </div>
+  );
 }
 
 type DrawerMode = 'invite' | 'edit';
@@ -150,7 +215,7 @@ function ForceSyncSection() {
   );
 }
 
-export function SettingsPageClient({ users: initial, currentUserId }: Props) {
+export function SettingsPageClient({ users: initial, currentUserId, frameio }: Props) {
   const [users, setUsers] = useState<User[]>(initial);
   const [drawer, setDrawer] = useState<{ mode: DrawerMode; user?: User } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -366,6 +431,8 @@ export function SettingsPageClient({ users: initial, currentUserId }: Props) {
           </tbody>
         </table>
       </div>
+
+      <FrameioConnectionSection frameio={frameio} />
 
       <ForceSyncSection />
 
