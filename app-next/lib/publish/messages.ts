@@ -23,10 +23,8 @@ export const AM_MESSAGES = {
 
   validationFailed: () => `🚨 Validation failed`,
 
-  // New capability — posted once the live Instagram permalink is captured.
-  instagramPublished: (url: string) => `📸 Published to Instagram: ${url}`,
-
-  // New — bounded poller gave up resolving the permalink.
-  permalinkNotCaptured: () =>
-    `⚠️ The post was published via VistaSocial, but the Instagram link could not be captured automatically. Please add it manually from Vista Social if needed.`,
+  // Vista Social reported the scheduled post failed at publish time (these random
+  // failures happen). Posted to the task; "Posted Status" is set to Posting Failed.
+  postingFailedAsync: (status: string) =>
+    `🚨 Error when publishing on VistaSocial!\nThe post failed to publish (status: ${status}).\nPlease check the platform connection in VistaSocial and retry by setting "Posted Status" back to "Post on Socials".`,
 } as const;

@@ -12,6 +12,7 @@ import * as clickup from '@/lib/clickup-write';
 import * as frameio from '@/lib/frameio';
 import * as vista from '@/lib/vistasocial';
 import { AM_MESSAGES } from './messages';
+import { markPostingFailed } from './posting-failed';
 
 export type PublishOutcome =
   | { status: 'published'; postIds: string[] }
@@ -43,10 +44,10 @@ export function isPostOrder(postedStatus: string | null): boolean {
   return !!postedStatus && /post on socials/i.test(postedStatus);
 }
 
-// No live "Publishing Status" field exists on this workspace anymore, so the
-// error signal to the AM is the ClickUp comment itself.
-async function markError(taskId: string, comment: string): Promise<PublishOutcome> {
-  await clickup.postComment(taskId, comment);
+// On a hard failure: notify in the task comments and set "Posted Status" =
+// "Posting Failed" (so it isn't silently retried and the AM sees it).
+async function markError(task: clickup.ClickUpTaskLite, comment: string): Promise<PublishOutcome> {
+  await markPostingFailed(task, comment);
   return { status: 'error', reason: comment };
 }
 
@@ -119,13 +120,13 @@ export async function publishVideo(
   // (test override) skips the future-date requirement; a real publish needs a
   // future Publish Date.
   if (!captions) {
-    return markError(clickupTaskId, AM_MESSAGES.notSchedulable());
+    return markError(task, AM_MESSAGES.notSchedulable());
   }
   if (!opts.publishNow && (!publishAtMs || publishAtMs <= Date.now())) {
-    return markError(clickupTaskId, AM_MESSAGES.notSchedulable());
+    return markError(task, AM_MESSAGES.notSchedulable());
   }
   if (!frameLink) {
-    return markError(clickupTaskId, AM_MESSAGES.frameioStackFailed('No Frame.io link on the task'));
+    return markError(task, AM_MESSAGES.frameioStackFailed('No Frame.io link on the task'));
   }
   const effectivePublishAtMs = opts.publishNow ? Date.now() : publishAtMs!;
 
@@ -138,7 +139,7 @@ export async function publishVideo(
     const msg = err?.stage === 'file'
       ? AM_MESSAGES.frameioFileFailed(err.message)
       : AM_MESSAGES.frameioStackFailed(err?.message ?? String(e));
-    return markError(clickupTaskId,msg);
+    return markError(task,msg);
   }
   // Not transcoded / no download URL yet — defer without erroring; the reconcile
   // pass retries once Frame.io finishes processing.
@@ -148,11 +149,11 @@ export async function publishVideo(
 
   // 3. Resolve Vista Social profiles for the client.
   if (!clientName) {
-    return markError(clickupTaskId,AM_MESSAGES.noProfile('(unknown client)'));
+    return markError(task,AM_MESSAGES.noProfile('(unknown client)'));
   }
   const profileIds = await resolveProfileIds(clientName);
   if (profileIds.length === 0) {
-    return markError(clickupTaskId,AM_MESSAGES.noProfile(clientName));
+    return markError(task,AM_MESSAGES.noProfile(clientName));
   }
 
   // 4. Create the post — Vista Social fetches the media from the Frame.io URL.
@@ -168,13 +169,12 @@ export async function publishVideo(
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return markError(clickupTaskId,AM_MESSAGES.publishFailed(profileIds.join(', '), msg));
+    return markError(task,AM_MESSAGES.publishFailed(profileIds.join(', '), msg));
   }
 
-  // 5. Success — store post ids (Published state lives in the cache; ClickUp has
-  // no Publishing Status field), then comment.
+  // 5. Success — store the post ids for the capture poller (no task comment; the
+  // Instagram URL lands on the task's "Instagram URL" field once the post is live).
   await cacheAfterPublish(clickupTaskId, result.ids, effectivePublishAtMs);
-  await clickup.postComment(clickupTaskId, AM_MESSAGES.publishSuccess());
 
   return { status: 'published', postIds: result.ids };
 }
