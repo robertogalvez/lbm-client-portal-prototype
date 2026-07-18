@@ -1,7 +1,8 @@
-// Complete Frame.io OAuth 2.0 (PKCE). Validates state against the cookie set by
-// /start, exchanges the code for tokens (persisted to oauth_tokens), and returns
-// to Settings. Bypasses the session proxy (in PUBLIC_PATHS) — the state cookie is
-// the guard, since only the initiator holds it.
+// Complete Adobe IMS OAuth 2.0 (User Authentication) for Frame.io v4. Validates
+// state against the cookie set by /start, exchanges the code for tokens
+// (client_secret, persisted to oauth_tokens), and returns to Settings. Bypasses
+// the session proxy (in PUBLIC_PATHS) — the state cookie is the guard, since only
+// the initiator holds it.
 
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
@@ -26,15 +27,15 @@ export async function GET(req: Request) {
   const raw = jar.get('frameio_oauth')?.value;
   if (!raw) return settingsRedirect(req, 'frameio=error&reason=expired');
 
-  let stored: { state?: string; verifier?: string };
+  let stored: { state?: string };
   try { stored = JSON.parse(raw); } catch { stored = {}; }
-  if (!stored.state || !stored.verifier || stored.state !== state) {
+  if (!stored.state || stored.state !== state) {
     return settingsRedirect(req, 'frameio=error&reason=state_mismatch');
   }
 
   const redirectUri = `${url.origin}/api/frameio/oauth/callback`;
   try {
-    await exchangeAndStoreTokens(code, stored.verifier, redirectUri);
+    await exchangeAndStoreTokens(code, redirectUri);
   } catch (e) {
     return settingsRedirect(req, `frameio=error&reason=${encodeURIComponent(e instanceof Error ? e.message : 'exchange_failed')}`);
   }
