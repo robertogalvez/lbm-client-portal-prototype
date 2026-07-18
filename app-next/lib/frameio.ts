@@ -319,9 +319,13 @@ function firstChildId(list: unknown): string | null {
 // Live-confirmed: GET /accounts/{id}/shares/{id} returns the share/collection's
 // display config — name, theme, layout, etc. — and a `collection_id`, but NOT
 // the underlying asset directly. The asset lives one level down, inside that
-// collection. ⚠️ The exact "list children of a collection" endpoint path is
-// unconfirmed (gated docs) — tries a few plausible REST shapes in order and
-// returns whichever responds, plus all attempts for diagnosis.
+// collection, which is itself a synthetic/auto-generated container (not a real
+// folder — `root_folder_id` is null on it), so `/folders/*` shapes don't apply.
+// ⚠️ As of Frame.io's own "Migrating to API v4" forum thread (Oct 2025), the
+// Frame.io team confirmed there was no public v4 endpoint to list a share's
+// assets and that it was only "on the roadmap" — this may still be unshipped.
+// Tries a few plausible REST shapes in order and returns whichever responds,
+// plus all attempts for diagnosis if none do.
 export async function resolveShareAssetId(shareId: string): Promise<{ assetId: string | null; raw: unknown }> {
   const shareRaw = await get<Record<string, unknown>>(`/accounts/${accountId()}/shares/${shareId}`, 'parse');
   const shareData = ((shareRaw as { data?: unknown })?.data ?? shareRaw) as Record<string, unknown> | undefined;
@@ -340,7 +344,10 @@ export async function resolveShareAssetId(shareId: string): Promise<{ assetId: s
 
   const candidatePaths = [
     `/accounts/${accountId()}/collections/${collectionId}/children`,
+    `/accounts/${accountId()}/collections/${collectionId}/assets`,
+    `/accounts/${accountId()}/collections/${collectionId}/files`,
     `/accounts/${accountId()}/folders/${collectionId}/children`,
+    `/accounts/${accountId()}/files?parent_id=${collectionId}`,
     `/accounts/${accountId()}/collections/${collectionId}`,
   ];
   const attempts: Record<string, unknown> = {};
