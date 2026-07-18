@@ -126,13 +126,23 @@ export const PUBLISHING_STATUS = {
   error: 'Error',
 } as const;
 
-export const POSTED_IN_SOCIALS_STATUS = 'Posted in Socials';
+// Native ClickUp task status values for this pipeline (exact strings confirmed
+// live from the workspace's `status`/`available_statuses`, which are lowercase
+// regardless of how ClickUp's UI capitalizes them for display).
+export const TASK_STATUS = {
+  readyToBePosted: 'ready to be posted',
+  postedInSocials: 'posted in socials',
+} as const;
 
-// Values of the "Posted Status" dropdown used by the pipeline. "Post on Socials"
-// is the publish order; "Posting Failed" is set when Vista Social posting fails.
-// (The "Posting Failed" option must exist on the field in ClickUp.)
+// Values of the "Posted Status" custom field. This field is FEEDBACK, written by
+// the pipeline (not a trigger): "Do not post" is the one exception — an AM-set
+// opt-out meaning the client will post it themselves, which blocks auto-publish.
+// "Posting Failed" is set when Vista Social posting fails.
 export const POSTED_STATUS = {
-  postOnSocials: 'Post on Socials',
   doNotPost: 'Do not post',
   failed: 'Posting Failed',
 } as const;
+
+export function normStatus(s: string | null | undefined): string {
+  return (s ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+}

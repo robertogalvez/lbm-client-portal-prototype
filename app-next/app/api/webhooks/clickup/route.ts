@@ -133,17 +133,20 @@ export async function POST(req: Request) {
     }
   }
 
-  // Fast-path publish trigger: the order to post is "Posted Status" = "Post on
-  // Socials", gated by the "Ready to Publish?" validation checkbox. publishVideo
-  // re-checks this and idempotency, so re-fires are safe.
+  // Fast-path publish trigger: the order to post is task Status = "Ready to be
+  // Posted", gated by the "Ready to Publish?" validation checkbox, blocked by
+  // "Posted Status" = "Do not post" (client posts it themselves). publishVideo
+  // re-checks all of this plus idempotency, so re-fires are safe.
   type RawField = { name: string; value?: unknown; type_config?: { options?: { name: string }[] } };
   const fields = (task.custom_fields ?? []) as RawField[];
   const findRaw = (name: string) => fields.find(f => f.name === name);
-  const posted = findRaw('Posted Status');
-  const postedName = typeof posted?.value === 'number' ? posted?.type_config?.options?.[posted.value]?.name : null;
+  const nativeStatus = mapped.status.toLowerCase().replace(/\s+/g, ' ').trim();
   const readyField = findRaw('Ready to Publish?');
   const isReady = readyField?.value === true || readyField?.value === 'true' || readyField?.value === 1;
-  if (postedName && /post on socials/i.test(postedName) && isReady) {
+  const posted = findRaw('Posted Status');
+  const postedName = typeof posted?.value === 'number' ? posted?.type_config?.options?.[posted.value]?.name : null;
+  const doNotPost = postedName ? /do not post/i.test(postedName) : false;
+  if (nativeStatus === 'ready to be posted' && isReady && !doNotPost) {
     try {
       await publishVideo(task_id);
     } catch (e) {
