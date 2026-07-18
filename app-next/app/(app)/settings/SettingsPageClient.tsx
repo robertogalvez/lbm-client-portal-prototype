@@ -45,7 +45,7 @@ function FrameioConnectionSection({ frameio }: { frameio: FrameioStatus }) {
     <div style={{ marginTop: 32 }}>
       <h2 style={{ fontSize: 15, fontWeight: 700, color: '#111c28', margin: '0 0 4px' }}>Frame.io connection</h2>
       <p style={{ fontSize: 12.5, color: '#8b97a4', margin: '0 0 12px' }}>
-        Required for auto-publishing videos to Vista Social. Frame.io authorization must be renewed every 30 days.
+        Required for auto-publishing videos to Vista Social. Frame.io authorization expires periodically — renew below when prompted to keep publishing working.
       </p>
 
       {frameio.banner === 'connected' && (

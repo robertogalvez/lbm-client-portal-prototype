@@ -1,10 +1,11 @@
-// Begin Frame.io OAuth 2.0 (PKCE) authorization. Admin-only. Generates a PKCE
-// verifier/challenge + state, stashes them in a short-lived httpOnly cookie, and
-// redirects the browser to Frame.io's consent screen. The callback completes it.
+// Begin Adobe IMS OAuth 2.0 (User Authentication / OAuth Web App) authorization
+// for the Frame.io v4 API. Admin-only. Generates a CSRF `state`, stashes it in a
+// short-lived httpOnly cookie, and redirects to Adobe's consent screen. The
+// callback completes the exchange (confidential client — client_secret, no PKCE).
 
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import { randomBytes, createHash } from 'crypto';
+import { randomBytes } from 'crypto';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { authUsers } from '@/lib/db/schema';
@@ -24,8 +25,6 @@ export async function GET(req: Request) {
     .limit(1);
   if (!caller || caller.role !== 'admin') return NextResponse.redirect(new URL('/dashboard', req.url));
 
-  const verifier = randomBytes(48).toString('base64url');
-  const challenge = createHash('sha256').update(verifier).digest('base64url');
   const state = randomBytes(16).toString('base64url');
 
   const origin = new URL(req.url).origin;
@@ -33,13 +32,13 @@ export async function GET(req: Request) {
 
   let authUrl: string;
   try {
-    authUrl = buildAuthUrl(redirectUri, state, challenge);
+    authUrl = buildAuthUrl(redirectUri, state);
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
   }
 
   const res = NextResponse.redirect(authUrl);
-  res.cookies.set('frameio_oauth', JSON.stringify({ state, verifier }), {
+  res.cookies.set('frameio_oauth', JSON.stringify({ state }), {
     httpOnly: true,
     secure: true,
     sameSite: 'lax',

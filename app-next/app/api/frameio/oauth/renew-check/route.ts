@@ -1,8 +1,10 @@
-// Monthly Frame.io renewal reminder. Called by the scheduled shim. Frame.io
-// authorization must be renewed every 30 days; once per cycle — when the
-// authorization enters its final week — this emails all admins a reminder to
-// renew. Deduped via oauth_tokens.alerted_at (reset on each successful
-// authorization), so admins get exactly one notice each ~monthly cycle.
+// Periodic Frame.io renewal reminder. Called by the scheduled shim. Frame.io
+// authorization must be periodically re-authorized (the exact cycle length is
+// env-configurable via FRAMEIO_REFRESH_TTL_DAYS in lib/frameio.ts — Adobe's
+// documented default is ~2 weeks, pending live confirmation). Once per cycle —
+// when the authorization enters its final ALERT_WINDOW_DAYS — this emails all
+// admins a reminder to renew. Deduped via oauth_tokens.alerted_at (reset on each
+// successful authorization), so admins get exactly one notice per cycle.
 
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
@@ -11,9 +13,9 @@ import { eq } from 'drizzle-orm';
 import { getConnectionStatus, markAlerted } from '@/lib/frameio';
 import { sendEmail } from '@/lib/email';
 
-// Notify once the authorization is within its final week (a week's notice for
-// the monthly renewal).
-const ALERT_WINDOW_DAYS = 7;
+// Notify with a few days' notice before expiry. Scaled for a shorter (~2-week)
+// cycle than the original 30-day assumption — tune alongside FRAMEIO_REFRESH_TTL_DAYS.
+const ALERT_WINDOW_DAYS = 3;
 
 export async function POST(req: Request) {
   const secret = req.headers.get('x-cron-secret');
@@ -44,15 +46,15 @@ export async function POST(req: Request) {
 
   const sent = await sendEmail({
     to: emails,
-    subject: 'Monthly reminder: renew the Frame.io connection (LBM Portal)',
+    subject: 'Reminder: renew the Frame.io connection (LBM Portal)',
     htmlBody: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
-        <p style="font-size: 16px; color: #111c28; margin: 0 0 16px;">This is your monthly reminder to renew the <strong>Frame.io connection</strong> that powers auto-publishing to Vista Social. It ${expiresLabel}.</p>
+        <p style="font-size: 16px; color: #111c28; margin: 0 0 16px;">This is your periodic reminder to renew the <strong>Frame.io connection</strong> that powers auto-publishing to Vista Social. It ${expiresLabel}.</p>
         <p style="font-size: 14px; color: #54616f; margin: 0 0 24px;">Renewing takes about 30 seconds and keeps video publishing running:</p>
         <a href="${settingsUrl}" style="display: inline-block; background: #FF6000; color: #fff; font-weight: 600; font-size: 14px; padding: 12px 24px; border-radius: 8px; text-decoration: none;">
           Renew Frame.io in Settings
         </a>
-        <p style="font-size: 12px; color: #8b97a4; margin: 24px 0 0;">Frame.io requires re-authorization every 30 days, so you'll get this reminder once a month.</p>
+        <p style="font-size: 12px; color: #8b97a4; margin: 24px 0 0;">Frame.io requires periodic re-authorization, so you'll get one reminder like this each cycle.</p>
       </div>
     `,
   });

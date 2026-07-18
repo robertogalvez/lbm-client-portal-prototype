@@ -1,10 +1,24 @@
 // Frame.io v4 helper — resolves the final downloadable asset for a video task,
-// authenticated via Frame.io's OAuth 2.0 (PKCE) app.
+// authenticated via Adobe IMS OAuth 2.0 **User Authentication** ("OAuth Web App"
+// credential in Adobe Developer Console → Frame.io API).
 //
-// Auth model (Frame.io Developer Portal OAuth app, not Adobe IMS):
-//  - One-time browser authorization (/api/frameio/oauth/start → /callback) yields
-//    a refresh token (needs the `offline` scope). Access tokens live ~1h; refresh
-//    tokens ~30 days, after which a human must re-authorize.
+// Auth model — this is NOT Frame.io's own applications.frame.io OAuth app (that
+// issues tokens the v4 API rejects outright, even on account-agnostic endpoints —
+// confirmed live) and NOT Adobe IMS Server-to-Server (unavailable on this
+// account's plan; Adobe Console only offers "User Authentication" here):
+//  - Adobe IMS User Authentication is a confidential-client (Web App) flow: it
+//    uses a client_secret, not PKCE. One-time browser authorization
+//    (/api/frameio/oauth/start → /callback) yields a refresh token.
+//  - Endpoints: authorize at ims-na1.adobelogin.com/ims/authorize, token exchange
+//    at .../ims/token/v3. client_id/client_secret go in the request BODY — Adobe
+//    IMS explicitly does not support HTTP Basic auth for this.
+//  - Access tokens live ~24h; Adobe's documented refresh-token default is ~2
+//    weeks (shorter than Frame.io's own knowledge-base claim of 30 days for its
+//    legacy OAuth apps — genuinely unconfirmed for this credential type until
+//    observed live). REFRESH_TTL_DAYS is env-configurable so the Settings
+//    countdown/reminder can be corrected without a code change once the real
+//    expiry is seen. If a refresh ever fails early, getAccessToken() immediately
+//    surfaces "re-authorize in Settings" regardless of this estimate.
 //  - Tokens are persisted in the `oauth_tokens` table (provider = 'frameio').
 //  - `getAccessToken()` returns a valid access token, refreshing on demand.
 //  - `FRAMEIO_API_TOKEN`, if set, is a manual override (skips OAuth) — handy for a
@@ -22,11 +36,11 @@ import { oauthTokens } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 const BASE = 'https://api.frame.io/v4';
-const AUTH_URL = process.env.FRAMEIO_OAUTH_AUTH_URL || 'https://applications.frame.io/oauth2/auth';
-const TOKEN_URL = process.env.FRAMEIO_OAUTH_TOKEN_URL || 'https://applications.frame.io/oauth2/token';
-const SCOPES = process.env.FRAMEIO_OAUTH_SCOPES || 'asset.read account.read project.read offline';
+const AUTH_URL = process.env.FRAMEIO_OAUTH_AUTH_URL || 'https://ims-na1.adobelogin.com/ims/authorize';
+const TOKEN_URL = process.env.FRAMEIO_OAUTH_TOKEN_URL || 'https://ims-na1.adobelogin.com/ims/token/v3';
+const SCOPES = process.env.FRAMEIO_OAUTH_SCOPES || 'openid,email,profile,additional_info.roles,offline_access';
 const PROVIDER = 'frameio';
-const REFRESH_TTL_DAYS = 30;
+const REFRESH_TTL_DAYS = Number(process.env.FRAMEIO_REFRESH_TTL_DAYS) || 14;
 
 export type FrameioStage = 'parse' | 'stack' | 'file' | 'auth';
 
@@ -44,7 +58,7 @@ export class FrameioError extends Error {
 export function isConfigured(): boolean {
   if (!process.env.FRAMEIO_ACCOUNT_ID) return false;
   if (process.env.FRAMEIO_API_TOKEN) return true;
-  return !!process.env.FRAMEIO_CLIENT_ID;
+  return !!(process.env.FRAMEIO_CLIENT_ID && process.env.FRAMEIO_CLIENT_SECRET);
 }
 
 function accountId(): string {
@@ -59,17 +73,22 @@ function clientId(): string {
   return id;
 }
 
-// ── OAuth: authorization URL + code exchange (used by the bootstrap routes) ────
+function clientSecret(): string {
+  const secret = process.env.FRAMEIO_CLIENT_SECRET;
+  if (!secret) throw new FrameioError('FRAMEIO_CLIENT_SECRET not set', 'auth');
+  return secret;
+}
 
-export function buildAuthUrl(redirectUri: string, state: string, codeChallenge: string): string {
+// ── OAuth: authorization URL + code exchange (used by the bootstrap routes) ────
+// Confidential client (client_secret at token exchange) — no PKCE.
+
+export function buildAuthUrl(redirectUri: string, state: string): string {
   const q = new URLSearchParams({
     response_type: 'code',
     client_id: clientId(),
     redirect_uri: redirectUri,
-    scope: SCOPES.split(/[,\s]+/).filter(Boolean).join(' '),
+    scope: SCOPES.split(/[,\s]+/).filter(Boolean).join(','),
     state,
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
   });
   return `${AUTH_URL}?${q.toString()}`;
 }
@@ -101,14 +120,14 @@ async function postToken(params: Record<string, string>): Promise<TokenResponse>
 }
 
 // Exchange the authorization code for tokens and persist them. Sets
-// refresh_issued_at = now (the 30-day clock) and clears any prior alert.
-export async function exchangeAndStoreTokens(code: string, codeVerifier: string, redirectUri: string): Promise<void> {
+// refresh_issued_at = now (the reauth clock) and clears any prior alert.
+export async function exchangeAndStoreTokens(code: string, redirectUri: string): Promise<void> {
   const data = await postToken({
     grant_type: 'authorization_code',
     code,
     redirect_uri: redirectUri,
     client_id: clientId(),
-    code_verifier: codeVerifier,
+    client_secret: clientSecret(),
   });
   const now = new Date();
   const row = {
@@ -124,12 +143,13 @@ export async function exchangeAndStoreTokens(code: string, codeVerifier: string,
 }
 
 // Refresh the access token from the stored refresh token. Keeps refresh_issued_at
-// (Frame.io's 30-day expiry runs from the original login, not each refresh).
+// (the reauth-deadline clock runs from the original authorization, not each refresh).
 async function refreshAccessToken(refreshToken: string): Promise<string> {
   const data = await postToken({
     grant_type: 'refresh_token',
     refresh_token: refreshToken,
     client_id: clientId(),
+    client_secret: clientSecret(),
   });
   const now = new Date();
   await db
@@ -221,6 +241,7 @@ export async function authDiagnostics(): Promise<Record<string, unknown>> {
   const base = {
     overrideTokenSet: !!process.env.FRAMEIO_API_TOKEN,
     clientIdSet: !!process.env.FRAMEIO_CLIENT_ID,
+    clientSecretSet: !!process.env.FRAMEIO_CLIENT_SECRET,
     accountIdSet: !!process.env.FRAMEIO_ACCOUNT_ID,
     scopes: SCOPES,
     tokenUrl: TOKEN_URL,
