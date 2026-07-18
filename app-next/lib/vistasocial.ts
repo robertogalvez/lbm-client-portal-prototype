@@ -70,7 +70,8 @@ async function request<T = unknown>(
   try { body = text ? JSON.parse(text) : undefined; } catch { body = text; }
 
   if (!res.ok) {
-    throw new VistaSocialError(`Vista Social ${res.status}: ${path}`, res.status, body);
+    const bodyStr = (typeof body === 'string' ? body : JSON.stringify(body)).slice(0, 500);
+    throw new VistaSocialError(`Vista Social ${res.status}: ${path} — ${bodyStr}`, res.status, body);
   }
   return body as T;
 }
