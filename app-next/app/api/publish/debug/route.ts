@@ -35,6 +35,8 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const taskId = url.searchParams.get('taskId');
   const probe = url.searchParams.get('probe') === '1';
+  const shareId = url.searchParams.get('shareId');
+  const shortLink = url.searchParams.get('shortLink');
 
   const report: Record<string, unknown> = {
     env: {
@@ -90,6 +92,25 @@ export async function GET(req: Request) {
       }
     } catch (e) {
       report.taskError = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  // Short-link / share resolution diagnostics — read-only, safe to call
+  // repeatedly. Lets us confirm the live response shape of Frame.io's Shares
+  // API without guessing (the reference docs are access-gated).
+  if (shortLink) {
+    try {
+      report.shortLinkResolved = await frameio.resolveShortLink(shortLink);
+    } catch (e) {
+      report.shortLinkError = e instanceof Error ? e.message : String(e);
+    }
+  }
+  if (shareId) {
+    try {
+      report.shareResolved = await frameio.resolveShareAssetId(shareId);
+    } catch (e) {
+      const err = e as frameio.FrameioError;
+      report.shareError = { error: err?.message ?? String(e), status: err?.status };
     }
   }
 
