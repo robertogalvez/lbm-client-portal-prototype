@@ -197,6 +197,24 @@ export async function markAlerted(): Promise<void> {
   await db.update(oauthTokens).set({ alertedAt: new Date() }).where(eq(oauthTokens.provider, PROVIDER));
 }
 
+// List the accounts the connected token can actually see (GET /v4/accounts —
+// account-agnostic, doesn't depend on FRAMEIO_ACCOUNT_ID or any task). Used to
+// disambiguate "token is bad" from "token is fine but FRAMEIO_ACCOUNT_ID is
+// wrong / not one this user belongs to" without touching any real task/asset.
+export async function listAccessibleAccounts(): Promise<{ ids: string[]; names: string[]; matchesConfigured: boolean | null; raw?: unknown; error?: string }> {
+  try {
+    const raw = await get<{ data?: { id?: string; name?: string }[] }>('/accounts', 'auth');
+    const accounts = raw?.data ?? [];
+    const ids = accounts.map(a => a.id).filter((x): x is string => !!x);
+    const names = accounts.map(a => a.name).filter((x): x is string => !!x);
+    const configured = process.env.FRAMEIO_ACCOUNT_ID;
+    return { ids, names, matchesConfigured: configured ? ids.includes(configured) : null };
+  } catch (e) {
+    const err = e as FrameioError;
+    return { ids: [], names: [], matchesConfigured: null, error: `${err?.status ?? ''} ${err?.message ?? String(e)}`.trim() };
+  }
+}
+
 // Read-only auth diagnostics for /api/publish/debug. Never returns secrets.
 export async function authDiagnostics(): Promise<Record<string, unknown>> {
   const conn = await getConnectionStatus().catch(e => ({ error: e instanceof Error ? e.message : String(e) }));
@@ -209,7 +227,8 @@ export async function authDiagnostics(): Promise<Record<string, unknown>> {
   };
   try {
     const token = await getAccessToken();
-    return { ...base, connection: conn, tokenObtained: true, tokenPrefix: token.slice(0, 8) + '…' };
+    const accounts = await listAccessibleAccounts();
+    return { ...base, connection: conn, tokenObtained: true, tokenPrefix: token.slice(0, 8) + '…', accounts };
   } catch (e) {
     return { ...base, connection: conn, tokenObtained: false, error: e instanceof Error ? e.message : String(e) };
   }
