@@ -304,28 +304,63 @@ function parseShareUrl(url: string): { shareId: string | null; viewId: string | 
   return { shareId: m[1] ?? null, viewId: m[2] ?? null };
 }
 
-// Resolve a Frame.io share id down to its underlying asset id via the Shares
-// API. ⚠️ Response shape is unconfirmed (Frame.io's v4 reference is
-// access-gated) — this is intentionally defensive, tries several plausible
-// field names, and returns the raw response so a live test (via
-// /api/publish/debug) can confirm/correct the shape without guessing blind.
+function firstOf<T>(...vals: (T | undefined | null)[]): T | null {
+  for (const v of vals) if (v != null) return v;
+  return null;
+}
+
+function firstChildId(list: unknown): string | null {
+  if (!Array.isArray(list) || list.length === 0) return null;
+  const first = list[0] as Record<string, unknown>;
+  const id = firstOf(first?.id as string | undefined, (first?.asset as { id?: string } | undefined)?.id);
+  return id ? String(id) : null;
+}
+
+// Live-confirmed: GET /accounts/{id}/shares/{id} returns the share/collection's
+// display config — name, theme, layout, etc. — and a `collection_id`, but NOT
+// the underlying asset directly. The asset lives one level down, inside that
+// collection. ⚠️ The exact "list children of a collection" endpoint path is
+// unconfirmed (gated docs) — tries a few plausible REST shapes in order and
+// returns whichever responds, plus all attempts for diagnosis.
 export async function resolveShareAssetId(shareId: string): Promise<{ assetId: string | null; raw: unknown }> {
-  const raw = await get<Record<string, unknown>>(`/accounts/${accountId()}/shares/${shareId}`, 'parse');
-  const data = ((raw as { data?: unknown })?.data ?? raw) as Record<string, unknown> | undefined;
-  const firstOf = <T>(...vals: (T | undefined | null)[]): T | null => {
-    for (const v of vals) if (v != null) return v;
-    return null;
-  };
-  const assets = data?.assets as unknown[] | undefined;
-  const items = data?.items as { asset?: { id?: string }; id?: string }[] | undefined;
-  const assetId = firstOf(
-    data?.asset_id as string | undefined,
-    data?.root_asset_id as string | undefined,
-    (data?.asset as { id?: string } | undefined)?.id,
-    Array.isArray(assets) ? ((assets[0] as { id?: string } | undefined)?.id) : undefined,
-    Array.isArray(items) ? (items[0]?.asset?.id ?? items[0]?.id) : undefined,
+  const shareRaw = await get<Record<string, unknown>>(`/accounts/${accountId()}/shares/${shareId}`, 'parse');
+  const shareData = ((shareRaw as { data?: unknown })?.data ?? shareRaw) as Record<string, unknown> | undefined;
+
+  // In case some shares DO carry the asset directly (defensive, cheap to keep).
+  const direct = firstOf(
+    shareData?.asset_id as string | undefined,
+    (shareData?.asset as { id?: string } | undefined)?.id,
+    firstChildId(shareData?.assets),
+    firstChildId(shareData?.items),
   );
-  return { assetId: assetId ? String(assetId) : null, raw };
+  if (direct) return { assetId: String(direct), raw: { share: shareRaw } };
+
+  const collectionId = shareData?.collection_id as string | undefined;
+  if (!collectionId) return { assetId: null, raw: { share: shareRaw } };
+
+  const candidatePaths = [
+    `/accounts/${accountId()}/collections/${collectionId}/children`,
+    `/accounts/${accountId()}/folders/${collectionId}/children`,
+    `/accounts/${accountId()}/collections/${collectionId}`,
+  ];
+  const attempts: Record<string, unknown> = {};
+  for (const path of candidatePaths) {
+    try {
+      const childRaw = await get<Record<string, unknown>>(path, 'parse');
+      attempts[path] = childRaw;
+      const childData = ((childRaw as { data?: unknown })?.data ?? childRaw) as unknown;
+      const childId = firstOf(
+        firstChildId(childData),
+        firstChildId((childData as Record<string, unknown> | undefined)?.assets),
+        firstChildId((childData as Record<string, unknown> | undefined)?.items),
+      );
+      if (childId) return { assetId: childId, raw: { share: shareRaw, resolvedVia: path, attempts } };
+    } catch (e) {
+      const err = e as FrameioError;
+      attempts[path] = { error: err?.message ?? String(e), status: err?.status };
+    }
+  }
+  return { assetId: null, raw: { share: shareRaw, collectionId, attempts } };
 }
 
 export interface FinalAsset {
