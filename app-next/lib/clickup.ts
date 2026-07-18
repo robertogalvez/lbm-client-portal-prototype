@@ -341,25 +341,28 @@ export async function getActiveTasks(includeArchived = false): Promise<MappedTas
   throw new Error('Set CLICKUP_FOLDER_ID or CLICKUP_LIST_ID');
 }
 
-// Task ids ordered to publish — "Posted Status" = "Post on Socials" AND the
+// Task ids ordered to publish — task Status = "Ready to be Posted" AND the
 // "Ready to Publish?" validation checkbox is checked. This is the reconcile
 // trigger for native publishing (backup for missed ClickUp webhooks).
-// "Do not post" (or unset) means the client decides — never sent to Vista Social.
+// "Posted Status" = "Do not post" blocks it — the client posts it themselves.
 export async function getPublishableTaskIds(listId: string): Promise<string[]> {
   const all = await fetchRawTasks(listId);
   const postedOptions = buildFieldOptions(all, 'Posted Status');
   const ids: string[] = [];
   for (const t of all) {
+    const statusName = (t.status?.status ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+    if (statusName !== 'ready to be posted') continue;
+
+    const ready = findField(t, 'Ready to Publish?');
+    const isReady = ready?.value === true || ready?.value === 'true' || ready?.value === 1;
+    if (!isReady) continue;
+
     const posted = findField(t, 'Posted Status');
     const idx = typeof posted?.value === 'number' ? posted.value : null;
     const postedName = idx !== null
       ? (posted?.type_config?.options?.[idx]?.name ?? postedOptions[idx]?.name ?? null)
       : null;
-    if (!postedName || !/post on socials/i.test(postedName)) continue;
-
-    const ready = findField(t, 'Ready to Publish?');
-    const isReady = ready?.value === true || ready?.value === 'true' || ready?.value === 1;
-    if (!isReady) continue;
+    if (postedName && /do not post/i.test(postedName)) continue;
 
     ids.push(t.id);
   }

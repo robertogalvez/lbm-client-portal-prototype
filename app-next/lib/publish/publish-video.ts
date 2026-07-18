@@ -38,12 +38,6 @@ function boolValue(field: clickup.ClickUpFieldLite | undefined): boolean {
   return v === true || v === 'true' || v === 1 || v === '1';
 }
 
-// The order to publish: Posted Status = "Post on Socials". "Do not post" (or
-// unset) means the client decides where it goes — we never send it to Vista Social.
-export function isPostOrder(postedStatus: string | null): boolean {
-  return !!postedStatus && /post on socials/i.test(postedStatus);
-}
-
 // On a hard failure: notify in the task comments and set "Posted Status" =
 // "Posting Failed" (so it isn't silently retried and the AM sees it).
 async function markError(task: clickup.ClickUpTaskLite, comment: string): Promise<PublishOutcome> {
@@ -96,6 +90,7 @@ export async function publishVideo(
   const clientName = optionName(clickup.findFieldRef(task, clickup.FIELD.clientName));
   const postedStatus = optionName(clickup.findFieldRef(task, clickup.FIELD.postedStatus));
   const readyToPublish = boolValue(clickup.findFieldRef(task, clickup.FIELD.readyToPublish));
+  const nativeStatus = clickup.normStatus(task.status?.status);
 
   // Idempotency — never double-publish (tracked via the stored Vista Social ids;
   // this workspace has no "Publishing Status" field to key on).
@@ -106,14 +101,17 @@ export async function publishVideo(
     .limit(1);
   if (existing?.postId) return { status: 'already_published' };
 
-  // Trigger gate: only publish when explicitly ordered (Posted Status = "Post on
-  // Socials") AND validated ready (the "Ready to Publish?" checkbox). Anything
-  // else — "Do not post", unset, or not-yet-ready — is a no-op, not an error.
-  if (!isPostOrder(postedStatus)) {
-    return { status: 'deferred', reason: 'Posted Status is not "Post on Socials"' };
+  // Trigger gate: task Status = "Ready to be Posted" AND the "Ready to Publish?"
+  // validation checkbox. "Posted Status" = "Do not post" blocks it — the client
+  // will post it themselves. Anything else here is a no-op, not an error.
+  if (nativeStatus !== clickup.TASK_STATUS.readyToBePosted) {
+    return { status: 'deferred', reason: 'Status is not "Ready to be Posted"' };
   }
   if (!readyToPublish) {
     return { status: 'deferred', reason: 'Ready to Publish? is not checked' };
+  }
+  if (postedStatus && /do not post/i.test(postedStatus)) {
+    return { status: 'deferred', reason: 'Posted Status is "Do not post"' };
   }
 
   // 1. Validate (Make "Task is valid" / "could not be scheduled"). publishNow
@@ -173,8 +171,15 @@ export async function publishVideo(
   }
 
   // 5. Success — store the post ids for the capture poller (no task comment; the
-  // Instagram URL lands on the task's "Instagram URL" field once the post is live).
+  // Instagram URL lands on the task's "Instagram URL" field once the post is
+  // live), and advance the task's Status to "Posted in Socials".
   await cacheAfterPublish(clickupTaskId, result.ids, effectivePublishAtMs);
+  try {
+    await clickup.setTaskStatus(clickupTaskId, clickup.TASK_STATUS.postedInSocials);
+  } catch {
+    // Non-fatal: the publish itself succeeded and is idempotency-guarded above;
+    // a status-set hiccup doesn't need to fail the whole outcome.
+  }
 
   return { status: 'published', postIds: result.ids };
 }
