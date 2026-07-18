@@ -127,3 +127,12 @@ export const PUBLISHING_STATUS = {
 } as const;
 
 export const POSTED_IN_SOCIALS_STATUS = 'Posted in Socials';
+
+// Values of the "Posted Status" dropdown used by the pipeline. "Post on Socials"
+// is the publish order; "Posting Failed" is set when Vista Social posting fails.
+// (The "Posting Failed" option must exist on the field in ClickUp.)
+export const POSTED_STATUS = {
+  postOnSocials: 'Post on Socials',
+  doNotPost: 'Do not post',
+  failed: 'Posting Failed',
+} as const;
