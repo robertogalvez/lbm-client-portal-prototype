@@ -279,6 +279,55 @@ export function parseVersionStackId(frameLink: string): string | null {
   return last && last.length > 0 ? last : null;
 }
 
+// Follow a Frame.io short link (f.io/xxx) to its resolved URL. Unauthenticated —
+// Frame.io's redirect service doesn't require our OAuth token, and share links
+// are typically publicly followable (confirmed: the existing thumbnail-scraping
+// code already fetches share URLs anonymously).
+export async function resolveShortLink(url: string): Promise<string> {
+  try {
+    const res = await fetch(url, { redirect: 'follow', cache: 'no-store' });
+    return res.url || url;
+  } catch {
+    return url;
+  }
+}
+
+// ".../share/{shareId}" or ".../share/{shareId}/view/{assetId}" → both ids.
+// The long share-URL form (with /view/{id}) already carries the real asset id
+// directly in the path — confirmed live. The short f.io link redirects only to
+// the bare share URL (no /view/{id}), so the share must be resolved via the
+// Shares API to find its underlying asset.
+function parseShareUrl(url: string): { shareId: string | null; viewId: string | null } {
+  const clean = url.split('?')[0].replace(/\/+$/, '');
+  const m = clean.match(/\/share\/([^/]+)(?:\/view\/([^/]+))?/i);
+  if (!m) return { shareId: null, viewId: null };
+  return { shareId: m[1] ?? null, viewId: m[2] ?? null };
+}
+
+// Resolve a Frame.io share id down to its underlying asset id via the Shares
+// API. ⚠️ Response shape is unconfirmed (Frame.io's v4 reference is
+// access-gated) — this is intentionally defensive, tries several plausible
+// field names, and returns the raw response so a live test (via
+// /api/publish/debug) can confirm/correct the shape without guessing blind.
+export async function resolveShareAssetId(shareId: string): Promise<{ assetId: string | null; raw: unknown }> {
+  const raw = await get<Record<string, unknown>>(`/accounts/${accountId()}/shares/${shareId}`, 'parse');
+  const data = ((raw as { data?: unknown })?.data ?? raw) as Record<string, unknown> | undefined;
+  const firstOf = <T>(...vals: (T | undefined | null)[]): T | null => {
+    for (const v of vals) if (v != null) return v;
+    return null;
+  };
+  const assets = data?.assets as unknown[] | undefined;
+  const items = data?.items as { asset?: { id?: string }; id?: string }[] | undefined;
+  const assetId = firstOf(
+    data?.asset_id as string | undefined,
+    data?.root_asset_id as string | undefined,
+    (data?.asset as { id?: string } | undefined)?.id,
+    Array.isArray(assets) ? ((assets[0] as { id?: string } | undefined)?.id) : undefined,
+    Array.isArray(items) ? (items[0]?.asset?.id ?? items[0]?.id) : undefined,
+  );
+  return { assetId: assetId ? String(assetId) : null, raw };
+}
+
 export interface FinalAsset {
   ready: boolean;              // transcoded AND has a usable download URL
   status: string | null;
@@ -286,17 +335,53 @@ export interface FinalAsset {
 }
 
 // Resolve the final high-quality download URL for the video task's Frame link.
+// Handles three link shapes:
+//   - full app.frame.io / next.frame.io asset URLs (last path segment is the id)
+//   - long share URLs ".../share/{shareId}/view/{assetId}" (proven live)
+//   - short f.io links → redirect → bare share URL ".../share/{shareId}"
+//     (no /view/{id}) → resolved via the Shares API to find the asset id
 // Throws FrameioError on hard API failures (surfaced as an AM comment upstream);
 // returns { ready: false } when the asset simply isn't transcoded yet.
 export async function resolveFinalAsset(frameLink: string): Promise<FinalAsset> {
-  const stackId = parseVersionStackId(frameLink);
+  let link = frameLink;
+  if (/^https?:\/\/f\.io\//i.test(link)) {
+    link = await resolveShortLink(link);
+  }
+
+  let stackId: string | null;
+  const { shareId, viewId } = parseShareUrl(link);
+  if (viewId) {
+    stackId = viewId;
+  } else if (shareId) {
+    const resolved = await resolveShareAssetId(shareId);
+    if (!resolved.assetId) {
+      throw new FrameioError(`Could not resolve Frame.io share ${shareId} to an asset`, 'parse');
+    }
+    stackId = resolved.assetId;
+  } else {
+    stackId = parseVersionStackId(link);
+  }
   if (!stackId) throw new FrameioError('Could not parse a Frame.io asset id from the link', 'parse');
 
-  const stack = await get<{ data?: { head_version?: { id?: string } } }>(
-    `/accounts/${accountId()}/version_stacks/${stackId}`,
-    'stack',
-  );
-  const headVersionId = stack?.data?.head_version?.id;
+  // The resolved id may be a version-stack id (the proven path) or, when
+  // resolved via the Shares API, possibly a direct file id instead — the exact
+  // Shares API shape is unconfirmed. Try version_stacks first; on a 404
+  // specifically, fall back to treating the id as a direct file id.
+  let headVersionId: string | undefined;
+  try {
+    const stack = await get<{ data?: { head_version?: { id?: string } } }>(
+      `/accounts/${accountId()}/version_stacks/${stackId}`,
+      'stack',
+    );
+    headVersionId = stack?.data?.head_version?.id;
+  } catch (e) {
+    const err = e as FrameioError;
+    if (err?.status === 404) {
+      headVersionId = stackId; // fall back: treat as a direct file id
+    } else {
+      throw e;
+    }
+  }
   if (!headVersionId) throw new FrameioError('Frame.io version stack has no head version', 'stack');
 
   const file = await get<{ data?: { status?: string; media_links?: { high_quality?: { download_url?: string | null } } } }>(
