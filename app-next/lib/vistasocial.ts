@@ -15,7 +15,10 @@
 //  - schedule/create returns post ids (one per profile/network); the live
 //    Instagram permalink does NOT exist yet and is fetched later via getPost.
 
-const BASE = (process.env.VISTASOCIAL_API_BASE || 'https://dev.vistasocial.com/api/integration').replace(/\/$/, '');
+// Confirmed live: dev.vistasocial.com does not resolve/connect from server-side
+// callers (fetch-level failure, no HTTP response) — the real API host is
+// vistasocial.com. No IP allowlisting required.
+const BASE = (process.env.VISTASOCIAL_API_BASE || 'https://vistasocial.com/api/integration').replace(/\/$/, '');
 
 export class RateLimitError extends Error {
   constructor(msg = 'Vista Social rate limit hit') { super(msg); this.name = 'RateLimitError'; }
