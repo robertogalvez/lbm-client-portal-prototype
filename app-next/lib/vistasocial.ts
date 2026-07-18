@@ -6,9 +6,10 @@
 // Everything API-shape-specific is isolated in this file on purpose — if a path
 // or field name is wrong, this is the only place to fix it.
 //
-// Constraints that shape this client (verified from Vista Social docs):
-//  - Auth: API key (Settings → Integrations) or OAuth2. We use a bearer token.
-//  - The account must be provisioned for API access ("API add-on").
+// Constraints that shape this client (verified from Vista Social docs + live testing):
+//  - Auth: API key (Settings → Integrations), sent via the `X-Api-Key` header.
+//  - The account must be provisioned for API access ("API add-on") — confirmed
+//    this is enforced live ("Your subscription does not offer API access").
 //  - Abuse policy: exceeding the rate limit >10 times in an hour DEACTIVATES the
 //    key. So we never tight-loop: on 429 we do a single short retry, then throw
 //    RateLimitError and let the caller defer to the next scheduled run.
@@ -39,9 +40,12 @@ export function isConfigured(): boolean {
   return !!process.env.VISTASOCIAL_API_TOKEN;
 }
 
+// Confirmed live: Vista Social's Integration API authenticates via the
+// `X-Api-Key` header, not `Authorization: Bearer`/raw, and not a query param
+// (those all returned "Invalid access token" / "Please specify a valid api key").
 function headers() {
   return {
-    Authorization: `Bearer ${process.env.VISTASOCIAL_API_TOKEN ?? ''}`,
+    'X-Api-Key': process.env.VISTASOCIAL_API_TOKEN ?? '',
     'Content-Type': 'application/json',
     Accept: 'application/json',
   };
