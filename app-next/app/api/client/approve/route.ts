@@ -6,6 +6,7 @@ import { authUsers, clients } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getViewAsClient } from '@/lib/view-as';
 import { resolveTaskClientName, type ClickUpTask } from '@/lib/clickup';
+import { syncFrameioComments } from '@/lib/frameio-comment-sync';
 
 const BASE = 'https://api.clickup.com/api/v2';
 
@@ -60,6 +61,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  // Decision-time capture: mirror any Frame.io comments the client left during
+  // review into the ClickUp task BEFORE the approval field flips, so the AM
+  // sees the full feedback list the moment the decision lands. Sync failures
+  // never block the approval write.
+  const frameField = (task.custom_fields ?? []).find((f: { name: string }) => f.name === 'Updated Frame Link (Editor)');
+  const frameLink = typeof frameField?.value === 'string' ? frameField.value : null;
+  const commentSync = frameLink ? await syncFrameioComments(taskId, frameLink) : null;
+
   const approvalField = (task.custom_fields ?? []).find((f: { name: string }) => f.name === 'CLIENT APPROVAL');
 
   if (!approvalField) return NextResponse.json({ error: 'CLIENT APPROVAL field not found on task' }, { status: 422 });
@@ -88,5 +97,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `ClickUp update failed: ${err}` }, { status: 502 });
   }
 
-  return NextResponse.json({ ok: true, action, optionName: options[optionIndex]?.name });
+  return NextResponse.json({ ok: true, action, optionName: options[optionIndex]?.name, commentSync });
 }

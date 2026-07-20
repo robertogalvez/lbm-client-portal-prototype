@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { resolveTaskClientName, type ClickUpTask } from '@/lib/clickup';
+import { markCommentSynced } from '@/lib/frameio-comment-sync';
 
 // POST /api/client/comment
 // Posts a timestamped comment to Frame.io v4 AND as a ClickUp task comment
@@ -58,7 +59,12 @@ export async function POST(req: Request) {
       });
       const fData = await fRes.json();
       if (!fRes.ok) results.frameioError = fData;
-      else results.frameioCommentId = fData.id;
+      else {
+        results.frameioCommentId = fData.id;
+        // This comment is dual-written to ClickUp below — mark it in the sync
+        // ledger so the Frame.io→ClickUp comment sync doesn't repost it.
+        if (fData.id) await markCommentSynced(String(fData.id), taskId);
+      }
     } catch (e) {
       results.frameioError = e instanceof Error ? e.message : 'Unknown';
     }
