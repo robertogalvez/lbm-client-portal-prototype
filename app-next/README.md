@@ -16,6 +16,24 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Environment variables
+
+Set these in the Netlify UI (Site settings → Environment variables), scoped to
+Functions/runtime — do not put values in `netlify.toml` or commit `.env` files.
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | Neon Postgres connection string (include `sslmode=require`; use the `-pooler` host for any TCP client — the runtime uses the HTTP driver) |
+| `BETTER_AUTH_SECRET` | better-auth signing secret — **required**; the app returns 503 without it |
+| `BETTER_AUTH_URL` | Public base URL of the deployment |
+| `MIGRATE_SECRET` | Guards `/api/migrate`, `/api/sync`, `/api/admin/bootstrap` |
+| `CRON_SECRET` | Guards the publish/reconcile/debug cron endpoints |
+| `CLICKUP_API_TOKEN`, `CLICKUP_LIST_ID`, `CLICKUP_FOLDER_ID`, `CLICKUP_CLIENTS_LIST_ID` | ClickUp API access + list/folder targets |
+| `CLICKUP_WEBHOOK_SECRET` | HMAC secret for `/api/webhooks/clickup` |
+| `POSTMARK_API_KEY` | Magic-link login emails |
+| `FRAMEIO_API_TOKEN`, `FRAMEIO_ACCOUNT_ID`, `FRAMEIO_CLIENT_ID`, `FRAMEIO_CLIENT_SECRET`, `FRAMEIO_OAUTH_SCOPES`, `FRAMEIO_REFRESH_TTL_DAYS` | Frame.io integration |
+| `VISTASOCIAL_API_TOKEN`, `VISTASOCIAL_API_BASE` | Vista Social publishing |
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

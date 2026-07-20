@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const PUBLIC_PATHS = [
-  '/login', '/api/auth', '/api/debug', '/api/migrate', '/api/debug-clickup',
+  '/login', '/api/auth', '/api/migrate', '/api/sync',
   // Self-authenticating endpoints (cron secret / HMAC / migrate secret in-handler)
   // must bypass the session redirect — they're called by ClickUp and the
   // scheduled functions, which have no session cookie.
@@ -16,11 +16,13 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow public paths and static assets
-  if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) return NextResponse.next();
+  if (PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))) return NextResponse.next();
   if (pathname.startsWith('/_next') || pathname.includes('.')) return NextResponse.next();
 
-  // If auth is not configured yet, pass through (avoids crash during setup)
-  if (!process.env.BETTER_AUTH_SECRET) return NextResponse.next();
+  // Fail closed: a deployment missing its auth secret must not expose the app
+  if (!process.env.BETTER_AUTH_SECRET) {
+    return new NextResponse('Auth is not configured', { status: 503 });
+  }
 
   try {
     // Inline cookie check — avoids importing BetterAuth at proxy level

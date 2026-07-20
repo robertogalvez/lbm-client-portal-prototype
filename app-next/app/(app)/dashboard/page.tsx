@@ -275,38 +275,41 @@ export default async function DashboardPage({
   const showInactive = inactive === '1';
   const masterListId = process.env.CLICKUP_LIST_ID;
   const folderId     = process.env.CLICKUP_FOLDER_ID;
-  let allTasks: MappedTask[] = [];
-  let error: string | null = null;
-
-  try {
-    allTasks = await getTasksFromDB();
-    // Fall back to live ClickUp if DB is empty
-    if (allTasks.length === 0) {
-      if (masterListId) {
-        allTasks = await getTasksFromList(masterListId, false);
-      } else if (folderId) {
-        allTasks = await getTasksFromFolder(folderId, false);
+  const [taskResult, clientStatusRows, clientQuotas] = await Promise.all([
+    (async (): Promise<{ tasks: MappedTask[]; error: string | null }> => {
+      try {
+        let tasks = await getTasksFromDB();
+        // Fall back to live ClickUp if DB is empty
+        if (tasks.length === 0) {
+          if (masterListId) {
+            tasks = await getTasksFromList(masterListId, false);
+          } else if (folderId) {
+            tasks = await getTasksFromFolder(folderId, false);
+          }
+        }
+        return { tasks, error: null };
+      } catch (e) {
+        return { tasks: [], error: e instanceof Error ? e.message : 'Unknown error' };
       }
-    }
-  } catch (e) {
-    error = e instanceof Error ? e.message : 'Unknown error';
-  }
+    })(),
+    // Hide Inactive clients (per the synced ClickUp Master Clients List) everywhere
+    // on the dashboard by default — a client with no matching record (not yet
+    // synced) is kept visible rather than silently hidden.
+    db.select({ name: clientsTable.name, clientStatus: clientsTable.clientStatus })
+      .from(clientsTable)
+      .catch(() => [] as { name: string; clientStatus: string | null }[]),
+    getClientQuotas().catch(() => [] as ClientQuota[]),
+  ]);
 
-  // Hide Inactive clients (per the synced ClickUp Master Clients List) everywhere
-  // on the dashboard by default — a client with no matching record (not yet
-  // synced) is kept visible rather than silently hidden.
-  const clientStatusRows = await db
-    .select({ name: clientsTable.name, clientStatus: clientsTable.clientStatus })
-    .from(clientsTable)
-    .catch(() => [] as { name: string; clientStatus: string | null }[]);
+  let allTasks = taskResult.tasks;
+  const error = taskResult.error;
+
   const inactiveNames = new Set(
     clientStatusRows.filter(c => c.clientStatus === 'Inactive').map(c => norm(c.name))
   );
   if (!showInactive && inactiveNames.size > 0) {
     allTasks = allTasks.filter(t => !t.clientName || !inactiveNames.has(norm(t.clientName)));
   }
-
-  const clientQuotas = await getClientQuotas().catch(() => [] as ClientQuota[]);
 
   const cutoff = rangeCutoff(range);
 
