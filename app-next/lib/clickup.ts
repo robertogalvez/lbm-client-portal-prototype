@@ -71,6 +71,15 @@ function findField(task: ClickUpTask, name: string): ClickUpField | undefined {
   return task.custom_fields.find(f => f.name === name);
 }
 
+// Resolves just the "Client Name (AM)" value off a raw task — used to verify
+// tenant ownership before a client-portal write is allowed to touch a task.
+export function resolveTaskClientName(task: ClickUpTask): string | null {
+  const clientField = findField(task, 'Client Name (AM)');
+  const clientIdx = typeof clientField?.value === 'number' ? clientField.value : null;
+  if (!clientField || clientIdx === null) return null;
+  return clientField.type_config?.options?.[clientIdx]?.name ?? null;
+}
+
 export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: string; name: string }[]> = {}): MappedTask {
   const clientField   = findField(task, 'Client Name (AM)');
   const levelField    = findField(task, 'Video Level (AM)');

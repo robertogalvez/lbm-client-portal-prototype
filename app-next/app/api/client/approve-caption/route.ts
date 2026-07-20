@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { authUsers, clients } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getViewAsClient } from '@/lib/view-as';
+import { resolveTaskClientName, type ClickUpTask } from '@/lib/clickup';
 
 const BASE = 'https://api.clickup.com/api/v2';
 
@@ -51,7 +52,12 @@ export async function POST(req: Request) {
 
   const taskRes = await fetch(`${BASE}/task/${taskId}`, { headers: clickupHeaders() });
   if (!taskRes.ok) return NextResponse.json({ error: 'Task not found' }, { status: 404 });
-  const task = await taskRes.json();
+  const task = await taskRes.json() as ClickUpTask;
+
+  // Tenant isolation: never let a client mutate a task that isn't theirs.
+  if (resolveTaskClientName(task) !== effectiveClientName) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   const captionApprovalField = (task.custom_fields ?? []).find((f: { name: string }) => f.name === 'CAPTION APPROVAL');
   if (!captionApprovalField) return NextResponse.json({ error: 'CAPTION APPROVAL field not found on task' }, { status: 422 });
