@@ -7,7 +7,7 @@ interface Props {
   currentApproval: string | null;
 }
 
-type State = 'idle' | 'revising' | 'loading' | 'done' | 'error';
+type State = 'idle' | 'confirming' | 'revising' | 'loading' | 'done' | 'error';
 
 export function ApprovalButtons({ taskId, currentApproval }: Props) {
   const [state, setState] = useState<State>('idle');
@@ -141,6 +141,44 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
     );
   }
 
+  // Approve confirmation — one extra tap since approval is final and irreversible in the portal
+  if (state === 'confirming') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {error && <div style={{ fontSize: 12, color: '#cf3f36' }}>{error}</div>}
+        <p style={{ margin: 0, textAlign: 'center', fontSize: 13, color: '#221e18', fontWeight: 600 }}>
+          Approve this video? This can&apos;t be undone from the portal.
+        </p>
+        <div style={{ display: 'flex', gap: 9 }}>
+          <button
+            onClick={() => { setState('idle'); setError(''); }}
+            style={{
+              flex: 1, padding: '11px 14px', borderRadius: 13,
+              border: '1px solid #ece4d8', background: '#fff',
+              color: '#6c6357', fontWeight: 600, fontSize: 13,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={approve}
+            style={{
+              flex: 2, padding: '11px 14px', borderRadius: 13, border: 'none',
+              background: '#FF6000',
+              color: '#fff',
+              fontWeight: 700, fontSize: 13,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            Yes, approve
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Default — two action buttons
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -170,7 +208,7 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
         </button>
 
         <button
-          onClick={approve}
+          onClick={() => setState('confirming')}
           disabled={state === 'loading'}
           style={{
             flex: 1, padding: '12px 14px', borderRadius: 13, border: 'none',

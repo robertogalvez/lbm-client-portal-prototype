@@ -102,14 +102,16 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
 
   const [clientRecord] = await db.select({ showCalendar: clients.showCalendar, showInvoices: clients.showInvoices, showReport: clients.showReport }).from(clients).where(eq(clients.name, clientName)).limit(1);
   const showCalendar = clientRecord?.showCalendar ?? false;
-  const showInvoices = clientRecord?.showInvoices ?? false;
+  const quickbooksConnected = isQuickBooksConfigured();
+  // Only surface the Invoices tab once QuickBooks is actually wired up — otherwise
+  // clients would see a tab full of labeled "sample data" as if it were real.
+  const showInvoices = (clientRecord?.showInvoices ?? false) && quickbooksConnected;
   const showReport = clientRecord?.showReport ?? false;
 
   const clientQuota = clientQuotas.find(q => q.name === clientName);
   const agreedReels = clientQuota?.reelsPerMonth ?? 0;
   const agreedYoutube = clientQuota?.ytPerMonth ?? 0;
   const clientInvoices = showInvoices ? await getInvoicesForClient(clientName) : [];
-  const quickbooksConnected = isQuickBooksConfigured();
   const effectiveTab =
     (tab === 'invoices' && !showInvoices) || (tab === 'calendar' && !showCalendar) || (tab === 'report' && !showReport)
       ? 'reviews'
@@ -267,15 +269,28 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                 ))}
               </div>
             )}
-            {postedTasks.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0', marginTop: 4 }}>✅ Recently posted</div>
-                <p style={{ fontSize: 12, color: '#6b6455', margin: '0 0 4px', fontStyle: 'italic' }}>Videos that have been approved and shared on social media</p>
-                {postedTasks.slice(0, 8).map(t => (
-                  <VideoRow key={t.clickupTaskId} task={t} color="#14805f" colorBg="#e4f3ec" label="Posted" date={fmtDate(t.dateUpdated)} />
-                ))}
-              </div>
-            )}
+            {(() => {
+              const reviewed = clientTasks
+                .filter(t => t.clientApproval === 'approved' || t.clientApproval === 'changes_requested')
+                .sort((a, b) => (Number(b.dateUpdated) || 0) - (Number(a.dateUpdated) || 0))
+                .slice(0, 8);
+              return reviewed.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0', marginTop: 4 }}>✅ Recently reviewed</div>
+                  <p style={{ fontSize: 12, color: '#6b6455', margin: '0 0 4px', fontStyle: 'italic' }}>Your recent approve / request-changes decisions</p>
+                  {reviewed.map(t => (
+                    <VideoRow
+                      key={t.clickupTaskId}
+                      task={t}
+                      color={t.clientApproval === 'approved' ? '#14805f' : '#cf3f36'}
+                      colorBg={t.clientApproval === 'approved' ? '#e4f3ec' : '#fbe4e2'}
+                      label={t.clientApproval === 'approved' ? 'Approved' : 'Changes requested'}
+                      date={fmtDate(t.dateUpdated)}
+                    />
+                  ))}
+                </div>
+              ) : null;
+            })()}
             {clientTasks.length === 0 && !fetchError && (
               <div style={{ textAlign: 'center', padding: '64px 24px', color: '#9d9488' }}>
                 <div style={{ fontSize: 36, marginBottom: 12 }}>🎬</div>

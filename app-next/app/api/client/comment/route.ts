@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { resolveTaskClientName, type ClickUpTask } from '@/lib/clickup';
 
 // POST /api/client/comment
 // Posts a timestamped comment to Frame.io v4 AND as a ClickUp task comment
@@ -27,6 +28,16 @@ export async function POST(req: Request) {
   };
 
   if (!taskId || !text) return NextResponse.json({ error: 'taskId and text are required' }, { status: 400 });
+
+  // Tenant isolation: never let a client comment on a task that isn't theirs.
+  const taskRes = await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
+    headers: { Authorization: process.env.CLICKUP_API_TOKEN ?? '' },
+  });
+  if (!taskRes.ok) return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+  const task = await taskRes.json() as ClickUpTask;
+  if (resolveTaskClientName(task) !== user.clientName) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   const results: Record<string, unknown> = {};
 
