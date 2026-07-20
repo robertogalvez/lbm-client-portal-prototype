@@ -40,7 +40,7 @@ async function fetchAllTasksFromFolder(folderId: string, token: string) {
 
 export async function POST(req: Request) {
   const secret = req.headers.get('x-migrate-secret');
-  if (secret !== process.env.MIGRATE_SECRET) {
+  if (!process.env.MIGRATE_SECRET || secret !== process.env.MIGRATE_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

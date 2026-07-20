@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { videoCache, clients } from '@/lib/db/schema';
@@ -13,9 +13,10 @@ export async function POST(req: Request) {
   }
 
   const rawBody = await req.text();
-  const signature = req.headers.get('x-signature');
-  const hash = createHmac('sha256', secret).update(rawBody).digest('hex');
-  if (hash !== signature) {
+  const signature = req.headers.get('x-signature') ?? '';
+  const expected = createHmac('sha256', secret).update(rawBody).digest();
+  const received = Buffer.from(signature, 'hex');
+  if (received.length !== expected.length || !timingSafeEqual(expected, received)) {
     return new Response('Unauthorized', { status: 401 });
   }
 

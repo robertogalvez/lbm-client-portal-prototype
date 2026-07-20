@@ -1,7 +1,7 @@
 import type { Config } from '@netlify/functions';
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
-import { eq, notInArray, and } from 'drizzle-orm';
+import { eq, notInArray, and, sql } from 'drizzle-orm';
 
 // Inline schema to avoid bundling the full app
 const { pgTable, varchar, text, timestamp, boolean } = await import('drizzle-orm/pg-core');
@@ -100,17 +100,18 @@ export default async function handler() {
     return fieldOptions[fieldName]?.[idx]?.id ?? null;
   }
 
-  let synced = 0;
+  // One query up front instead of a per-task dirty check: tasks with a pending
+  // local write are skipped so the sync never clobbers them.
+  const dirtyRows = await db.select({ id: videoCache.clickupTaskId })
+    .from(videoCache)
+    .where(eq(videoCache.dirty, true));
+  const dirtyIds = new Set(dirtyRows.map(r => r.id));
+
   let skipped = 0;
+  const rows: (typeof videoCache.$inferInsert)[] = [];
 
   for (const task of activeTasks) {
-    // Skip tasks with dirty flag (pending local write)
-    const existing = await db.select({ dirty: videoCache.dirty })
-      .from(videoCache)
-      .where(eq(videoCache.clickupTaskId, task.id))
-      .limit(1);
-
-    if (existing[0]?.dirty) { skipped++; continue; }
+    if (dirtyIds.has(task.id)) { skipped++; continue; }
 
     const fields = task.custom_fields ?? [];
     const find = (name: string) => fields.find((f: any) => f.name === name);
@@ -170,10 +171,41 @@ export default async function handler() {
       dirty:            false,
     };
 
-    await db.insert(videoCache).values({ clickupTaskId: task.id, title: task.name, ...row })
-      .onConflictDoUpdate({ target: videoCache.clickupTaskId, set: row });
-    synced++;
+    rows.push({ clickupTaskId: task.id, title: task.name, ...row });
   }
+
+  // Chunked multi-row upserts: one round-trip per ~50 tasks instead of one per
+  // task. On conflict every synced column takes the incoming (excluded) value;
+  // title is intentionally left alone, matching the previous per-row update set.
+  const excluded = (col: string) => sql.raw(`excluded."${col}"`);
+  const updateSet = {
+    status:           excluded('status'),
+    clientId:         excluded('client_id'),
+    clientApproval:   excluded('client_approval'),
+    captionApproval:  excluded('caption_approval'),
+    videoLevel:       excluded('video_level'),
+    caption:          excluded('caption'),
+    publishingStatus: excluded('publishing_status'),
+    frameioAssetId:   excluded('frameio_asset_id'),
+    rawDriveLink:     excluded('raw_drive_link'),
+    instagramUrl:     excluded('instagram_url'),
+    assignedAmName:   excluded('assigned_am_name'),
+    editorName:       excluded('editor_name'),
+    clientName:       excluded('client_name'),
+    qualityCheck:     excluded('quality_check'),
+    isYoutube:        excluded('is_youtube'),
+    dateUpdated:      excluded('date_updated'),
+    dueDate:          excluded('due_date'),
+    lastSyncedAt:     excluded('last_synced_at'),
+    dirty:            excluded('dirty'),
+  };
+
+  const CHUNK = 50;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    await db.insert(videoCache).values(rows.slice(i, i + CHUNK))
+      .onConflictDoUpdate({ target: videoCache.clickupTaskId, set: updateSet });
+  }
+  const synced = rows.length;
 
   // Delete rows that no longer exist in ClickUp (webhook may have missed deletions)
   const allClickupIds = rawTasks.map((t: any) => t.id as string);

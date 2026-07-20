@@ -26,7 +26,9 @@ async function getFrameioThumbnail(shareUrl: string): Promise<string | null> {
     const res = await fetch(shareUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; LBMPortal/1.0)' },
       redirect: 'follow',
-      cache: 'no-store',
+      // Short TTL: og:image URLs on Frame.io shares can be signed/expiring,
+      // so cache briefly rather than scraping the page on every request.
+      next: { revalidate: 900 },
     });
     if (!res.ok) return null;
     const html = await res.text();
@@ -90,17 +92,20 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     );
   }
 
-  let allTasks: MappedTask[] = [];
-  let clientQuotas: ClientQuota[] = [];
-  let fetchError: string | null = null;
-  try {
-    allTasks = await getTasksFromList(process.env.CLICKUP_LIST_ID!, false);
-    clientQuotas = await getClientQuotas();
-  } catch (e) {
-    fetchError = e instanceof Error ? e.message : 'Unknown error';
-  }
-
-  const [clientRecord] = await db.select({ showCalendar: clients.showCalendar, showInvoices: clients.showInvoices, showReport: clients.showReport }).from(clients).where(eq(clients.name, clientName)).limit(1);
+  const [tasksResult, quotasResult, [clientRecord]] = await Promise.all([
+    getTasksFromList(process.env.CLICKUP_LIST_ID!, false).then(
+      value => ({ value, error: null as string | null }),
+      (e: unknown) => ({ value: [] as MappedTask[], error: e instanceof Error ? e.message : 'Unknown error' }),
+    ),
+    getClientQuotas().then(
+      value => ({ value, error: null as string | null }),
+      (e: unknown) => ({ value: [] as ClientQuota[], error: e instanceof Error ? e.message : 'Unknown error' }),
+    ),
+    db.select({ showCalendar: clients.showCalendar, showInvoices: clients.showInvoices, showReport: clients.showReport }).from(clients).where(eq(clients.name, clientName)).limit(1),
+  ]);
+  const allTasks = tasksResult.value;
+  const clientQuotas = quotasResult.value;
+  const fetchError = tasksResult.error ?? quotasResult.error;
   const showCalendar = clientRecord?.showCalendar ?? false;
   const quickbooksConnected = isQuickBooksConfigured();
   // Only surface the Invoices tab once QuickBooks is actually wired up — otherwise

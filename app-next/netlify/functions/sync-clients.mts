@@ -1,7 +1,7 @@
 import type { Config } from '@netlify/functions';
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
-import { eq, ne, and, sql as sqlOp } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 // Inline schema to avoid bundling the full app
 const { pgTable, varchar, text, timestamp, uuid, integer, boolean, jsonb } = await import('drizzle-orm/pg-core');
@@ -88,6 +88,13 @@ export default async function handler() {
   let synced = 0;
   const skipped: string[] = [];
 
+  // The clients table is small — one read up front replaces the two per-task
+  // lookups (prior-name capture + legacy row reconciliation) the loop needs.
+  const allClients = await db
+    .select({ id: clients.id, name: clients.name, clickupTaskId: clients.clickupTaskId })
+    .from(clients);
+  const clientsByTaskId = new Map(allClients.map(c => [c.clickupTaskId, c]));
+
   for (const task of tasks) {
     const statusField = findField(task, 'Client Status');
     const statusIdx = typeof statusField?.value === 'number' ? statusField.value : null;
@@ -119,16 +126,12 @@ export default async function handler() {
     };
 
     // Capture the prior name for this task so a rename can cascade to linked users.
-    const [existing] = await db.select({ name: clients.name })
-      .from(clients)
-      .where(eq(clients.clickupTaskId, row.clickupTaskId))
-      .limit(1);
+    const existing = clientsByTaskId.get(row.clickupTaskId);
 
     // Reconcile hand-created rows (pre-dating ClickUp sync) onto the real task ID by name match.
-    const [legacy] = await db.select({ id: clients.id, name: clients.name })
-      .from(clients)
-      .where(and(sqlOp`lower(${clients.name}) = lower(${row.name})`, ne(clients.clickupTaskId, row.clickupTaskId)))
-      .limit(1);
+    const legacy = allClients.find(
+      c => c.name.toLowerCase() === row.name.toLowerCase() && c.clickupTaskId !== row.clickupTaskId,
+    );
 
     if (legacy) {
       await db.update(clients).set(row).where(eq(clients.id, legacy.id));
