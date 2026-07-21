@@ -104,6 +104,14 @@ export const videoCache = pgTable('video_cache', {
   dirty:             boolean('dirty').default(false),
 });
 
+// Frame.io comments already mirrored into ClickUp (idempotency ledger for the
+// comment sync — a Frame.io comment id lands in ClickUp exactly once).
+export const frameioSyncedComments = pgTable('frameio_synced_comments', {
+  frameioCommentId: varchar('frameio_comment_id', { length: 100 }).primaryKey(),
+  clickupTaskId:    varchar('clickup_task_id', { length: 50 }).notNull(),
+  syncedAt:         timestamp('synced_at').defaultNow(),
+});
+
 // OAuth token store (currently: Frame.io v4 OAuth 2.0 refresh/access tokens).
 export const oauthTokens = pgTable('oauth_tokens', {
   provider:        varchar('provider', { length: 50 }).primaryKey(),

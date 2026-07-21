@@ -42,7 +42,7 @@ const SCOPES = process.env.FRAMEIO_OAUTH_SCOPES || 'openid,email,profile,additio
 const PROVIDER = 'frameio';
 const REFRESH_TTL_DAYS = Number(process.env.FRAMEIO_REFRESH_TTL_DAYS) || 14;
 
-export type FrameioStage = 'parse' | 'stack' | 'file' | 'auth';
+export type FrameioStage = 'parse' | 'stack' | 'file' | 'comments' | 'auth';
 
 export class FrameioError extends Error {
   status?: number;
@@ -369,15 +369,14 @@ export interface FinalAsset {
   downloadUrl: string | null;
 }
 
-// Resolve the final high-quality download URL for the video task's Frame link.
-// Handles three link shapes:
+// Resolve a task's Frame link to the concrete v4 file id (the head version of
+// its version stack). Handles three link shapes:
 //   - full app.frame.io / next.frame.io asset URLs (last path segment is the id)
 //   - long share URLs ".../share/{shareId}/view/{assetId}" (proven live)
 //   - short f.io links → redirect → bare share URL ".../share/{shareId}"
 //     (no /view/{id}) → resolved via the Shares API to find the asset id
-// Throws FrameioError on hard API failures (surfaced as an AM comment upstream);
-// returns { ready: false } when the asset simply isn't transcoded yet.
-export async function resolveFinalAsset(frameLink: string): Promise<FinalAsset> {
+// Throws FrameioError when the link can't be parsed or the stack has no head.
+export async function resolveFileId(frameLink: string): Promise<string> {
   let link = frameLink;
   if (/^https?:\/\/f\.io\//i.test(link)) {
     link = await resolveShortLink(link);
@@ -418,13 +417,95 @@ export async function resolveFinalAsset(frameLink: string): Promise<FinalAsset> 
     }
   }
   if (!headVersionId) throw new FrameioError('Frame.io version stack has no head version', 'stack');
+  return headVersionId;
+}
+
+// Resolve the final high-quality download URL for the video task's Frame link.
+// Throws FrameioError on hard API failures (surfaced as an AM comment upstream);
+// returns { ready: false } when the asset simply isn't transcoded yet.
+export async function resolveFinalAsset(frameLink: string): Promise<FinalAsset> {
+  const fileId = await resolveFileId(frameLink);
 
   const file = await get<{ data?: { status?: string; media_links?: { high_quality?: { download_url?: string | null } } } }>(
-    `/accounts/${accountId()}/files/${headVersionId}?include=media_links.high_quality`,
+    `/accounts/${accountId()}/files/${fileId}?include=media_links.high_quality`,
     'file',
   );
   const status = file?.data?.status ?? null;
   const downloadUrl = file?.data?.media_links?.high_quality?.download_url ?? null;
   const ready = status === 'transcoded' && !!downloadUrl;
   return { ready, status, downloadUrl };
+}
+
+// ── Comments ──────────────────────────────────────────────────────────────────
+
+export interface FrameioComment {
+  id: string;
+  text: string;
+  authorName: string | null;
+  // Human-readable position in the video ("00:01:23" or a raw timecode string),
+  // null for comments not anchored to a moment.
+  timestampLabel: string | null;
+  createdAt: string | null;
+}
+
+function fmtSeconds(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const ss = String(s % 60).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+}
+
+// ⚠️ V4 comment field names are gated-docs territory; this mapper is defensive.
+// Confirmed-plausible shapes: author under `owner`/`author`/`user`; position as
+// a `timecode` string ("HH:MM:SS:FF") or numeric `timestamp`. A numeric
+// timestamp is treated as seconds — if live responses turn out to be
+// frame-based (as in the legacy v2 API), divide by the file's fps here.
+function mapComment(c: Record<string, unknown>): FrameioComment {
+  const owner = (c.owner ?? c.author ?? c.user) as Record<string, unknown> | undefined;
+  const authorName =
+    (owner?.name as string | undefined) ??
+    (owner?.display_name as string | undefined) ??
+    (owner?.email as string | undefined) ??
+    (c.author_name as string | undefined) ??
+    null;
+
+  let timestampLabel: string | null = null;
+  if (typeof c.timecode === 'string' && c.timecode) {
+    timestampLabel = c.timecode;
+  } else if (typeof c.timestamp === 'number') {
+    timestampLabel = fmtSeconds(c.timestamp);
+  }
+
+  return {
+    id: String(c.id ?? ''),
+    text: typeof c.text === 'string' ? c.text : '',
+    authorName,
+    timestampLabel,
+    createdAt: typeof c.inserted_at === 'string' ? c.inserted_at
+      : typeof c.created_at === 'string' ? c.created_at : null,
+  };
+}
+
+// List all comments on a v4 file (the review feedback clients leave in the
+// embedded player). Follows cursor pagination via `links.next` when present.
+export async function listComments(fileId: string): Promise<FrameioComment[]> {
+  const out: FrameioComment[] = [];
+  let path: string | null = `/accounts/${accountId()}/files/${fileId}/comments`;
+  let guard = 0;
+
+  while (path && guard++ < 25) {
+    const raw: Record<string, unknown> = await get<Record<string, unknown>>(path, 'comments');
+    const data = Array.isArray(raw?.data) ? (raw.data as Record<string, unknown>[]) : [];
+    for (const c of data) {
+      const mapped = mapComment(c);
+      if (mapped.id) out.push(mapped);
+    }
+
+    const next = (raw?.links as { next?: string } | undefined)?.next ?? null;
+    if (!next) break;
+    path = next.startsWith(BASE) ? next.slice(BASE.length) : next.startsWith('/') ? next : null;
+  }
+
+  return out;
 }
