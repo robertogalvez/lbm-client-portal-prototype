@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { authUsers, clients } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getTasksFromList, getClientQuotas } from '@/lib/clickup';
+import { getThumbnailUrl } from '@/lib/frameio';
 import type { MappedTask, ClientQuota } from '@/lib/clickup';
 import { ApprovalButtons } from '@/components/client/ApprovalButtons';
 import { NotificationBell } from '@/components/client/NotificationBell';
@@ -20,25 +21,6 @@ import { InstagramLink } from '@/components/InstagramLink';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
-
-async function getFrameioThumbnail(shareUrl: string): Promise<string | null> {
-  try {
-    const res = await fetch(shareUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; LBMPortal/1.0)' },
-      redirect: 'follow',
-      // Short TTL: og:image URLs on Frame.io shares can be signed/expiring,
-      // so cache briefly rather than scraping the page on every request.
-      next: { revalidate: 900 },
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
-    const match = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
-                ?? html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-    return match?.[1] ?? null;
-  } catch {
-    return null;
-  }
-}
 
 function norm(s: string) {
   return s.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -147,10 +129,11 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   const displayName = (name ?? clientName).split(' ')[0];
   const pct = clientTasks.length > 0 ? Math.round((postedTasks.length / clientTasks.length) * 100) : 0;
 
-  // Fetch Frame.io thumbnails for review cards in parallel
+  // Fetch Frame.io thumbnails for review cards in parallel — authenticated
+  // via the v4 API (media_links.thumbnail), not scraped from the share page.
   const thumbnails: Record<string, string | null> = {};
   await Promise.all(reviewTasks.map(async t => {
-    if (t.frameLink) thumbnails[t.clickupTaskId] = await getFrameioThumbnail(t.frameLink);
+    if (t.frameLink) thumbnails[t.clickupTaskId] = await getThumbnailUrl(t.frameLink);
   }));
 
   const tabItems = [
@@ -177,11 +160,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
           )}
         </div>
         <div style={{padding:16}}>
-          <div style={{fontWeight:700, fontSize:15, marginBottom:10, lineHeight:1.3}}>{t.clientFacingTitle || t.title}</div>
-          <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
-            <div style={{width:28,height:28,borderRadius:'50%',background:'#f97316',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#fff'}}>{initials(t.assignedAmName||'AM')}</div>
-            <span style={{fontSize:12, color:'#6b6455'}}>{t.assignedAmName}</span>
-          </div>
+          <div style={{fontWeight:700, fontSize:15, marginBottom:12, lineHeight:1.3}}>{t.clientFacingTitle || t.title}</div>
           <div style={{background:'#fef3c7', color:'#92400e', textAlign:'center', padding:'6px', borderRadius:8, fontSize:12, fontWeight:600, marginBottom:12}}>⏳ Awaiting your review</div>
           <a href={`/client/videos/${t.clickupTaskId}`} style={{display:'block', textAlign:'center', padding:'10px', background:'#f97316', color:'#fff', borderRadius:10, fontWeight:600, fontSize:14, textDecoration:'none', marginBottom:10}}>Watch &amp; review</a>
           <ApprovalButtons taskId={t.clickupTaskId} currentApproval={t.clientApproval} />

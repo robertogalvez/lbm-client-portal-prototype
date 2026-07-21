@@ -453,6 +453,25 @@ export async function resolveFinalAsset(frameLink: string): Promise<FinalAsset> 
   return getFileMedia(fileId);
 }
 
+// Preview thumbnail for a task's Frame link — used by the review-grid cards.
+// Replaces scraping the share page's og:image (unreliable: that URL isn't
+// always loadable in a plain <img> tag, likely signed/session-gated) with
+// the v4 API's own media_links.thumbnail field. Never throws — any failure
+// (not connected, asset not ready, network) degrades to null so callers can
+// fall back to a placeholder, same contract as the scrape it replaces.
+export async function getThumbnailUrl(frameLink: string): Promise<string | null> {
+  try {
+    const fileId = await resolveFileId(frameLink);
+    const file = await get<{ data?: { media_links?: { thumbnail?: { url?: string | null } } } }>(
+      `/accounts/${accountId()}/files/${fileId}?include=media_links.thumbnail`,
+      'file',
+    );
+    return file?.data?.media_links?.thumbnail?.url ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Comments ──────────────────────────────────────────────────────────────────
 
 export interface FrameioComment {
