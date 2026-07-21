@@ -5,11 +5,12 @@ import { useState } from 'react';
 interface Props {
   taskId: string;
   currentApproval: string | null;
+  fileId?: string | null;
 }
 
 type State = 'idle' | 'confirming' | 'revising' | 'loading' | 'done' | 'error';
 
-export function ApprovalButtons({ taskId, currentApproval }: Props) {
+export function ApprovalButtons({ taskId, currentApproval, fileId }: Props) {
   const [state, setState] = useState<State>('idle');
   const [result, setResult] = useState<string | null>(currentApproval);
   const [feedback, setFeedback] = useState('');
@@ -55,7 +56,7 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
         await fetch('/api/client/comment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ taskId, text: `🎬 Video feedback: ${feedback.trim()}` }),
+          body: JSON.stringify({ taskId, fileId, text: `🎬 Video feedback: ${feedback.trim()}` }),
         });
       }
       setResult('Changes Requested');

@@ -6,6 +6,7 @@ import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { resolveTaskClientName, type ClickUpTask } from '@/lib/clickup';
 import { markCommentSynced } from '@/lib/frameio-comment-sync';
+import { createComment as createFrameioComment } from '@/lib/frameio';
 
 // POST /api/client/comment
 // Posts a timestamped comment to Frame.io v4 AND as a ClickUp task comment
@@ -21,9 +22,9 @@ export async function POST(req: Request) {
 
   if (!user || user.role !== 'client') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  const { taskId, frameioAssetId, text, timestampSeconds } = await req.json() as {
+  const { taskId, fileId, text, timestampSeconds } = await req.json() as {
     taskId: string;
-    frameioAssetId?: string;
+    fileId?: string;
     text: string;
     timestampSeconds?: number;
   };
@@ -42,29 +43,16 @@ export async function POST(req: Request) {
 
   const results: Record<string, unknown> = {};
 
-  // 1. Post to Frame.io v4 (if we have an asset ID)
-  if (frameioAssetId && process.env.FRAMEIO_API_TOKEN) {
+  // 1. Post to Frame.io v4 (if we have a resolved file id) — server-side,
+  // OAuth-authenticated, so this never touches Frame.io's guest "who are you"
+  // identity flow.
+  if (fileId) {
     try {
-      const body: Record<string, unknown> = { text };
-      if (typeof timestampSeconds === 'number') body.timestamp = timestampSeconds;
-
-      const fRes = await fetch(`https://api.frame.io/v4/assets/${frameioAssetId}/comments`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.FRAMEIO_API_TOKEN}`,
-          'Content-Type': 'application/json',
-          'X-Api-Version': '2',
-        },
-        body: JSON.stringify(body),
-      });
-      const fData = await fRes.json();
-      if (!fRes.ok) results.frameioError = fData;
-      else {
-        results.frameioCommentId = fData.id;
-        // This comment is dual-written to ClickUp below — mark it in the sync
-        // ledger so the Frame.io→ClickUp comment sync doesn't repost it.
-        if (fData.id) await markCommentSynced(String(fData.id), taskId);
-      }
+      const comment = await createFrameioComment(fileId, text, timestampSeconds);
+      results.frameioCommentId = comment.id;
+      // This comment is dual-written to ClickUp below — mark it in the sync
+      // ledger so the Frame.io→ClickUp comment sync doesn't repost it.
+      if (comment.id) await markCommentSynced(comment.id, taskId);
     } catch (e) {
       results.frameioError = e instanceof Error ? e.message : 'Unknown';
     }

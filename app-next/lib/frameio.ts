@@ -271,6 +271,17 @@ async function get<T = Record<string, unknown>>(path: string, stage: FrameioStag
   return res.json() as Promise<T>;
 }
 
+async function post<T = Record<string, unknown>>(path: string, body: unknown, stage: FrameioStage): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: await fioHeaders(),
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new FrameioError(`Frame.io ${res.status}: ${path}`, stage, res.status);
+  return res.json() as Promise<T>;
+}
+
 // "https://f.io/abc123?foo=bar" or ".../version_stacks/abc123/" → "abc123"
 export function parseVersionStackId(frameLink: string): string | null {
   if (!frameLink) return null;
@@ -420,12 +431,10 @@ export async function resolveFileId(frameLink: string): Promise<string> {
   return headVersionId;
 }
 
-// Resolve the final high-quality download URL for the video task's Frame link.
-// Throws FrameioError on hard API failures (surfaced as an AM comment upstream);
-// returns { ready: false } when the asset simply isn't transcoded yet.
-export async function resolveFinalAsset(frameLink: string): Promise<FinalAsset> {
-  const fileId = await resolveFileId(frameLink);
-
+// Fetch transcoding status + high-quality download URL for an already-resolved
+// v4 file id. Throws FrameioError on hard API failures; returns
+// { ready: false } when the asset simply isn't transcoded yet.
+export async function getFileMedia(fileId: string): Promise<FinalAsset> {
   const file = await get<{ data?: { status?: string; media_links?: { high_quality?: { download_url?: string | null } } } }>(
     `/accounts/${accountId()}/files/${fileId}?include=media_links.high_quality`,
     'file',
@@ -434,6 +443,14 @@ export async function resolveFinalAsset(frameLink: string): Promise<FinalAsset> 
   const downloadUrl = file?.data?.media_links?.high_quality?.download_url ?? null;
   const ready = status === 'transcoded' && !!downloadUrl;
   return { ready, status, downloadUrl };
+}
+
+// Resolve the final high-quality download URL for the video task's Frame link.
+// Throws FrameioError on hard API failures (surfaced as an AM comment upstream);
+// returns { ready: false } when the asset simply isn't transcoded yet.
+export async function resolveFinalAsset(frameLink: string): Promise<FinalAsset> {
+  const fileId = await resolveFileId(frameLink);
+  return getFileMedia(fileId);
 }
 
 // ── Comments ──────────────────────────────────────────────────────────────────
@@ -508,4 +525,32 @@ export async function listComments(fileId: string): Promise<FrameioComment[]> {
   }
 
   return out;
+}
+
+// Post a new comment to a v4 file — used by the portal's own comment composer
+// (server-side, OAuth-authenticated), never the client's browser directly, so
+// it never triggers Frame.io's guest "who are you" identity flow.
+export async function createComment(fileId: string, text: string, timestampSeconds?: number): Promise<FrameioComment> {
+  const body: Record<string, unknown> = { text };
+  if (typeof timestampSeconds === 'number') body.timestamp = timestampSeconds;
+
+  const raw = await post<Record<string, unknown>>(`/accounts/${accountId()}/files/${fileId}/comments`, body, 'comments');
+  const data = ((raw?.data ?? raw) as Record<string, unknown>) ?? {};
+  return mapComment(data);
+}
+
+export interface ReviewData {
+  fileId: string;
+  ready: boolean;
+  downloadUrl: string | null;
+  status: string | null;
+  comments: FrameioComment[];
+}
+
+// Everything the client video-review page needs in one resolve: the playable
+// file URL and the existing comment thread, sharing a single fileId lookup.
+export async function getReviewData(frameLink: string): Promise<ReviewData> {
+  const fileId = await resolveFileId(frameLink);
+  const [media, comments] = await Promise.all([getFileMedia(fileId), listComments(fileId)]);
+  return { fileId, ...media, comments };
 }
