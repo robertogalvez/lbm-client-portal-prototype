@@ -7,8 +7,10 @@ import { eq } from 'drizzle-orm';
 import { getTasksFromList } from '@/lib/clickup';
 import { ApprovalButtons } from '@/components/client/ApprovalButtons';
 import { CaptionApprovalButtons } from '@/components/client/CaptionApprovalButtons';
+import { VideoReviewPlayer } from '@/components/client/VideoReviewPlayer';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { getViewAsClient } from '@/lib/view-as';
+import { getReviewData } from '@/lib/frameio';
 import { InstagramLink } from '@/components/InstagramLink';
 import Link from 'next/link';
 export const dynamic = 'force-dynamic';
@@ -86,6 +88,20 @@ export default async function VideoDetailPage({ params, searchParams }: { params
   const isReview = task.status.toLowerCase().includes('client review');
   const embedUrl = task.frameLink ? toFrameioEmbedUrl(task.frameLink) : null;
 
+  // Native player + timestamped comment capture only while a decision is
+  // actually pending — this is the only state the approval dock (and
+  // therefore commenting) is shown for. Every other status keeps the cheap,
+  // API-call-free iframe/placeholder path below. Frame.io errors here (not
+  // configured, asset not transcoded yet, etc.) fall back to that same path.
+  let reviewData: Awaited<ReturnType<typeof getReviewData>> | null = null;
+  if (isReview && task.frameLink) {
+    try {
+      reviewData = await getReviewData(task.frameLink);
+    } catch {
+      reviewData = null;
+    }
+  }
+
   const metaPanel = (
     <>
       {/* Status + open link */}
@@ -126,7 +142,16 @@ export default async function VideoDetailPage({ params, searchParams }: { params
     </>
   );
 
-  const player = embedUrl ? (
+  const player = reviewData?.ready && reviewData.downloadUrl ? (
+    <div style={{ position: 'absolute', inset: 0 }}>
+      <VideoReviewPlayer
+        taskId={task.clickupTaskId}
+        fileId={reviewData.fileId}
+        src={reviewData.downloadUrl}
+        initialComments={reviewData.comments}
+      />
+    </div>
+  ) : embedUrl ? (
     <iframe src={embedUrl} style={{ width: '100%', height: '100%', border: 'none', display: 'block', position: 'absolute', inset: 0 }} allow="fullscreen; picture-in-picture" allowFullScreen />
   ) : (
     <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'linear-gradient(135deg, #2c3540, #4a5562)' }}>
@@ -194,7 +219,7 @@ export default async function VideoDetailPage({ params, searchParams }: { params
               </>
             )}
             <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Video</div>
-            <ApprovalButtons taskId={task.clickupTaskId} currentApproval={task.clientApproval} />
+            <ApprovalButtons taskId={task.clickupTaskId} currentApproval={task.clientApproval} fileId={reviewData?.fileId ?? null} />
           </div>
         )}
       </div>
