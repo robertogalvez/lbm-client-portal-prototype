@@ -13,6 +13,7 @@ export interface CalTask {
   clientApproval: string | null;
   frameLink: string | null;
   rawDriveLink: string | null;
+  publishDate: string | null;
 }
 
 function norm(s: string) {
@@ -45,9 +46,13 @@ function isInProcess(t: CalTask): boolean {
   return !['posted in socials', 'for client review', 'ready to be posted'].includes(s) && t.clientApproval !== 'approved';
 }
 
+// "Ready to be Posted" and "Posted in Socials" are scheduling/publishing
+// stages — the date that belongs on the calendar for those is the actual
+// scheduled/posted date ("Publish Date (VistaSocial)"), not the editing
+// due date or whenever the ClickUp task last happened to be touched.
 function getDisplayDate(t: CalTask): string | null {
   const s = norm(t.status);
-  if (s === 'posted in socials') return t.dateUpdated;
+  if (s === 'ready to be posted' || s === 'posted in socials') return t.publishDate ?? t.dueDate;
   return t.dueDate;
 }
 
