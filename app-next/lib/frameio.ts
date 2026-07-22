@@ -566,12 +566,15 @@ export async function listComments(fileId: string): Promise<FrameioComment[]> {
 // it never triggers Frame.io's guest "who are you" identity flow.
 export async function createComment(fileId: string, text: string, timestampSeconds?: number): Promise<FrameioComment> {
   const attrs: Record<string, unknown> = { text };
-  if (typeof timestampSeconds === 'number') attrs.timestamp = timestampSeconds;
-  // Live-confirmed the flat body { text, timestamp } 422s. Every v4 GET
-  // response observed in this file wraps its payload in a `data` envelope
-  // (JSON:API-style); wrapping the POST body the same way is the first thing
-  // worth trying — unconfirmed until re-verified against the writeTestComment
-  // debug probe (docs are gated, no prior write-endpoint precedent here).
+  // Live-confirmed via the writeTestComment debug probe: Frame.io's schema
+  // for `timestamp` accepts a string or an integer, not a JS float with a
+  // fractional part — 422s with "Invalid integer. Got: number" otherwise.
+  // The composer sends raw video.currentTime (e.g. 3.641233), so floor it —
+  // matches fmtSeconds()/fmtTime()'s own Math.floor, so the value actually
+  // stored on Frame.io agrees with the "[at 0:03]" label the client saw.
+  if (typeof timestampSeconds === 'number') attrs.timestamp = Math.floor(timestampSeconds);
+  // Every v4 GET response observed in this file wraps its payload in a `data`
+  // envelope (JSON:API-style); the POST body needs the same wrapping.
   const body = { data: attrs };
 
   const raw = await post<Record<string, unknown>>(`/accounts/${accountId()}/files/${fileId}/comments`, body, 'comments');
