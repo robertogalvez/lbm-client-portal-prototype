@@ -143,7 +143,7 @@ export default async function VideoDetailPage({ params, searchParams }: { params
   );
 
   const player = reviewData?.ready && reviewData.downloadUrl ? (
-    <div style={{ position: 'absolute', inset: 0 }}>
+    <div className="vd-native-wrap">
       <VideoReviewPlayer
         taskId={task.clickupTaskId}
         fileId={reviewData.fileId}

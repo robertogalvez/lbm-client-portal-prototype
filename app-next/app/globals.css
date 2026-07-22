@@ -241,6 +241,20 @@ body {
 }
 .vd-player { flex: 1; position: relative; background: #1a1e24; min-height: 220px; }
 .vd-player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; display: block; }
+/* Native <video> player — mobile: natural aspect-ratio sizing in normal document
+   flow (unlike the iframe, a video has real intrinsic dimensions, so it doesn't
+   need an absolute-fill box; that box was clipping it to .vd-player's 220px
+   min-height fallback and pushing its native controls out of view). Desktop
+   still fills .vd-left's viewport-locked height the same way the iframe does. */
+.vd-native-wrap { position: relative; }
+.vd-native-player { display: flex; flex-direction: column; }
+.vd-native-video-wrap { position: relative; background: #000; flex-shrink: 0; }
+.vd-native-video-wrap video { width: 100%; height: auto; display: block; }
+@media (min-width: 900px) {
+  .vd-native-wrap { position: absolute; inset: 0; }
+  .vd-native-player { height: 100%; }
+  .vd-native-video-wrap video { height: 100%; max-height: 70vh; object-fit: contain; }
+}
 /* Extra bottom padding reserves room for the fixed .vd-dock below so it never
    covers the tail of the meta panel (mirrors .cp-body's clearance for .cp-tab-bar). */
 .vd-meta { padding: 12px 16px calc(230px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; }

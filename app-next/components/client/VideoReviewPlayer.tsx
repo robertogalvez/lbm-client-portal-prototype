@@ -86,9 +86,9 @@ export function VideoReviewPlayer({ taskId, fileId, src, initialComments }: Prop
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ position: 'relative', background: '#000', flexShrink: 0 }}>
-        <video ref={videoRef} src={src} controls style={{ width: '100%', display: 'block', maxHeight: '60vh' }} />
+    <div className="vd-native-player">
+      <div className="vd-native-video-wrap">
+        <video ref={videoRef} src={src} controls />
         <a
           href={src}
           download
