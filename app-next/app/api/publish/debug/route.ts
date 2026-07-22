@@ -1,10 +1,15 @@
-// Read-only diagnostics for the publishing pipeline (cron-secret protected).
-// Reports Frame.io auth state, Vista Social config, and — given ?taskId= — the
+// Diagnostics for the publishing pipeline (cron-secret protected). Reports
+// Frame.io auth state, Vista Social config, and — given ?taskId= — the
 // resolved trigger/validation fields and (with ?probe=1) a live Frame.io asset
-// resolution. Never posts anything and never returns secret values.
+// resolution. Never returns secret values.
+//
+// Mostly read-only, with ONE explicit exception: &writeTestComment=1 actually
+// posts a real test comment to the task's Frame.io file (to diagnose comment-
+// creation failures the same way ?probe=1 diagnoses asset-resolution ones) —
+// opt-in only, never fires without that flag.
 //
 //   GET /api/publish/debug            (header x-cron-secret)
-//   GET /api/publish/debug?taskId=... [&probe=1]
+//   GET /api/publish/debug?taskId=... [&probe=1] [&writeTestComment=1]
 
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
@@ -35,6 +40,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const taskId = url.searchParams.get('taskId');
   const probe = url.searchParams.get('probe') === '1';
+  const writeTestComment = url.searchParams.get('writeTestComment') === '1';
   const shareId = url.searchParams.get('shareId');
   const shortLink = url.searchParams.get('shortLink');
 
@@ -88,6 +94,20 @@ export async function GET(req: Request) {
         } catch (e) {
           const err = e as frameio.FrameioError;
           report.frameProbe = { error: err?.message ?? String(e), stage: err?.stage, status: err?.status };
+        }
+      }
+
+      // Opt-in write test: exercises the exact createComment() path the
+      // native player's composer uses, to surface the real Frame.io error
+      // behind a generic "Could not save to Frame.io" client-side message.
+      if (writeTestComment && frameLink) {
+        try {
+          const fileId = await frameio.resolveFileId(frameLink);
+          const comment = await frameio.createComment(fileId, `[debug probe] ${new Date().toISOString()}`, 1);
+          report.commentWriteProbe = { ok: true, fileId, comment };
+        } catch (e) {
+          const err = e as frameio.FrameioError;
+          report.commentWriteProbe = { ok: false, error: err?.message ?? String(e), stage: err?.stage, status: err?.status };
         }
       }
     } catch (e) {

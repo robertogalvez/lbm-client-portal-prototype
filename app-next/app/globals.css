@@ -248,11 +248,15 @@ body {
    still fills .vd-left's viewport-locked height the same way the iframe does. */
 .vd-native-wrap { position: relative; }
 .vd-native-player { display: flex; flex-direction: column; }
-.vd-native-video-wrap { position: relative; background: #000; flex-shrink: 0; }
-.vd-native-video-wrap video { width: 100%; height: auto; display: block; }
+/* Sticky so the video stays visible while scrolling to the comment composer/
+   feed below it — capped height so a portrait/reel video doesn't dominate
+   the whole screen once pinned. */
+.vd-native-video-wrap { position: sticky; top: 0; z-index: 5; background: #000; flex-shrink: 0; }
+.vd-native-video-wrap video { width: 100%; max-height: 42vh; display: block; object-fit: contain; }
 @media (min-width: 900px) {
   .vd-native-wrap { position: absolute; inset: 0; }
   .vd-native-player { height: 100%; }
+  .vd-native-video-wrap { position: relative; top: auto; }
   .vd-native-video-wrap video { height: 100%; max-height: 70vh; object-fit: contain; }
 }
 /* Extra bottom padding reserves room for the fixed .vd-dock below so it never

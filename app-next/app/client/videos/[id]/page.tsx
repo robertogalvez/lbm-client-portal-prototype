@@ -6,7 +6,6 @@ import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getTasksFromList } from '@/lib/clickup';
 import { ApprovalButtons } from '@/components/client/ApprovalButtons';
-import { CaptionApprovalButtons } from '@/components/client/CaptionApprovalButtons';
 import { VideoReviewPlayer } from '@/components/client/VideoReviewPlayer';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { getViewAsClient } from '@/lib/view-as';
@@ -214,7 +213,6 @@ export default async function VideoDetailPage({ params, searchParams }: { params
                 <div style={{ background: '#f7f2ea', borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
                   <p style={{ fontSize: 13, color: '#6c6357', lineHeight: 1.5, margin: 0 }}>{task.caption}</p>
                 </div>
-                <CaptionApprovalButtons taskId={task.clickupTaskId} currentApproval={task.captionApproval ?? null} />
                 <hr style={{ border: 'none', borderTop: '1px solid #ece4d8', margin: '12px 0' }} />
               </>
             )}
