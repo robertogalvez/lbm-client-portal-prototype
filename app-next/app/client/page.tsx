@@ -6,6 +6,7 @@ import { authUsers, clients } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getTasksFromList, getClientQuotas } from '@/lib/clickup';
 import { getThumbnailUrl } from '@/lib/frameio';
+import { statusColors } from '@/components/ui/StatusBadge';
 import type { MappedTask, ClientQuota } from '@/lib/clickup';
 import { ApprovalButtons } from '@/components/client/ApprovalButtons';
 import { NotificationBell } from '@/components/client/NotificationBell';
@@ -106,9 +107,13 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
 
   const clientTasks = allTasks.filter(t => t.clientName === clientName);
   const reviewTasks = clientTasks.filter(t => norm(t.status) === 'for client review');
+  const correctionsTasks = clientTasks.filter(t => norm(t.status) === 'in progress (corrections)');
+  // "On its way" combines ready-to-post and already-posted into one section —
+  // each row's own status badge (via statusColors) distinguishes which.
+  const onItsWayTasks = clientTasks.filter(t => ['ready to be posted', 'posted in socials'].includes(norm(t.status)));
   const postedTasks = clientTasks.filter(t => norm(t.status) === 'posted in socials');
   const inProgress  = clientTasks.filter(t =>
-    !['for client review', 'posted in socials'].includes(norm(t.status))
+    !['for client review', 'in progress (corrections)', 'ready to be posted', 'posted in socials'].includes(norm(t.status))
   );
   const monthStart  = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
   const postedThisMonth = postedTasks.filter(t => {
@@ -244,12 +249,30 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                 ))}
               </div>
             )}
+            {correctionsTasks.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>🛠️ In corrections</div>
+                <p style={{ fontSize: 12, color: '#6b6455', margin: '0 0 4px', fontStyle: 'italic' }}>Back with the editor for the changes you requested</p>
+                {correctionsTasks.map(t => (
+                  <VideoRow key={t.clickupTaskId} task={t} date={t.dueDate ? fmtDate(t.dueDate) : null} />
+                ))}
+              </div>
+            )}
             {inProgress.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>📹 In production</div>
                 <p style={{ fontSize: 12, color: '#6b6455', margin: '0 0 4px', fontStyle: 'italic' }}>Videos currently being edited and prepared for your review</p>
                 {inProgress.map(t => (
-                  <VideoRow key={t.clickupTaskId} task={t} color="#2563eb" colorBg="#e8eefc" date={t.dueDate ? fmtDate(t.dueDate) : null} />
+                  <VideoRow key={t.clickupTaskId} task={t} date={t.dueDate ? fmtDate(t.dueDate) : null} />
+                ))}
+              </div>
+            )}
+            {onItsWayTasks.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>🚀 On its way</div>
+                <p style={{ fontSize: 12, color: '#6b6455', margin: '0 0 4px', fontStyle: 'italic' }}>Approved videos queued to post or already live</p>
+                {onItsWayTasks.map(t => (
+                  <VideoRow key={t.clickupTaskId} task={t} date={t.dateUpdated ? fmtDate(t.dateUpdated) : null} />
                 ))}
               </div>
             )}
@@ -466,26 +489,30 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               </section>
             )}
 
+            {/* In corrections */}
+            {correctionsTasks.length > 0 && (
+              <section style={{marginBottom:36}}>
+                <h2 style={{fontSize:18, fontWeight:700, marginBottom:8}}>🛠️ In corrections</h2>
+                <p style={{fontSize:13, color:'#6b6455', margin:'0 0 12px', fontStyle:'italic'}}>Back with the editor for the changes you requested</p>
+                {correctionsTasks.map(t => <DesktopStatusRow key={t.clickupTaskId} t={t} />)}
+              </section>
+            )}
+
             {/* In production */}
             {inProgress.length > 0 && (
               <section style={{marginBottom:36}}>
                 <h2 style={{fontSize:18, fontWeight:700, marginBottom:8}}>📹 In production</h2>
                 <p style={{fontSize:13, color:'#6b6455', margin:'0 0 12px', fontStyle:'italic'}}>Videos currently being edited and prepared for your review</p>
-                {inProgress.map(t => (
-                  <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
-                    <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
-                    <div style={{flex:1}}>
-                      <div style={{fontWeight:600, fontSize:14}} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
-                      {t.dueDate && <div style={{fontSize:11, color:'#9d9488', marginTop:2}}>Due: {fmtDate(t.dueDate)}</div>}
-                    </div>
-                    <span style={{background:'#e8eefc', color:'#2563eb', fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>{norm(t.status)}</span>
-                    {t.rawDriveLink && (
-                      <a href={t.rawDriveLink} target="_blank" rel="noopener noreferrer" style={{fontSize:12, color:'#FF6000', textDecoration:'none', padding:'4px 8px', fontWeight:600}}>
-                        Raw file →
-                      </a>
-                    )}
-                  </div>
-                ))}
+                {inProgress.map(t => <DesktopStatusRow key={t.clickupTaskId} t={t} />)}
+              </section>
+            )}
+
+            {/* On its way */}
+            {onItsWayTasks.length > 0 && (
+              <section style={{marginBottom:36}}>
+                <h2 style={{fontSize:18, fontWeight:700, marginBottom:8}}>🚀 On its way</h2>
+                <p style={{fontSize:13, color:'#6b6455', margin:'0 0 12px', fontStyle:'italic'}}>Approved videos queued to post or already live</p>
+                {onItsWayTasks.map(t => <DesktopStatusRow key={t.clickupTaskId} t={t} />)}
               </section>
             )}
 
@@ -641,6 +668,29 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
   );
 }
 
+// Desktop equivalent of VideoRow — used by the In corrections / In production
+// / On its way sections. Colors come from the same shared statusColors()
+// mapping as everywhere else, so a given status reads the same everywhere.
+function DesktopStatusRow({ t }: { t: MappedTask }) {
+  const { color, bg } = statusColors(t.status);
+  return (
+    <div style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
+      <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
+      <div style={{flex:1}}>
+        <div style={{fontWeight:600, fontSize:14}} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
+        {t.dueDate && <div style={{fontSize:11, color:'#9d9488', marginTop:2}}>Due: {fmtDate(t.dueDate)}</div>}
+      </div>
+      <span style={{background:bg, color, fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>{t.status}</span>
+      {t.instagramUrl && <InstagramLink url={t.instagramUrl} label="Instagram" compact />}
+      {t.rawDriveLink && (
+        <a href={t.rawDriveLink} target="_blank" rel="noopener noreferrer" style={{fontSize:12, color:'#FF6000', textDecoration:'none', padding:'4px 8px', fontWeight:600}}>
+          Raw file →
+        </a>
+      )}
+    </div>
+  );
+}
+
 function TabItems({ items }: { items: { label: string; href: string; badge: number; active: boolean; icon: React.ReactNode }[] }) {
   return (
     <>
@@ -657,7 +707,10 @@ function TabItems({ items }: { items: { label: string; href: string; badge: numb
   );
 }
 
-function VideoRow({ task, color, colorBg, label, date }: { task: MappedTask; color: string; colorBg: string; label?: string; date?: string | null }) {
+function VideoRow({ task, color, colorBg, label, date }: { task: MappedTask; color?: string; colorBg?: string; label?: string; date?: string | null }) {
+  const derived = statusColors(task.status);
+  const fg = color ?? derived.color;
+  const bg = colorBg ?? derived.bg;
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 12,
@@ -685,9 +738,9 @@ function VideoRow({ task, color, colorBg, label, date }: { task: MappedTask; col
       <span style={{
         display: 'inline-flex', alignItems: 'center', gap: 5,
         fontSize: 12, fontWeight: 700, padding: '5px 9px', borderRadius: 9,
-        color, background: colorBg, whiteSpace: 'nowrap' as const, flexShrink: 0,
+        color: fg, background: bg, whiteSpace: 'nowrap' as const, flexShrink: 0,
       }}>
-        <span style={{ width: 6, height: 6, borderRadius: '50%', background: color }} />
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: fg }} />
         {label ?? task.status}
       </span>
       {task.rawDriveLink && (

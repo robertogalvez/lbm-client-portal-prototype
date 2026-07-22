@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { statusColors } from '@/components/ui/StatusBadge';
 
 export interface CalTask {
   clickupTaskId: string;
@@ -23,13 +24,20 @@ function displayTitle(clientFacingTitle: string | null, title: string, maxLength
   return display.length > maxLength ? display.slice(0, maxLength) + '…' : display;
 }
 
+// Colors come from the shared statusTone/statusColors mapping in StatusBadge
+// (same one the dashboard uses) so a given status reads the same color
+// everywhere — this used to be a separate hand-rolled map here that had
+// drifted out of sync (e.g. "ready to be posted" was blue here, green
+// everywhere else).
 function statusStyle(t: CalTask): { color: string; bg: string; label: string } {
   const s = norm(t.status);
-  if (s === 'posted in socials') return { color: '#14805f', bg: '#e4f3ec', label: 'Posted' };
-  if (s === 'for client review') return { color: '#b06f06', bg: '#fbeecf', label: 'Awaiting review' };
-  if (s === 'ready to be posted') return { color: '#1090e0', bg: '#e6f2fc', label: 'Ready to post' };
+  const { color, bg } = statusColors(t.status);
+  if (s === 'posted in socials') return { color, bg, label: 'Posted' };
+  if (s === 'for client review') return { color, bg, label: 'Awaiting review' };
+  if (s === 'ready to be posted') return { color, bg, label: 'Ready to post' };
+  if (s === 'in progress (corrections)') return { color, bg, label: 'In corrections' };
   if (t.clientApproval === 'approved') return { color: '#14805f', bg: '#e4f3ec', label: 'Approved' };
-  return { color: '#cf3f36', bg: '#fbe4e2', label: 'In process' };
+  return { color, bg, label: t.status };
 }
 
 function isInProcess(t: CalTask): boolean {
