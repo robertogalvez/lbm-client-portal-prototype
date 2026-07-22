@@ -12,6 +12,8 @@ interface User {
   createdAt: Date | null;
   isAlsoClient: boolean | null;
   clientName: string | null;
+  notifyMethod: string;
+  phone: string | null;
 }
 
 interface FrameioStatus {
@@ -28,6 +30,7 @@ interface Props {
   users: User[];
   currentUserId: string;
   frameio: FrameioStatus;
+  smsConfigured: boolean;
 }
 
 function FrameioConnectionSection({ frameio }: { frameio: FrameioStatus }) {
@@ -215,7 +218,7 @@ function ForceSyncSection() {
   );
 }
 
-export function SettingsPageClient({ users: initial, currentUserId, frameio }: Props) {
+export function SettingsPageClient({ users: initial, currentUserId, frameio, smsConfigured }: Props) {
   const [users, setUsers] = useState<User[]>(initial);
   const [drawer, setDrawer] = useState<{ mode: DrawerMode; user?: User } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -231,17 +234,21 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio }: P
   }, []);
 
   // Form state
-  const [form, setForm] = useState({ name: '', email: '', role: 'account_manager', isAlsoClient: false, clientName: '' });
+  const [form, setForm] = useState({ name: '', email: '', role: 'account_manager', isAlsoClient: false, clientName: '', notifyMethod: 'none', phone: '' });
 
   function openInvite() {
-    setForm({ name: '', email: '', role: 'account_manager', isAlsoClient: false, clientName: '' });
+    setForm({ name: '', email: '', role: 'account_manager', isAlsoClient: false, clientName: '', notifyMethod: 'none', phone: '' });
     setError('');
     setSuccess('');
     setDrawer({ mode: 'invite' });
   }
 
   function openEdit(user: User) {
-    setForm({ name: user.name, email: user.email, role: user.role, isAlsoClient: user.isAlsoClient ?? false, clientName: user.clientName ?? '' });
+    setForm({
+      name: user.name, email: user.email, role: user.role,
+      isAlsoClient: user.isAlsoClient ?? false, clientName: user.clientName ?? '',
+      notifyMethod: user.notifyMethod ?? 'none', phone: user.phone ?? '',
+    });
     setError('');
     setSuccess('');
     setDrawer({ mode: 'edit', user });
@@ -290,11 +297,15 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio }: P
           ...(drawer.user.id !== currentUserId && { role: form.role }),
           isAlsoClient: form.isAlsoClient,
           clientName: form.clientName,
+          notifyMethod: form.notifyMethod,
+          phone: form.phone,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed');
-      setUsers(prev => prev.map(u => u.id === drawer.user!.id ? { ...u, role: form.role, isAlsoClient: form.isAlsoClient, clientName: form.clientName } : u));
+      setUsers(prev => prev.map(u => u.id === drawer.user!.id
+        ? { ...u, role: form.role, isAlsoClient: form.isAlsoClient, clientName: form.clientName, notifyMethod: form.notifyMethod, phone: form.phone || null }
+        : u));
       setSuccess('Saved');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
@@ -538,6 +549,42 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio }: P
                 </div>
               )}
 
+              {drawer.mode === 'edit' && form.role === 'account_manager' && (
+                <div>
+                  <label style={labelStyle}>Client decision notifications</label>
+                  <p style={{ fontSize: 12, color: '#8b97a4', margin: '0 0 8px', lineHeight: 1.5 }}>
+                    How this AM is notified when a client approves or requests changes on one of their videos, in addition to the ClickUp task comment.
+                  </p>
+                  <select
+                    style={{ ...inputStyle, cursor: 'pointer' }}
+                    value={form.notifyMethod}
+                    onChange={e => setForm(f => ({ ...f, notifyMethod: e.target.value }))}
+                  >
+                    <option value="none">Off</option>
+                    <option value="email">Email</option>
+                    <option value="sms">SMS</option>
+                  </select>
+
+                  {form.notifyMethod === 'sms' && (
+                    <div style={{ marginTop: 10 }}>
+                      <label style={labelStyle}>Phone number</label>
+                      <input
+                        style={inputStyle}
+                        type="tel"
+                        value={form.phone}
+                        onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                        placeholder="+1 555 123 4567"
+                      />
+                      {!smsConfigured && (
+                        <p style={{ fontSize: 12, color: '#b06f06', background: '#fef4e0', border: '1px solid #f4e2b0', borderRadius: 8, padding: '9px 12px', margin: '8px 0 0', lineHeight: 1.5 }}>
+                          SMS isn&apos;t sending yet — Twilio hasn&apos;t been connected. This preference will start working automatically as soon as it is, no need to revisit this screen.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {error && (
                 <div style={{ fontSize: 13, color: '#cf3f36', background: '#fdedeb', border: '1px solid #f8d0cc', borderRadius: 8, padding: '10px 14px' }}>
                   {error}
@@ -555,7 +602,7 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio }: P
             <div style={{ padding: '16px 24px', borderTop: '1px solid #e7ebef', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button
                 onClick={drawer.mode === 'invite' ? saveInvite : saveRole}
-                disabled={saving || (drawer.mode === 'invite' && (!form.name || !form.email))}
+                disabled={saving || (drawer.mode === 'invite' && (!form.name || !form.email)) || (drawer.mode === 'edit' && form.notifyMethod === 'sms' && !form.phone.trim())}
                 style={{
                   width: '100%', padding: '11px', borderRadius: 8, border: 'none',
                   background: saving ? '#eceef1' : '#FF6000',

@@ -14,6 +14,12 @@ export const authUsers = pgTable('auth_user', {
   amName:        text('am_name'),
   clientName:    text('client_name'),
   isAlsoClient:  boolean('is_also_client').default(false),
+  phone:         text('phone'),
+  // How this AM is notified when a client approves/requests changes on one of
+  // their videos, in addition to the ClickUp task comment — admin-configured
+  // in Settings, not the AM's own choice. 'sms' requires `phone` to be set
+  // AND Twilio to be configured (lib/sms.ts no-ops safely until it is).
+  notifyMethod:  varchar('notify_method', { length: 10 }).notNull().default('none'),
 });
 
 export const authSessions = pgTable('auth_session', {
