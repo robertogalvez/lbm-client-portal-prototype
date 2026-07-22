@@ -1,6 +1,7 @@
 import Link from 'next/link';
+import { SidebarProfile } from './SidebarProfile';
 
-export function Sidebar({ active, showClientPortal }: { active?: string; showClientPortal?: boolean }) {
+export function Sidebar({ active, showClientPortal, user }: { active?: string; showClientPortal?: boolean; user?: { name: string; email: string } | null }) {
   const NAV = [
     { label: 'Dashboard', href: '/dashboard', icon: '▦' },
     { label: 'Clients', href: '/admin/clients', icon: '◎' },
@@ -60,8 +61,11 @@ export function Sidebar({ active, showClientPortal }: { active?: string; showCli
         })}
       </nav>
 
+      {/* Profile / close session */}
+      <SidebarProfile user={user ?? null} />
+
       {/* Footer */}
-      <div style={{ padding: '14px 20px', borderTop: '1px solid #1a2735', fontSize: 12, color: '#6b7888' }}>
+      <div style={{ padding: '10px 20px 14px', fontSize: 11, color: '#6b7888' }}>
         LBM Ops · v1
       </div>
     </aside>

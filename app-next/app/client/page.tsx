@@ -342,7 +342,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                 ))}
               </div>
 
-              <LogoutButton />
+              <LogoutButton label="Close session" />
             </div>
           )}
         </div>
@@ -564,7 +564,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                   <div style={{color:'#6b6455', fontSize:14}}>{clientName}</div>
                 </div>
               </div>
-              <a href="/api/auth/signout" style={{display:'block', textAlign:'center', padding:'12px', background:'#1a1714', color:'#fff', borderRadius:10, fontWeight:600, textDecoration:'none'}}>Sign out</a>
+              <LogoutButton style={{ padding: '12px', background: '#1a1714', color: '#fff', border: 'none', borderRadius: 10 }} label="Close session" />
             </div>
           </div>
         )}

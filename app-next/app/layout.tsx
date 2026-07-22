@@ -14,6 +14,7 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   let showClientPortal = false;
+  let user: { name: string; email: string } | null = null;
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     if (session?.user?.id) {
@@ -23,6 +24,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         .where(eq(authUsers.id, session.user.id))
         .limit(1);
       showClientPortal = row?.isAlsoClient ?? false;
+      user = { name: session.user.name, email: session.user.email };
     }
   } catch {
     // no session or DB error — don't break the layout
@@ -36,7 +38,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
       </head>
       <body>
-        <LayoutShell showClientPortal={showClientPortal}>{children}</LayoutShell>
+        <LayoutShell showClientPortal={showClientPortal} user={user}>{children}</LayoutShell>
       </body>
     </html>
   );
