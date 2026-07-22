@@ -100,20 +100,24 @@ export async function GET(req: Request) {
 
       // Opt-in write test: exercises the exact createComment() path the
       // native player's composer uses, N times in a row, to surface the real
-      // Frame.io error behind a generic "Could not save to Frame.io" message
-      // — including failures that only show up on the 2nd+ call, not the 1st
-      // (live-reported: comment #1 succeeded, comment #2 hit a 422).
+      // Frame.io error behind a generic "Could not save to Frame.io" message.
+      // Two clean-integer timestamps back to back both succeeded live, so
+      // this now specifically tests a FRACTIONAL timestamp too — the actual
+      // composer sends raw videoRef.current.currentTime (e.g. 3.641233), not
+      // a whole second like the earlier probe used, and that's the one real
+      // difference between what worked here and what failed live.
       if (writeTestCommentCount > 0 && frameLink) {
         const attempts: unknown[] = [];
         try {
           const fileId = await frameio.resolveFileId(frameLink);
           for (let i = 0; i < writeTestCommentCount; i++) {
+            const ts = i === 0 ? i + 1 : (i + 1) + 0.641233; // 2nd+ attempts use a fractional second
             try {
-              const comment = await frameio.createComment(fileId, `[debug probe ${i + 1}] ${new Date().toISOString()}`, i + 1);
-              attempts.push({ ok: true, attempt: i + 1, comment });
+              const comment = await frameio.createComment(fileId, `[debug probe ${i + 1}] ${new Date().toISOString()}`, ts);
+              attempts.push({ ok: true, attempt: i + 1, timestampSent: ts, comment });
             } catch (e) {
               const err = e as frameio.FrameioError;
-              attempts.push({ ok: false, attempt: i + 1, error: err?.message ?? String(e), stage: err?.stage, status: err?.status });
+              attempts.push({ ok: false, attempt: i + 1, timestampSent: ts, error: err?.message ?? String(e), stage: err?.stage, status: err?.status });
             }
           }
           report.commentWriteProbe = { fileId, attempts };
