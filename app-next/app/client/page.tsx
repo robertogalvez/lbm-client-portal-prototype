@@ -254,7 +254,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                 <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>🛠️ In corrections</div>
                 <p style={{ fontSize: 12, color: '#6b6455', margin: '0 0 4px', fontStyle: 'italic' }}>Back with the editor for the changes you requested</p>
                 {correctionsTasks.map(t => (
-                  <VideoRow key={t.clickupTaskId} task={t} date={t.dueDate ? fmtDate(t.dueDate) : null} />
+                  <VideoRow key={t.clickupTaskId} task={t} />
                 ))}
               </div>
             )}
@@ -263,7 +263,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                 <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>📹 In production</div>
                 <p style={{ fontSize: 12, color: '#6b6455', margin: '0 0 4px', fontStyle: 'italic' }}>Videos currently being edited and prepared for your review</p>
                 {inProgress.map(t => (
-                  <VideoRow key={t.clickupTaskId} task={t} date={t.dueDate ? fmtDate(t.dueDate) : null} />
+                  <VideoRow key={t.clickupTaskId} task={t} />
                 ))}
               </div>
             )}
@@ -272,7 +272,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                 <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>🚀 On its way</div>
                 <p style={{ fontSize: 12, color: '#6b6455', margin: '0 0 4px', fontStyle: 'italic' }}>Approved videos queued to post or already live</p>
                 {onItsWayTasks.map(t => (
-                  <VideoRow key={t.clickupTaskId} task={t} date={t.dateUpdated ? fmtDate(t.dateUpdated) : null} />
+                  <VideoRow key={t.clickupTaskId} task={t} showViewLink />
                 ))}
               </div>
             )}
@@ -292,7 +292,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                       color={t.clientApproval === 'approved' ? '#14805f' : '#cf3f36'}
                       colorBg={t.clientApproval === 'approved' ? '#e4f3ec' : '#fbe4e2'}
                       label={t.clientApproval === 'approved' ? 'Approved' : 'Changes requested'}
-                      date={fmtDate(t.dateUpdated)}
+                      showViewLink
                     />
                   ))}
                 </div>
@@ -318,6 +318,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               clientApproval: t.clientApproval,
               frameLink: t.frameLink,
               rawDriveLink: t.rawDriveLink,
+              publishDate: t.publishDate,
             }))} />
           )}
 
@@ -512,7 +513,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               <section style={{marginBottom:36}}>
                 <h2 style={{fontSize:18, fontWeight:700, marginBottom:8}}>🚀 On its way</h2>
                 <p style={{fontSize:13, color:'#6b6455', margin:'0 0 12px', fontStyle:'italic'}}>Approved videos queued to post or already live</p>
-                {onItsWayTasks.map(t => <DesktopStatusRow key={t.clickupTaskId} t={t} />)}
+                {onItsWayTasks.map(t => <DesktopStatusRow key={t.clickupTaskId} t={t} showViewLink />)}
               </section>
             )}
 
@@ -536,7 +537,6 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                       <div style={{flex:1}}>
                         <div style={{fontWeight:600, fontSize:14}} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
                       </div>
-                      <span style={{fontSize:12, color:'#888'}}>{t.dateUpdated ? fmtDate(t.dateUpdated) : ''}</span>
                       <span style={{
                         background: t.clientApproval === 'approved' ? '#d4edda' : '#fde8d0',
                         color: t.clientApproval === 'approved' ? '#1a6b35' : '#c2410c',
@@ -562,6 +562,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
           clientApproval: t.clientApproval,
           frameLink: t.frameLink,
           rawDriveLink: t.rawDriveLink,
+          publishDate: t.publishDate,
         }))} />}
 
         {showInvoices && effectiveTab === 'invoices' && (
@@ -671,17 +672,21 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
 // Desktop equivalent of VideoRow — used by the In corrections / In production
 // / On its way sections. Colors come from the same shared statusColors()
 // mapping as everywhere else, so a given status reads the same everywhere.
-function DesktopStatusRow({ t }: { t: MappedTask }) {
+function DesktopStatusRow({ t, showViewLink }: { t: MappedTask; showViewLink?: boolean }) {
   const { color, bg } = statusColors(t.status);
   return (
     <div style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
       <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
       <div style={{flex:1}}>
         <div style={{fontWeight:600, fontSize:14}} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
-        {t.dueDate && <div style={{fontSize:11, color:'#9d9488', marginTop:2}}>Due: {fmtDate(t.dueDate)}</div>}
       </div>
       <span style={{background:bg, color, fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>{t.status}</span>
       {t.instagramUrl && <InstagramLink url={t.instagramUrl} label="Instagram" compact />}
+      {showViewLink && (
+        <Link href={`/client/videos/${t.clickupTaskId}`} style={{fontSize:12, color:'#FF6000', textDecoration:'none', padding:'4px 8px', fontWeight:600}}>
+          View →
+        </Link>
+      )}
       {t.rawDriveLink && (
         <a href={t.rawDriveLink} target="_blank" rel="noopener noreferrer" style={{fontSize:12, color:'#FF6000', textDecoration:'none', padding:'4px 8px', fontWeight:600}}>
           Raw file →
@@ -707,7 +712,7 @@ function TabItems({ items }: { items: { label: string; href: string; badge: numb
   );
 }
 
-function VideoRow({ task, color, colorBg, label, date }: { task: MappedTask; color?: string; colorBg?: string; label?: string; date?: string | null }) {
+function VideoRow({ task, color, colorBg, label, showViewLink }: { task: MappedTask; color?: string; colorBg?: string; label?: string; showViewLink?: boolean }) {
   const derived = statusColors(task.status);
   const fg = color ?? derived.color;
   const bg = colorBg ?? derived.bg;
@@ -731,7 +736,7 @@ function VideoRow({ task, color, colorBg, label, date }: { task: MappedTask; col
           {displayTitle(task.clientFacingTitle, task.title)}
         </div>
         <div style={{ fontSize: 11.5, color: '#9d9488', fontWeight: 500, marginTop: 3, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
-          <span>{task.status}{date ? ` · ${date}` : ''}</span>
+          <span>{task.status}</span>
           {task.instagramUrl && <InstagramLink url={task.instagramUrl} label="Instagram" compact />}
         </div>
       </div>
@@ -743,6 +748,11 @@ function VideoRow({ task, color, colorBg, label, date }: { task: MappedTask; col
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: fg }} />
         {label ?? task.status}
       </span>
+      {showViewLink && (
+        <Link href={`/client/videos/${task.clickupTaskId}`} style={{fontSize:11, color:'#FF6000', textDecoration:'none', padding:'4px 8px', flexShrink:0, fontWeight:600}}>
+          View →
+        </Link>
+      )}
       {task.rawDriveLink && (
         <a href={task.rawDriveLink} target="_blank" rel="noopener noreferrer" style={{fontSize:11, color:'#FF6000', textDecoration:'none', padding:'4px 8px', flexShrink:0, fontWeight:600}}>
           Raw →
