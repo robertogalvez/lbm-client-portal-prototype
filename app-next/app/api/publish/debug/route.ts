@@ -3,13 +3,14 @@
 // resolved trigger/validation fields and (with ?probe=1) a live Frame.io asset
 // resolution. Never returns secret values.
 //
-// Mostly read-only, with ONE explicit exception: &writeTestComment=1 actually
-// posts a real test comment to the task's Frame.io file (to diagnose comment-
-// creation failures the same way ?probe=1 diagnoses asset-resolution ones) —
-// opt-in only, never fires without that flag.
+// Mostly read-only, with ONE explicit exception: &writeTestComment=N actually
+// posts N real test comments, one after another, to the task's Frame.io file
+// (to diagnose comment-creation failures the same way ?probe=1 diagnoses
+// asset-resolution ones — including failures that only show up on the 2nd+
+// comment, not the 1st) — opt-in only, never fires without that flag.
 //
 //   GET /api/publish/debug            (header x-cron-secret)
-//   GET /api/publish/debug?taskId=... [&probe=1] [&writeTestComment=1]
+//   GET /api/publish/debug?taskId=... [&probe=1] [&writeTestComment=1|2|...]
 
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
@@ -40,7 +41,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const taskId = url.searchParams.get('taskId');
   const probe = url.searchParams.get('probe') === '1';
-  const writeTestComment = url.searchParams.get('writeTestComment') === '1';
+  const writeTestCommentCount = Math.max(0, Math.min(5, parseInt(url.searchParams.get('writeTestComment') ?? '0', 10) || 0));
   const shareId = url.searchParams.get('shareId');
   const shortLink = url.searchParams.get('shortLink');
 
@@ -98,16 +99,27 @@ export async function GET(req: Request) {
       }
 
       // Opt-in write test: exercises the exact createComment() path the
-      // native player's composer uses, to surface the real Frame.io error
-      // behind a generic "Could not save to Frame.io" client-side message.
-      if (writeTestComment && frameLink) {
+      // native player's composer uses, N times in a row, to surface the real
+      // Frame.io error behind a generic "Could not save to Frame.io" message
+      // — including failures that only show up on the 2nd+ call, not the 1st
+      // (live-reported: comment #1 succeeded, comment #2 hit a 422).
+      if (writeTestCommentCount > 0 && frameLink) {
+        const attempts: unknown[] = [];
         try {
           const fileId = await frameio.resolveFileId(frameLink);
-          const comment = await frameio.createComment(fileId, `[debug probe] ${new Date().toISOString()}`, 1);
-          report.commentWriteProbe = { ok: true, fileId, comment };
+          for (let i = 0; i < writeTestCommentCount; i++) {
+            try {
+              const comment = await frameio.createComment(fileId, `[debug probe ${i + 1}] ${new Date().toISOString()}`, i + 1);
+              attempts.push({ ok: true, attempt: i + 1, comment });
+            } catch (e) {
+              const err = e as frameio.FrameioError;
+              attempts.push({ ok: false, attempt: i + 1, error: err?.message ?? String(e), stage: err?.stage, status: err?.status });
+            }
+          }
+          report.commentWriteProbe = { fileId, attempts };
         } catch (e) {
           const err = e as frameio.FrameioError;
-          report.commentWriteProbe = { ok: false, error: err?.message ?? String(e), stage: err?.stage, status: err?.status };
+          report.commentWriteProbe = { error: err?.message ?? String(e), stage: err?.stage, status: err?.status, attempts };
         }
       }
     } catch (e) {
