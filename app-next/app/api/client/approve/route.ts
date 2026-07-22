@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm';
 import { getViewAsClient } from '@/lib/view-as';
 import { resolveTaskClientName, type ClickUpTask } from '@/lib/clickup';
 import { syncFrameioComments } from '@/lib/frameio-comment-sync';
-import { setTaskStatus, postComment } from '@/lib/clickup-write';
+import { setTaskStatus, postComment, TASK_STATUS } from '@/lib/clickup-write';
 
 const BASE = 'https://api.clickup.com/api/v2';
 
@@ -107,17 +107,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `ClickUp update failed: ${err}` }, { status: 502 });
   }
 
-  // Requesting changes routes the task back to the editor for a new pass —
-  // move it into the corrections stage of the pipeline. Non-fatal: the
-  // CLIENT APPROVAL decision above is already recorded even if this fails.
+  // Move the task to the next pipeline stage — mirrors what an AM would do by
+  // hand in ClickUp. Approve hands it to the posting board ("ready to be
+  // posted"; the AM still has to check "Ready to Publish?" once title/captions/
+  // etc. are confirmed before the publish pipeline will touch it). Changes
+  // sends it back for a new editing pass. Also keeps the task OUT of "for
+  // client review" once decided, so the portal's stale-approval guard
+  // (lib/clickup.ts mapTask) only fires for a genuine new review round, not a
+  // freshly-made decision the AM hasn't actioned yet — otherwise the client
+  // could approve/reject again after a reload.
+  // Non-fatal: the CLIENT APPROVAL decision above is already recorded even if this fails.
   let statusUpdate: { ok: boolean; error?: string } | null = null;
-  if (action === 'changes') {
-    try {
-      await setTaskStatus(taskId, 'in progress (corrections)');
-      statusUpdate = { ok: true };
-    } catch (e) {
-      statusUpdate = { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
-    }
+  try {
+    await setTaskStatus(taskId, action === 'approve' ? TASK_STATUS.readyToBePosted : 'in progress (corrections)');
+    statusUpdate = { ok: true };
+  } catch (e) {
+    statusUpdate = { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
   }
 
   return NextResponse.json({ ok: true, action, optionName: options[optionIndex]?.name, commentSync, statusUpdate });

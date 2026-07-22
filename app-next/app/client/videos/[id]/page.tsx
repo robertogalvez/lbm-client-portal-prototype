@@ -91,13 +91,15 @@ export default async function VideoDetailPage({ params, searchParams }: { params
   const isReview = task.status.toLowerCase().includes('client review');
   const embedUrl = task.frameLink ? toFrameioEmbedUrl(task.frameLink) : null;
 
-  // Native player + timestamped comment capture only while a decision is
-  // actually pending — this is the only state the approval dock (and
-  // therefore commenting) is shown for. Every other status keeps the cheap,
-  // API-call-free iframe/placeholder path below. Frame.io errors here (not
-  // configured, asset not transcoded yet, etc.) fall back to that same path.
+  // Native player + past comments load while a decision is pending, AND for
+  // any task that already has one (approved/changes requested) — a decided
+  // video keeps its native, identity-prompt-free player and comment history
+  // forever, it just loses the composer/approval dock (see VideoDecisionContext,
+  // ApprovalButtons). Everything else (video not yet at review) keeps the
+  // cheap, API-call-free iframe/placeholder path below. Frame.io errors here
+  // (not configured, asset not transcoded yet, etc.) fall back to that path too.
   let reviewData: Awaited<ReturnType<typeof getReviewData>> | null = null;
-  if (isReview && task.frameLink) {
+  if ((isReview || !!task.clientApproval) && task.frameLink) {
     try {
       reviewData = await getReviewData(task.frameLink);
     } catch {
