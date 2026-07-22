@@ -557,8 +557,14 @@ export async function listComments(fileId: string): Promise<FrameioComment[]> {
 // (server-side, OAuth-authenticated), never the client's browser directly, so
 // it never triggers Frame.io's guest "who are you" identity flow.
 export async function createComment(fileId: string, text: string, timestampSeconds?: number): Promise<FrameioComment> {
-  const body: Record<string, unknown> = { text };
-  if (typeof timestampSeconds === 'number') body.timestamp = timestampSeconds;
+  const attrs: Record<string, unknown> = { text };
+  if (typeof timestampSeconds === 'number') attrs.timestamp = timestampSeconds;
+  // Live-confirmed the flat body { text, timestamp } 422s. Every v4 GET
+  // response observed in this file wraps its payload in a `data` envelope
+  // (JSON:API-style); wrapping the POST body the same way is the first thing
+  // worth trying — unconfirmed until re-verified against the writeTestComment
+  // debug probe (docs are gated, no prior write-endpoint precedent here).
+  const body = { data: attrs };
 
   const raw = await post<Record<string, unknown>>(`/accounts/${accountId()}/files/${fileId}/comments`, body, 'comments');
   const data = ((raw?.data ?? raw) as Record<string, unknown>) ?? {};
