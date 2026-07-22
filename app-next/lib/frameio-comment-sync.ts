@@ -13,7 +13,7 @@
 // posted there in real time by /api/client/comment) but only reach ClickUp
 // once, packed together, the moment the client clicks Approve or Request
 // changes — one comment to read instead of a scattered feed, and it doubles
-// as the signal that closes the composer (see VideoReviewPlayer/decided).
+// as the signal that closes the composer (see components/client/CommentComposer + VideoDecisionContext).
 //
 // Never throws: comment capture must not break the approval write.
 

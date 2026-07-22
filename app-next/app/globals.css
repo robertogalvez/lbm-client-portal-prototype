@@ -222,15 +222,28 @@ body {
   }
 }
 
-/* Video detail — mobile */
-.vd-left { display: contents; }
+/* Video detail — mobile app shell: the whole screen is locked to viewport
+   height (no page scroll). Header and video are fixed-size chrome; only
+   .vd-right-scroll (meta + comments) scrolls, with the approve/reject dock
+   pinned below it — one bounded scroll region instead of two stacked ones. */
+.vd-left { display: flex; flex-direction: column; flex-shrink: 0; }
 .vd-left-header { display: none; }
-.vd-right { display: contents; }
+.vd-right { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .vd-right-header { display: none; }
-.vd-mobile-header { display: flex; }
+.vd-mobile-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
+  background: #fff;
+  border-bottom: 1px solid #ece4d8;
+  flex-shrink: 0;
+}
 
 .vd-shell {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background: #faf6f0;
   font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
   color: #221e18;
@@ -239,39 +252,29 @@ body {
   display: flex;
   flex-direction: column;
 }
-.vd-player { flex: 1; position: relative; background: #1a1e24; min-height: 220px; }
+.vd-player { flex-shrink: 0; position: relative; background: #1a1e24; min-height: 220px; }
 .vd-player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; display: block; }
 /* Native <video> player — mobile: natural aspect-ratio sizing in normal document
-   flow (unlike the iframe, a video has real intrinsic dimensions, so it doesn't
-   need an absolute-fill box; that box was clipping it to .vd-player's 220px
-   min-height fallback and pushing its native controls out of view). Desktop
-   still fills .vd-left's viewport-locked height the same way the iframe does. */
-.vd-native-wrap { position: relative; }
-.vd-native-player { display: flex; flex-direction: column; }
-/* Sticky so the video stays visible while scrolling to the comment composer/
-   feed below it — capped height so a portrait/reel video doesn't dominate
-   the whole screen once pinned. */
-.vd-native-video-wrap { position: sticky; top: 0; z-index: 5; background: #000; flex-shrink: 0; }
+   flow (a video has real intrinsic dimensions, so it doesn't need an
+   absolute-fill box the way the iframe fallback does). */
+.vd-native-video-wrap { position: relative; background: #000; flex-shrink: 0; }
 .vd-native-video-wrap video { width: 100%; max-height: 42vh; display: block; object-fit: contain; }
-@media (min-width: 900px) {
-  .vd-native-wrap { position: absolute; inset: 0; }
-  .vd-native-player { height: 100%; }
-  .vd-native-video-wrap { position: relative; top: auto; }
-  .vd-native-video-wrap video { height: 100%; max-height: 70vh; object-fit: contain; }
-}
-/* Extra bottom padding reserves room for the fixed .vd-dock below so it never
-   covers the tail of the meta panel (mirrors .cp-body's clearance for .cp-tab-bar). */
-.vd-meta { padding: 12px 16px calc(230px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; }
+
+/* Comments render once grouped with the video (desktop) and once grouped
+   with the meta panel (mobile) — only one is ever visible per breakpoint. */
+.vd-desktop-comments { display: none; }
+.vd-mobile-comments { display: block; padding: 0 16px 4px; }
+
+.vd-right-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+.vd-meta { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
 .vd-dock {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
+  flex-shrink: 0;
   background: #fff;
   border-top: 1px solid #ece4d8;
   padding: 13px 18px calc(13px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 10px;
-  z-index: 100;
 }
 
 /* ============================================================
@@ -445,7 +448,22 @@ body {
     top: 0; left: 0; right: 0;
     z-index: 10;
   }
-  .vd-player { flex: 1; }
+  /* Video gets a bounded height instead of filling the whole left column —
+     the comments feed below it (.vd-desktop-comments) takes the rest and is
+     the ONE thing that scrolls in this column, same shape as the mobile
+     .vd-right-scroll region. */
+  .vd-player { flex-shrink: 0; height: 50vh; min-height: 320px; }
+  .vd-native-video-wrap { position: absolute; inset: 0; background: #000; }
+  .vd-native-video-wrap video { width: 100%; height: 100%; max-height: none; display: block; object-fit: contain; }
+  .vd-desktop-comments {
+    display: block;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    background: #faf6f0;
+    padding: 16px 20px 20px;
+  }
+  .vd-mobile-comments { display: none; }
   .vd-right {
     width: 380px;
     flex-shrink: 0;
@@ -453,7 +471,6 @@ body {
     border-left: 1px solid #ece4d8;
     display: flex;
     flex-direction: column;
-    overflow-y: auto;
   }
   .vd-right-header {
     display: flex;
@@ -463,9 +480,9 @@ body {
     border-bottom: 1px solid #ece4d8;
     flex-shrink: 0;
   }
-  .vd-meta { padding: 20px; flex: 1; }
+  .vd-right-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+  .vd-meta { padding: 20px; }
   .vd-dock {
-    position: static;
     padding: 16px 20px;
     border-top: 1px solid #ece4d8;
     flex-shrink: 0;

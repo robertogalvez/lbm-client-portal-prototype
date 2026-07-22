@@ -6,8 +6,11 @@ import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getTasksFromList } from '@/lib/clickup';
 import { ApprovalButtons } from '@/components/client/ApprovalButtons';
-import { VideoReviewPlayer } from '@/components/client/VideoReviewPlayer';
+import { VideoElement } from '@/components/client/VideoElement';
+import { CommentComposer } from '@/components/client/CommentComposer';
+import { CommentFeed } from '@/components/client/CommentFeed';
 import { VideoDecisionProvider } from '@/components/client/VideoDecisionContext';
+import { VideoPlayerProvider } from '@/components/client/VideoPlayerContext';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { getViewAsClient } from '@/lib/view-as';
 import { getReviewData } from '@/lib/frameio';
@@ -142,15 +145,10 @@ export default async function VideoDetailPage({ params, searchParams }: { params
     </>
   );
 
-  const player = reviewData?.ready && reviewData.downloadUrl ? (
-    <div className="vd-native-wrap">
-      <VideoReviewPlayer
-        taskId={task.clickupTaskId}
-        fileId={reviewData.fileId}
-        src={reviewData.downloadUrl}
-        initialComments={reviewData.comments}
-      />
-    </div>
+  const nativeReady = !!(reviewData?.ready && reviewData.downloadUrl);
+
+  const player = nativeReady ? (
+    <VideoElement src={reviewData!.downloadUrl!} />
   ) : embedUrl ? (
     <iframe src={embedUrl} style={{ width: '100%', height: '100%', border: 'none', display: 'block', position: 'absolute', inset: 0 }} allow="fullscreen; picture-in-picture" allowFullScreen />
   ) : (
@@ -162,6 +160,20 @@ export default async function VideoDetailPage({ params, searchParams }: { params
     </div>
   );
 
+  // Comment composer + feed render TWICE — once grouped with the video (shown
+  // only on desktop, ≥900px) and once grouped with the meta panel (shown only
+  // on mobile). Both instances read the same shared state via
+  // VideoPlayerProvider, so this is just "same content, different visual
+  // slot per breakpoint" (CSS toggles which one is visible), not duplicate
+  // state — the established pattern in this file for genuinely different
+  // per-breakpoint layouts (see .client-mobile/.client-desktop elsewhere).
+  const comments = nativeReady ? (
+    <>
+      <CommentComposer />
+      <CommentFeed />
+    </>
+  ) : null;
+
   const backHref = from === 'calendar' ? '/client?tab=calendar' : '/client';
   const backLink = (
     <Link href={backHref} style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', display: 'grid', placeItems: 'center', color: '#fff', textDecoration: 'none', flexShrink: 0 }}>
@@ -169,21 +181,32 @@ export default async function VideoDetailPage({ params, searchParams }: { params
     </Link>
   );
 
-  return (
-    <>
-    {viewAsClient && <ViewAsBanner clientName={viewAsClient.name} />}
-    <VideoDecisionProvider initialDecided={!!task.clientApproval}>
+  const statusColor = isReview ? '#b06f06' : '#54616f';
+  const statusBg = isReview ? '#fbeecf' : '#eef1f4';
+  const statusLabel = isReview ? 'Awaiting your review' : task.status;
+
+  const shell = (
     <main className="vd-shell">
-      {/* Mobile-only header */}
-      <div className="vd-mobile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px', background: '#faf6f0', flexShrink: 0 }}>
-        <Link href={backHref} style={{ width: 40, height: 40, borderRadius: 12, background: '#fff', border: '1px solid #ece4d8', display: 'grid', placeItems: 'center', color: '#221e18', textDecoration: 'none' }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{width:19,height:19}}><path d="m15 18-6-6 6-6"/></svg>
+      {/* Mobile-only header — compact title + status, always visible (this is
+          the fix for the title getting buried under a growing comment list:
+          it now lives in fixed chrome, not in the scrollable content). */}
+      <div className="vd-mobile-header">
+        <Link href={backHref} style={{ width: 36, height: 36, borderRadius: 10, background: '#fff', border: '1px solid #ece4d8', display: 'grid', placeItems: 'center', color: '#221e18', textDecoration: 'none', flexShrink: 0 }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{width:18,height:18}}><path d="m15 18-6-6 6-6"/></svg>
         </Link>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>Review video</div>
-        <div style={{ width: 40 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 800, lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+            {task.clientFacingTitle || task.title}
+          </div>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, padding: '1px 7px', borderRadius: 7, color: statusColor, background: statusBg, marginTop: 2 }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: statusColor }} />
+            {statusLabel}
+          </span>
+        </div>
+        <div style={{ width: 36, flexShrink: 0 }} />
       </div>
 
-      {/* Left: video (mobile: flows inline; desktop: left column) */}
+      {/* Left: video, plus (desktop-only) comments grouped with it */}
       <div className="vd-left">
         <div className="vd-left-header">
           {backLink}
@@ -191,9 +214,11 @@ export default async function VideoDetailPage({ params, searchParams }: { params
           <div style={{ width: 36 }} />
         </div>
         <div className="vd-player">{player}</div>
+        {comments && <div className="vd-desktop-comments">{comments}</div>}
       </div>
 
-      {/* Right: meta + approval (mobile: flows below video; desktop: right panel) */}
+      {/* Right: meta + approval, plus (mobile-only) comments grouped with meta.
+          This whole column is the ONE scrollable region on mobile now. */}
       <div className="vd-right">
         <div className="vd-right-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -205,7 +230,10 @@ export default async function VideoDetailPage({ params, searchParams }: { params
           <span style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>Details</span>
         </div>
 
-        <div className="vd-meta">{metaPanel}</div>
+        <div className="vd-right-scroll">
+          <div className="vd-meta">{metaPanel}</div>
+          {comments && <div className="vd-mobile-comments">{comments}</div>}
+        </div>
 
         {isReview && (
           <div className="vd-dock">
@@ -224,6 +252,17 @@ export default async function VideoDetailPage({ params, searchParams }: { params
         )}
       </div>
     </main>
+  );
+
+  return (
+    <>
+    {viewAsClient && <ViewAsBanner clientName={viewAsClient.name} />}
+    <VideoDecisionProvider initialDecided={!!task.clientApproval}>
+      {nativeReady ? (
+        <VideoPlayerProvider taskId={task.clickupTaskId} fileId={reviewData!.fileId} initialComments={reviewData!.comments}>
+          {shell}
+        </VideoPlayerProvider>
+      ) : shell}
     </VideoDecisionProvider>
     </>
   );
