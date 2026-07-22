@@ -27,6 +27,10 @@ export async function GET() {
       role: authUsers.role,
       emailVerified: authUsers.emailVerified,
       createdAt: authUsers.createdAt,
+      isAlsoClient: authUsers.isAlsoClient,
+      clientName: authUsers.clientName,
+      notifyMethod: authUsers.notifyMethod,
+      phone: authUsers.phone,
     })
     .from(authUsers)
     .where(ne(authUsers.role, 'client'))

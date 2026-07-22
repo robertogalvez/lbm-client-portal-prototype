@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { authUsers } from '@/lib/db/schema';
 import { eq, ne } from 'drizzle-orm';
 import { getConnectionStatus } from '@/lib/frameio';
+import { isSmsConfigured } from '@/lib/sms';
 import { SettingsPageClient } from './SettingsPageClient';
 
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       createdAt: authUsers.createdAt,
       isAlsoClient: authUsers.isAlsoClient,
       clientName: authUsers.clientName,
+      notifyMethod: authUsers.notifyMethod,
+      phone: authUsers.phone,
     })
     .from(authUsers)
     .where(ne(authUsers.role, 'client'))
@@ -48,5 +51,5 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     bannerReason: sp.reason ?? null,
   };
 
-  return <SettingsPageClient users={users} currentUserId={session.user.id} frameio={frameio} />;
+  return <SettingsPageClient users={users} currentUserId={session.user.id} frameio={frameio} smsConfigured={isSmsConfigured()} />;
 }

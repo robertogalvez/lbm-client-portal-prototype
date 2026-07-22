@@ -19,12 +19,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { userId, role, deactivate, isAlsoClient, clientName } = await req.json() as {
+  const { userId, role, deactivate, isAlsoClient, clientName, notifyMethod, phone } = await req.json() as {
     userId?: string;
     role?: string;
     deactivate?: boolean;
     isAlsoClient?: boolean;
     clientName?: string;
+    notifyMethod?: string;
+    phone?: string;
   };
 
   if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
@@ -61,6 +63,18 @@ export async function POST(req: Request) {
   }
   if (clientName !== undefined) {
     updates.clientName = clientName || null;
+  }
+  if (notifyMethod !== undefined) {
+    if (!['email', 'sms', 'none'].includes(notifyMethod)) {
+      return NextResponse.json({ error: 'notifyMethod must be email, sms, or none' }, { status: 400 });
+    }
+    if (notifyMethod === 'sms' && !phone?.trim()) {
+      return NextResponse.json({ error: 'A phone number is required to notify by SMS' }, { status: 400 });
+    }
+    updates.notifyMethod = notifyMethod;
+  }
+  if (phone !== undefined) {
+    updates.phone = phone.trim() || null;
   }
 
   if (Object.keys(updates).length === 1) {

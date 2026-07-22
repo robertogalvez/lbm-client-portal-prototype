@@ -5,9 +5,10 @@ import { db } from '@/lib/db';
 import { authUsers, clients } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getViewAsClient } from '@/lib/view-as';
-import { resolveTaskClientName, type ClickUpTask } from '@/lib/clickup';
+import { resolveTaskClientName, mapTask, type ClickUpTask } from '@/lib/clickup';
 import { syncFrameioComments } from '@/lib/frameio-comment-sync';
 import { setTaskStatus, postComment, TASK_STATUS } from '@/lib/clickup-write';
+import { notifyAmOfDecision } from '@/lib/notify-am';
 
 const BASE = 'https://api.clickup.com/api/v2';
 
@@ -124,6 +125,17 @@ export async function POST(req: Request) {
   } catch (e) {
     statusUpdate = { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
   }
+
+  // Notify the AM outside of ClickUp itself (email/SMS, admin-configured per
+  // AM in Settings) — the task comment alone is easy to miss. Best-effort.
+  const mapped = mapTask(task);
+  await notifyAmOfDecision({
+    assignedAmName: mapped.assignedAmName,
+    taskId,
+    videoTitle: mapped.clientFacingTitle || mapped.title,
+    action,
+    clientName: effectiveClientName,
+  });
 
   return NextResponse.json({ ok: true, action, optionName: options[optionIndex]?.name, commentSync, statusUpdate });
 }
