@@ -462,11 +462,15 @@ export async function resolveFinalAsset(frameLink: string): Promise<FinalAsset> 
 export async function getThumbnailUrl(frameLink: string): Promise<string | null> {
   try {
     const fileId = await resolveFileId(frameLink);
-    const file = await get<{ data?: { media_links?: { thumbnail?: { url?: string | null } } } }>(
+    const file = await get<{ data?: { media_links?: { thumbnail?: { url?: string | null; download_url?: string | null } } } }>(
       `/accounts/${accountId()}/files/${fileId}?include=media_links.thumbnail`,
       'file',
     );
-    return file?.data?.media_links?.thumbnail?.url ?? null;
+    const thumb = file?.data?.media_links?.thumbnail;
+    // `.url` has been reported null account-wide on a live Frame.io v4 bug
+    // (media_links.*.url returning null while .download_url still resolves —
+    // matches the field high_quality already relies on) — try both.
+    return thumb?.url ?? thumb?.download_url ?? null;
   } catch {
     return null;
   }
