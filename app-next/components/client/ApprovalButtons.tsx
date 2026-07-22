@@ -1,20 +1,21 @@
 'use client';
 
 import { useState } from 'react';
+import { useVideoDecision } from './VideoDecisionContext';
 
 interface Props {
   taskId: string;
   currentApproval: string | null;
-  fileId?: string | null;
 }
 
 type State = 'idle' | 'confirming' | 'revising' | 'loading' | 'done' | 'error';
 
-export function ApprovalButtons({ taskId, currentApproval, fileId }: Props) {
+export function ApprovalButtons({ taskId, currentApproval }: Props) {
   const [state, setState] = useState<State>('idle');
   const [result, setResult] = useState<string | null>(currentApproval);
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
+  const { markDecided } = useVideoDecision();
 
   async function approve() {
     setState('loading');
@@ -31,6 +32,7 @@ export function ApprovalButtons({ taskId, currentApproval, fileId }: Props) {
       }
       setResult('Approved');
       setState('done');
+      markDecided();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
       setState('idle');
@@ -41,26 +43,22 @@ export function ApprovalButtons({ taskId, currentApproval, fileId }: Props) {
     setState('loading');
     setError('');
     try {
-      // Request changes in ClickUp
+      // Request changes in ClickUp — the optional feedback text is folded
+      // into the same single combined ClickUp comment as any timestamped
+      // comments left in the player (see lib/frameio-comment-sync.ts), not
+      // posted separately.
       const approveRes = await fetch('/api/client/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId, action: 'changes' }),
+        body: JSON.stringify({ taskId, action: 'changes', feedbackText: feedback.trim() || undefined }),
       });
       if (!approveRes.ok) {
         const data = await approveRes.json();
         throw new Error(data.error ?? 'Request failed');
       }
-      // Post feedback as comment if provided
-      if (feedback.trim()) {
-        await fetch('/api/client/comment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ taskId, fileId, text: `🎬 Video feedback: ${feedback.trim()}` }),
-        });
-      }
       setResult('Changes Requested');
       setState('done');
+      markDecided();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
       setState('revising');

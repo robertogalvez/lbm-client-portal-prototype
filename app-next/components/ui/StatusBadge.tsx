@@ -54,3 +54,13 @@ export function statusTone(status: string): Tone {
   if (s.includes('posted')) return 'green';
   return 'slate';
 }
+
+// The [foreground, background] hex pair for a status, from the same canonical
+// tone mapping as statusTone() — the single source of truth other surfaces
+// (calendar, review-list rows) should pull from instead of hand-rolling their
+// own status→color logic, which drifts out of sync (e.g. a status shown green
+// here but blue somewhere else for the same underlying state).
+export function statusColors(status: string, warm = true): { color: string; bg: string } {
+  const [color, bg] = (warm ? WARM : COOL)[statusTone(status)];
+  return { color, bg };
+}

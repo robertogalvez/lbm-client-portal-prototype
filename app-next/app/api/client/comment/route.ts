@@ -5,18 +5,20 @@ import { db } from '@/lib/db';
 import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { resolveTaskClientName, type ClickUpTask } from '@/lib/clickup';
-import { markCommentSynced } from '@/lib/frameio-comment-sync';
 import { createComment as createFrameioComment } from '@/lib/frameio';
 import { getViewAsClient } from '@/lib/view-as';
 
 // POST /api/client/comment
-// Posts a timestamped comment to Frame.io v4 AND as a ClickUp task comment
+// Posts a timestamped comment to Frame.io v4 ONLY. ClickUp is deliberately
+// NOT written here — every comment left during review gets combined into a
+// single ClickUp comment at decision time (see lib/frameio-comment-sync.ts),
+// posted only when the client clicks Approve or Request changes.
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const [user] = await db
-    .select({ role: authUsers.role, clientName: authUsers.clientName, name: authUsers.name })
+    .select({ role: authUsers.role, clientName: authUsers.clientName })
     .from(authUsers)
     .where(eq(authUsers.id, session.user.id))
     .limit(1);
@@ -43,6 +45,7 @@ export async function POST(req: Request) {
   };
 
   if (!taskId || !text) return NextResponse.json({ error: 'taskId and text are required' }, { status: 400 });
+  if (!fileId) return NextResponse.json({ error: 'fileId is required' }, { status: 400 });
 
   // Tenant isolation: never let a client comment on a task that isn't theirs.
   const taskRes = await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
@@ -54,44 +57,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const results: Record<string, unknown> = {};
-
-  // 1. Post to Frame.io v4 (if we have a resolved file id) — server-side,
-  // OAuth-authenticated, so this never touches Frame.io's guest "who are you"
-  // identity flow.
-  if (fileId) {
-    try {
-      const comment = await createFrameioComment(fileId, text, timestampSeconds);
-      results.frameioCommentId = comment.id;
-      // This comment is dual-written to ClickUp below — mark it in the sync
-      // ledger so the Frame.io→ClickUp comment sync doesn't repost it.
-      if (comment.id) await markCommentSynced(comment.id, taskId);
-    } catch (e) {
-      results.frameioError = e instanceof Error ? e.message : 'Unknown';
-    }
-  }
-
-  // 2. Post to ClickUp task as a comment
+  // Server-side, OAuth-authenticated — never touches Frame.io's guest
+  // "who are you" identity flow.
   try {
-    const timestamp = typeof timestampSeconds === 'number'
-      ? ` [at ${new Date(timestampSeconds * 1000).toISOString().substr(11, 8)}]`
-      : '';
-    const commentText = `💬 ${user.name} (portal)${timestamp}: ${text}`;
-
-    const cRes = await fetch(`https://api.clickup.com/api/v2/task/${taskId}/comment`, {
-      method: 'POST',
-      headers: {
-        Authorization: process.env.CLICKUP_API_TOKEN ?? '',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ comment_text: commentText, notify_all: false }),
-    });
-    const cData = await cRes.json();
-    if (!cRes.ok) results.clickupError = cData;
-    else results.clickupCommentId = cData.id;
+    const comment = await createFrameioComment(fileId, text, timestampSeconds);
+    return NextResponse.json({ ok: true, frameioCommentId: comment.id });
   } catch (e) {
-    results.clickupError = e instanceof Error ? e.message : 'Unknown';
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed to save comment to Frame.io' }, { status: 502 });
   }
-
-  return NextResponse.json({ ok: true, ...results });
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useVideoDecision } from './VideoDecisionContext';
 
 export interface ReviewComment {
   id: string;
@@ -36,6 +37,7 @@ export function VideoReviewPlayer({ taskId, fileId, src, initialComments }: Prop
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const { decided } = useVideoDecision();
 
   function openComposer() {
     const v = videoRef.current;
@@ -64,7 +66,6 @@ export function VideoReviewPlayer({ taskId, fileId, src, initialComments }: Prop
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to post comment');
-      if (data.frameioError) throw new Error('Could not save to Frame.io — please try again');
 
       setComments(prev => [
         ...prev,
@@ -112,7 +113,18 @@ export function VideoReviewPlayer({ taskId, fileId, src, initialComments }: Prop
       </div>
 
       <div style={{ padding: '10px 12px', borderBottom: '1px solid #ece4d8' }}>
-        {!composing ? (
+        {decided ? (
+          <div style={{
+            width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid #ece4d8',
+            background: '#f7f2ea', color: '#9d9488', fontWeight: 600, fontSize: 13,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, textAlign: 'center',
+          }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14, flexShrink: 0 }}>
+              <path d="M9 12l2 2 4-4" /><circle cx="12" cy="12" r="9" />
+            </svg>
+            Feedback submitted — comments are now closed
+          </div>
+        ) : !composing ? (
           <button
             onClick={openComposer}
             style={{

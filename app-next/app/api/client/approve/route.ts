@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm';
 import { getViewAsClient } from '@/lib/view-as';
 import { resolveTaskClientName, type ClickUpTask } from '@/lib/clickup';
 import { syncFrameioComments } from '@/lib/frameio-comment-sync';
-import { setTaskStatus } from '@/lib/clickup-write';
+import { setTaskStatus, postComment } from '@/lib/clickup-write';
 
 const BASE = 'https://api.clickup.com/api/v2';
 
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const rows = await db
-    .select({ role: authUsers.role, clientName: authUsers.clientName })
+    .select({ role: authUsers.role, clientName: authUsers.clientName, name: authUsers.name })
     .from(authUsers)
     .where(eq(authUsers.id, session.user.id))
     .limit(1);
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { taskId, action } = body as { taskId?: string; action?: 'approve' | 'changes' };
+  const { taskId, action, feedbackText } = body as { taskId?: string; action?: 'approve' | 'changes'; feedbackText?: string };
   if (!taskId || !action) return NextResponse.json({ error: 'Missing taskId or action' }, { status: 400 });
 
   // Fetch the task to get the CLIENT APPROVAL field ID and options
@@ -63,12 +63,21 @@ export async function POST(req: Request) {
   }
 
   // Decision-time capture: mirror any Frame.io comments the client left during
-  // review into the ClickUp task BEFORE the approval field flips, so the AM
-  // sees the full feedback list the moment the decision lands. Sync failures
-  // never block the approval write.
+  // review — plus the optional "what needs to change" note — into ONE combined
+  // ClickUp comment, BEFORE the approval field flips, so the AM sees the full
+  // feedback the moment the decision lands. Sync failures never block the
+  // approval write.
   const frameField = (task.custom_fields ?? []).find((f: { name: string }) => f.name === 'Updated Frame Link (Editor)');
   const frameLink = typeof frameField?.value === 'string' ? frameField.value : null;
-  const commentSync = frameLink ? await syncFrameioComments(taskId, frameLink) : null;
+  const extraNote = feedbackText?.trim() ? { authorName: userRow.name ?? effectiveClientName, text: feedbackText.trim() } : undefined;
+  const commentSync = frameLink
+    ? await syncFrameioComments(taskId, frameLink, extraNote)
+    : extraNote
+      ? await postComment(taskId, `🎬 Client feedback:\n${extraNote.authorName}: ${extraNote.text}`, false).then(
+          () => ({ ok: true, posted: 1, alreadySynced: 0 }),
+          (e: unknown) => ({ ok: false, posted: 0, alreadySynced: 0, error: e instanceof Error ? e.message : String(e) }),
+        )
+      : null;
 
   const approvalField = (task.custom_fields ?? []).find((f: { name: string }) => f.name === 'CLIENT APPROVAL');
 

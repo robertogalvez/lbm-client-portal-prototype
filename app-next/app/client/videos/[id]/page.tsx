@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm';
 import { getTasksFromList } from '@/lib/clickup';
 import { ApprovalButtons } from '@/components/client/ApprovalButtons';
 import { VideoReviewPlayer } from '@/components/client/VideoReviewPlayer';
+import { VideoDecisionProvider } from '@/components/client/VideoDecisionContext';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { getViewAsClient } from '@/lib/view-as';
 import { getReviewData } from '@/lib/frameio';
@@ -171,6 +172,7 @@ export default async function VideoDetailPage({ params, searchParams }: { params
   return (
     <>
     {viewAsClient && <ViewAsBanner clientName={viewAsClient.name} />}
+    <VideoDecisionProvider initialDecided={!!task.clientApproval}>
     <main className="vd-shell">
       {/* Mobile-only header */}
       <div className="vd-mobile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px', background: '#faf6f0', flexShrink: 0 }}>
@@ -217,11 +219,12 @@ export default async function VideoDetailPage({ params, searchParams }: { params
               </>
             )}
             <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Video</div>
-            <ApprovalButtons taskId={task.clickupTaskId} currentApproval={task.clientApproval} fileId={reviewData?.fileId ?? null} />
+            <ApprovalButtons taskId={task.clickupTaskId} currentApproval={task.clientApproval} />
           </div>
         )}
       </div>
     </main>
+    </VideoDecisionProvider>
     </>
   );
 }
