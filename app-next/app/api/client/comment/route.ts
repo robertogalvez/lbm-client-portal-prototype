@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm';
 import { resolveTaskClientName, type ClickUpTask } from '@/lib/clickup';
 import { markCommentSynced } from '@/lib/frameio-comment-sync';
 import { createComment as createFrameioComment } from '@/lib/frameio';
+import { getViewAsClient } from '@/lib/view-as';
 
 // POST /api/client/comment
 // Posts a timestamped comment to Frame.io v4 AND as a ClickUp task comment
@@ -20,7 +21,19 @@ export async function POST(req: Request) {
     .where(eq(authUsers.id, session.user.id))
     .limit(1);
 
-  if (!user || user.role !== 'client') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  // Support both actual clients and staff (admin/AM) viewing as a client —
+  // matches the pattern already used by /api/client/approve. Without this,
+  // every comment attempt made via "View As" (admin/AM testing) 403s.
+  let effectiveClientName = user.clientName;
+  const isStaff = user.role === 'admin' || user.role === 'account_manager';
+  if (isStaff) {
+    const viewAsClient = await getViewAsClient();
+    if (viewAsClient) effectiveClientName = viewAsClient.name;
+  }
+  if (!effectiveClientName) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (user.role !== 'client' && !isStaff) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const { taskId, fileId, text, timestampSeconds } = await req.json() as {
     taskId: string;
@@ -37,7 +50,7 @@ export async function POST(req: Request) {
   });
   if (!taskRes.ok) return NextResponse.json({ error: 'Task not found' }, { status: 404 });
   const task = await taskRes.json() as ClickUpTask;
-  if (resolveTaskClientName(task) !== user.clientName) {
+  if (resolveTaskClientName(task) !== effectiveClientName) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

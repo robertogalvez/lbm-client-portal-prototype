@@ -16,7 +16,7 @@
 
 import { db } from '@/lib/db';
 import { frameioSyncedComments } from '@/lib/db/schema';
-import { inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { resolveFileId, listComments, isConfigured, type FrameioComment } from '@/lib/frameio';
 import { postComment } from '@/lib/clickup-write';
 
@@ -55,15 +55,29 @@ export async function syncFrameioComments(taskId: string, frameLink: string): Pr
 
     let posted = 0;
     for (const c of fresh) {
-      // Ledger insert comes AFTER the ClickUp post succeeds: a crash between the
-      // two re-posts the comment on the next run (duplicate) rather than losing
-      // it (missing) — for client feedback, duplicates are the cheaper failure.
-      await postComment(taskId, formatForClickUp(c), false);
-      await db
+      // Claim the comment via an atomic insert BEFORE posting to ClickUp — this
+      // is the race guard: the cron sync and a decision-time sync (approve/
+      // request-changes) can run concurrently, and a SELECT-then-POST-then-
+      // INSERT order lets both pass the "not yet seen" check and double-post.
+      // The unique constraint on frameio_comment_id makes this claim atomic
+      // even under true concurrency; returning() tells us whether we won it.
+      const claimed = await db
         .insert(frameioSyncedComments)
         .values({ frameioCommentId: c.id, clickupTaskId: taskId })
-        .onConflictDoNothing();
-      posted++;
+        .onConflictDoNothing()
+        .returning({ id: frameioSyncedComments.frameioCommentId });
+      if (claimed.length === 0) continue; // another concurrent run already claimed it
+
+      try {
+        await postComment(taskId, formatForClickUp(c), false);
+        posted++;
+      } catch (e) {
+        // Release the claim so a future run retries instead of losing the
+        // comment forever (the ledger would otherwise say "synced" for a
+        // comment that never actually reached ClickUp).
+        await db.delete(frameioSyncedComments).where(eq(frameioSyncedComments.frameioCommentId, c.id));
+        throw e;
+      }
     }
 
     return { ok: true, posted, alreadySynced: seen.size };
