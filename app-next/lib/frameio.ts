@@ -267,7 +267,10 @@ async function fioHeaders(): Promise<Record<string, string>> {
 
 async function get<T = Record<string, unknown>>(path: string, stage: FrameioStage): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { headers: await fioHeaders(), cache: 'no-store' });
-  if (!res.ok) throw new FrameioError(`Frame.io ${res.status}: ${path}`, stage, res.status);
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new FrameioError(`Frame.io ${res.status}: ${path}${detail ? ` — ${detail.slice(0, 500)}` : ''}`, stage, res.status);
+  }
   return res.json() as Promise<T>;
 }
 
@@ -278,7 +281,12 @@ async function post<T = Record<string, unknown>>(path: string, body: unknown, st
     body: JSON.stringify(body),
     cache: 'no-store',
   });
-  if (!res.ok) throw new FrameioError(`Frame.io ${res.status}: ${path}`, stage, res.status);
+  if (!res.ok) {
+    // Frame.io's actual validation reason lives in the response body — surface
+    // it instead of discarding it, or a 422 is diagnostically a black box.
+    const detail = await res.text().catch(() => '');
+    throw new FrameioError(`Frame.io ${res.status}: ${path}${detail ? ` — ${detail.slice(0, 500)}` : ''}`, stage, res.status);
+  }
   return res.json() as Promise<T>;
 }
 
