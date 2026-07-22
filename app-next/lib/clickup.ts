@@ -136,6 +136,15 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     revisions = isNaN(parsed) ? null : parsed;
   }
 
+  // A task cycling back to "for client review" (a new revision/round) doesn't
+  // always get its CLIENT APPROVAL field cleared in ClickUp, so a stale
+  // "Approved"/"Changes Requested" from the PRIOR round can still be sitting
+  // on the field. Treat re-entering the review queue as authoritative and
+  // blank the client-facing approval state — otherwise ApprovalButtons shows
+  // a decided badge for a task that's actually awaiting a fresh decision.
+  const normStatus = task.status.status.toLowerCase().replace(/\s+/g, ' ').trim();
+  const isPendingReview = normStatus === 'for client review';
+
   return {
     clickupTaskId:    task.id,
     title:            task.name,
@@ -144,7 +153,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     clientOptionId:   resolveId(clientField, clientIdx),
     clientName:       resolve(clientField, clientIdx),
     videoLevel:       resolve(levelField, levelIdx),
-    clientApproval:   resolve(approvalField, approvalIdx),
+    clientApproval:   isPendingReview ? null : resolve(approvalField, approvalIdx),
     captionApproval:  resolve(captionApprovalField, captionApprovalIdx),
     publishingStatus: resolve(pubField, pubIdx),
     qualityCheck:     resolve(qcField, qcIdx),

@@ -410,8 +410,11 @@ export async function resolveFileId(frameLink: string): Promise<string> {
 
   // The resolved id may be a version-stack id (the proven path) or, when
   // resolved via the Shares API, possibly a direct file id instead — the exact
-  // Shares API shape is unconfirmed. Try version_stacks first; on a 404
-  // specifically, fall back to treating the id as a direct file id.
+  // Shares API shape is unconfirmed. Try version_stacks first; on a 404 OR a
+  // 422 (confirmed live: Frame.io returns 422, not 404, when the id is a
+  // direct file id rather than a version stack — e.g. the `/view/{id}`
+  // segment of a long share URL, which is already the real asset id), fall
+  // back to treating the id as a direct file id.
   let headVersionId: string | undefined;
   try {
     const stack = await get<{ data?: { head_version?: { id?: string } } }>(
@@ -421,7 +424,7 @@ export async function resolveFileId(frameLink: string): Promise<string> {
     headVersionId = stack?.data?.head_version?.id;
   } catch (e) {
     const err = e as FrameioError;
-    if (err?.status === 404) {
+    if (err?.status === 404 || err?.status === 422) {
       headVersionId = stackId; // fall back: treat as a direct file id
     } else {
       throw e;
@@ -462,11 +465,15 @@ export async function resolveFinalAsset(frameLink: string): Promise<FinalAsset> 
 export async function getThumbnailUrl(frameLink: string): Promise<string | null> {
   try {
     const fileId = await resolveFileId(frameLink);
-    const file = await get<{ data?: { media_links?: { thumbnail?: { url?: string | null } } } }>(
+    const file = await get<{ data?: { media_links?: { thumbnail?: { url?: string | null; download_url?: string | null } } } }>(
       `/accounts/${accountId()}/files/${fileId}?include=media_links.thumbnail`,
       'file',
     );
-    return file?.data?.media_links?.thumbnail?.url ?? null;
+    const thumb = file?.data?.media_links?.thumbnail;
+    // `.url` has been reported null account-wide on a live Frame.io v4 bug
+    // (media_links.*.url returning null while .download_url still resolves —
+    // matches the field high_quality already relies on) — try both.
+    return thumb?.url ?? thumb?.download_url ?? null;
   } catch {
     return null;
   }
