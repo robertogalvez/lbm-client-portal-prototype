@@ -3,9 +3,12 @@
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { Sidebar } from './Sidebar';
+import { SidebarProfile } from './SidebarProfile';
 import Link from 'next/link';
 
-export function LayoutShell({ children, showClientPortal }: { children: React.ReactNode; showClientPortal?: boolean }) {
+type LayoutUser = { name: string; email: string } | null;
+
+export function LayoutShell({ children, showClientPortal, user }: { children: React.ReactNode; showClientPortal?: boolean; user?: LayoutUser }) {
   const pathname = usePathname();
   const noShell = pathname.startsWith('/client') || pathname.startsWith('/login');
   const [open, setOpen] = useState(false);
@@ -23,7 +26,7 @@ export function LayoutShell({ children, showClientPortal }: { children: React.Re
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#eceef1' }}>
-      <Sidebar active={pathname} showClientPortal={showClientPortal} />
+      <Sidebar active={pathname} showClientPortal={showClientPortal} user={user} />
 
       {/* Hamburger button — visible only when sidebar is hidden (≤860px) */}
       <button
@@ -97,8 +100,11 @@ export function LayoutShell({ children, showClientPortal }: { children: React.Re
             })}
           </nav>
 
+          {/* Profile / close session */}
+          <SidebarProfile user={user ?? null} />
+
           {/* Footer */}
-          <div style={{ padding: '14px 20px', borderTop: '1px solid #1a2735', fontSize: 12, color: '#6b7888' }}>
+          <div style={{ padding: '10px 20px 14px', fontSize: 11, color: '#6b7888' }}>
             LBM Ops · v1
           </div>
         </div>
