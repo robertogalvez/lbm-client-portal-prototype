@@ -117,3 +117,60 @@ export async function notifyAmOfIdleReview(notice: IdleReviewNotice): Promise<vo
     console.error('[notifyAmOfIdleReview] failed:', e);
   }
 }
+
+// The publish pipeline's success/failure was previously silent outside a
+// ClickUp task comment on failure only (see lib/publish/posting-failed.ts) —
+// nothing told the AM a video actually went live, and even the failure
+// comment relied on someone spotting it in ClickUp. Fired from
+// lib/publish/publish-video.ts (success) and posting-failed.ts (failure,
+// covering both the schedule-time and capture-poller failure paths).
+export interface PublishResultNotice {
+  assignedAmName: string | null;
+  taskId: string;
+  videoTitle: string;
+  result: 'published' | 'error';
+  reason?: string;
+}
+
+export async function notifyAmOfPublishResult(notice: PublishResultNotice): Promise<void> {
+  if (!notice.assignedAmName) return;
+  try {
+    const am = await getAmContact(notice.assignedAmName);
+    if (!am || am.notifyMethod === 'none') return;
+
+    const taskUrl = `https://app.clickup.com/t/${notice.taskId}`;
+    const published = notice.result === 'published';
+
+    if (am.notifyMethod === 'email') {
+      if (!am.email) return;
+      await sendEmail({
+        to: am.email,
+        subject: published ? `Published: "${notice.videoTitle}"` : `Publish failed: "${notice.videoTitle}"`,
+        htmlBody: `
+          <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
+            <p style="font-size: 16px; color: #111c28; margin: 0 0 16px;">
+              ${published
+                ? `<strong>${notice.videoTitle}</strong> was just published to socials.`
+                : `<strong>${notice.videoTitle}</strong> failed to publish${notice.reason ? `: ${notice.reason}` : ''}.`}
+            </p>
+            <a href="${taskUrl}" style="display: inline-block; background: #FF6000; color: #fff; font-weight: 600; font-size: 14px; padding: 12px 24px; border-radius: 8px; text-decoration: none;">
+              Open the task in ClickUp
+            </a>
+          </div>
+        `,
+      });
+    } else if (am.notifyMethod === 'sms') {
+      if (!am.phone) return;
+      if (!isSmsConfigured()) {
+        console.warn('[notifyAmOfPublishResult] notifyMethod is "sms" but Twilio is not configured yet — skipping');
+        return;
+      }
+      const body = published
+        ? `LBM Portal: "${notice.videoTitle}" was published to socials. ${taskUrl}`
+        : `LBM Portal: "${notice.videoTitle}" failed to publish. ${taskUrl}`;
+      await sendSms({ to: am.phone, body });
+    }
+  } catch (e) {
+    console.error('[notifyAmOfPublishResult] failed:', e);
+  }
+}

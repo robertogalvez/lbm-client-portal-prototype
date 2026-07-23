@@ -12,7 +12,8 @@ import * as clickup from '@/lib/clickup-write';
 import * as frameio from '@/lib/frameio';
 import * as vista from '@/lib/vistasocial';
 import { AM_MESSAGES } from './messages';
-import { markPostingFailed } from './posting-failed';
+import { markPostingFailed, amNameFromTask } from './posting-failed';
+import { notifyAmOfPublishResult } from '@/lib/notify-am';
 
 export type PublishOutcome =
   | { status: 'published'; postIds: string[] }
@@ -180,6 +181,7 @@ export async function publishVideo(
     // Non-fatal: the publish itself succeeded and is idempotency-guarded above;
     // a status-set hiccup doesn't need to fail the whole outcome.
   }
+  await notifyAmOfPublishResult({ assignedAmName: amNameFromTask(task), taskId: clickupTaskId, videoTitle: task.name, result: 'published' });
 
   return { status: 'published', postIds: result.ids };
 }
