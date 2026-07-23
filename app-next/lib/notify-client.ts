@@ -8,8 +8,8 @@
 // triggers it.
 
 import { db } from '@/lib/db';
-import { clients } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { clients, authUsers } from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
 import { sendEmail } from '@/lib/email';
 import { sendSms, isSmsConfigured } from '@/lib/sms';
 
@@ -31,9 +31,23 @@ export async function notifyClientReviewReady(notice: ReviewReadyNotice): Promis
 
     const videoUrl = `${notice.portalOrigin}/client/videos/${notice.taskId}`;
 
-    if (client.notifyEmail && client.contactEmail) {
-      await sendEmail({
-        to: client.contactEmail,
+    if (client.notifyEmail) {
+      // Recipients are the real portal accounts for this client, not the raw
+      // ClickUp contactEmail field directly — the sync process (see
+      // app/api/admin/clients/sync) already turns that address into the
+      // client's primary portal account, so this reaches everyone who can
+      // actually log in and act on the video. Falls back to contactEmail
+      // itself if it hasn't been adopted into a portal account yet (e.g. sync
+      // hasn't run, or the address collided with an unrelated account).
+      const portalUsers = await db
+        .select({ email: authUsers.email })
+        .from(authUsers)
+        .where(and(eq(authUsers.role, 'client'), eq(authUsers.clientName, notice.clientName)));
+      const recipients = new Set(portalUsers.map(u => u.email.toLowerCase()));
+      if (client.contactEmail) recipients.add(client.contactEmail.toLowerCase());
+
+      if (recipients.size > 0) await sendEmail({
+        to: Array.from(recipients),
         subject: `A new video is ready for your review: "${notice.videoTitle}"`,
         htmlBody: `
           <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
