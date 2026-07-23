@@ -88,6 +88,13 @@ export const clients = pgTable('clients', {
   notifyEmail:       boolean('notify_email').notNull().default(true),
   notifySms:         boolean('notify_sms').notNull().default(false),
   notifyPush:        boolean('notify_push').notNull().default(false),
+  // The portal account (auth_user.id) auto-provisioned from this client's
+  // ClickUp "Contact Email Address" — ClickUp is the source of truth for who
+  // the primary contact is, so re-syncing keeps THIS ONE account's email/name
+  // matched to ClickUp going forward. Any additional accounts an admin
+  // invites later (teammates) are untouched by sync — only the account this
+  // column points at tracks ClickUp changes.
+  primaryContactUserId: text('primary_contact_user_id'),
 });
 
 export const videoCache = pgTable('video_cache', {
