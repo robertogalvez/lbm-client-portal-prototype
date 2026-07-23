@@ -118,6 +118,14 @@ export const videoCache = pgTable('video_cache', {
   dueDate:           text('due_date'),
   lastSyncedAt:      timestamp('last_synced_at').defaultNow(),
   dirty:             boolean('dirty').default(false),
+  // Set the moment a task enters "for client review" (see
+  // app/api/webhooks/clickup) — used to measure genuine client idle time for
+  // the 24h AM reminder, independent of dateUpdated (which ClickUp bumps on
+  // ANY field edit, not just the client's own action). reviewIdleRemindedAt
+  // guards the reminder to fire at most once per review round; both reset
+  // whenever the task re-enters "for client review" for a new round.
+  reviewEnteredAt:       timestamp('review_entered_at'),
+  reviewIdleRemindedAt:  timestamp('review_idle_reminded_at'),
 });
 
 // Frame.io comments already mirrored into ClickUp (idempotency ledger for the

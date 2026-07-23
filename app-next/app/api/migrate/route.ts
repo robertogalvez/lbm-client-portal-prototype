@@ -139,6 +139,8 @@ export async function POST(req: Request) {
       sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS notify_email boolean NOT NULL DEFAULT true`,
       sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS notify_sms boolean NOT NULL DEFAULT false`,
       sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS notify_push boolean NOT NULL DEFAULT false`,
+      sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS review_entered_at timestamp`,
+      sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS review_idle_reminded_at timestamp`,
     ]);
 
     const rows = await sql`
