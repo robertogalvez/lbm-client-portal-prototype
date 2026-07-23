@@ -40,9 +40,6 @@ function monthLabel(key: string): string {
   const [y, m] = key.split('-').map(Number);
   return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
-function clickupUrl(id: string) {
-  return `https://app.clickup.com/t/${id}`;
-}
 
 function ReportLink({ href }: { href: string }) {
   return (
@@ -67,7 +64,6 @@ function exportHtml(clientName: string, monthText: string, rows: ReportVideo[]) 
       <td class="idx">${i + 1}</td>
       <td>${esc(fmtDate(r.datePosted))}</td>
       <td>${esc(r.title)}</td>
-      <td>${cell(clickupUrl(r.clickupTaskId))}</td>
       <td>${cell(r.frameLink)}</td>
       <td>${cell(r.instagramUrl)}</td>
     </tr>`).join('');
@@ -90,7 +86,7 @@ function exportHtml(clientName: string, monthText: string, rows: ReportVideo[]) 
     <div class="bar"></div>
     <div class="band"><h1>Video status</h1><h2>Posted in socials · ${esc(monthText)}</h2></div>
     <table>
-      <thead><tr><th style="width:44px">#</th><th style="width:120px">Date</th><th>Video reference</th><th>Click Up</th><th>Frame</th><th>Instagram</th></tr></thead>
+      <thead><tr><th style="width:44px">#</th><th style="width:120px">Date</th><th>Video reference</th><th>Video</th><th>Instagram</th></tr></thead>
       <tbody>${body}</tbody>
       <caption>${esc(clientName)} — generated from Legacy Media portal</caption>
     </table>
@@ -184,14 +180,13 @@ export function MonthlyReport({ clientName, videos }: { clientName: string; vide
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
               <thead>
                 <tr>
                   <th style={{ ...th, width: 48, textAlign: 'center' }}>#</th>
                   <th style={{ ...th, width: 130 }}>Date</th>
                   <th style={{ ...th, width: 170 }}>Video reference</th>
-                  <th style={th}>Click Up</th>
-                  <th style={th}>Frame</th>
+                  <th style={th}>Video</th>
                   <th style={{ ...th, borderRight: 'none' }}>Instagram</th>
                 </tr>
               </thead>
@@ -201,7 +196,6 @@ export function MonthlyReport({ clientName, videos }: { clientName: string; vide
                     <td style={{ ...td, background: BAND, textAlign: 'center', fontWeight: 700 }}>{i + 1}</td>
                     <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtDate(r.datePosted)}</td>
                     <td style={{ ...td, fontWeight: 600 }}>{r.title}</td>
-                    <td style={td}><ReportLink href={clickupUrl(r.clickupTaskId)} /></td>
                     <td style={td}>{r.frameLink ? <ReportLink href={r.frameLink} /> : <span style={{ color: '#9aa4b0' }}>N/A</span>}</td>
                     <td style={{ ...td, borderRight: 'none' }}>{r.instagramUrl ? <ReportLink href={r.instagramUrl} /> : <span style={{ color: '#9aa4b0' }}>N/A</span>}</td>
                   </tr>
