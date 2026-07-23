@@ -78,6 +78,16 @@ export const clients = pgTable('clients', {
   clientStatus:      varchar('client_status', { length: 20 }),
   lastSyncedAt:      timestamp('last_synced_at'),
   createdAt:         timestamp('created_at').defaultNow(),
+  // Per-client notification preferences (admin-configured in the Clients
+  // page, not synced from ClickUp) for the "your video is ready for review"
+  // notice — independent toggles, not a single choice like the AM's
+  // notifyMethod, since a client may reasonably want more than one channel.
+  // notifyPush has no delivery mechanism yet (no push infra exists) — the
+  // column exists so the Settings toggle can be wired end-to-end now and
+  // just needs a "Coming soon" treatment in the UI.
+  notifyEmail:       boolean('notify_email').notNull().default(true),
+  notifySms:         boolean('notify_sms').notNull().default(false),
+  notifyPush:        boolean('notify_push').notNull().default(false),
 });
 
 export const videoCache = pgTable('video_cache', {

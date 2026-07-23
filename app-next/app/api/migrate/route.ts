@@ -136,6 +136,9 @@ export async function POST(req: Request) {
       sql`CREATE INDEX IF NOT EXISTS "frameio_synced_comments_task_idx" ON "frameio_synced_comments" ("clickup_task_id")`,
       sql`ALTER TABLE auth_user ADD COLUMN IF NOT EXISTS phone text`,
       sql`ALTER TABLE auth_user ADD COLUMN IF NOT EXISTS notify_method varchar(10) NOT NULL DEFAULT 'none'`,
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS notify_email boolean NOT NULL DEFAULT true`,
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS notify_sms boolean NOT NULL DEFAULT false`,
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS notify_push boolean NOT NULL DEFAULT false`,
     ]);
 
     const rows = await sql`

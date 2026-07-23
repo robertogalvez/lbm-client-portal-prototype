@@ -16,7 +16,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const body = await req.json();
   // Name, contact info, status, and quota are ClickUp-owned (synced from the
   // Master Clients List) — only portal-only fields are editable here.
-  const { type, frameioProjectId, vistaSocialProfileIds, showCalendar, showInvoices, showReport } = body;
+  const { type, frameioProjectId, vistaSocialProfileIds, showCalendar, showInvoices, showReport, notifyEmail, notifySms } = body;
 
   const [updated] = await db.update(clients).set({
     type: type || null,
@@ -25,6 +25,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     showCalendar: showCalendar ?? false,
     showInvoices: showInvoices ?? false,
     showReport: showReport ?? false,
+    notifyEmail: notifyEmail ?? true,
+    notifySms: notifySms ?? false,
   }).where(eq(clients.id, id)).returning();
 
   if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
