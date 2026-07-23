@@ -116,18 +116,28 @@ export async function POST(req: Request) {
       },
     });
 
-  // Notify the client the moment a video actually ENTERS "for client review"
-  // — guarded to the transition itself (previous status wasn't already
-  // "for client review"), not every subsequent webhook fired while it sits
-  // there, so an AM/editor touching an unrelated field mid-review doesn't
-  // re-notify the client each time.
-  if (normStatus(mapped.status) === 'for client review' && normStatus(existing[0]?.status) !== 'for client review' && mapped.clientName) {
-    await notifyClientReviewReady({
-      clientName: mapped.clientName,
-      taskId: mapped.clickupTaskId,
-      videoTitle: mapped.clientFacingTitle || mapped.title,
-      portalOrigin: new URL(req.url).origin,
-    });
+  // The moment a video actually ENTERS "for client review" — guarded to the
+  // transition itself (previous status wasn't already "for client review"),
+  // not every subsequent webhook fired while it sits there, so an AM/editor
+  // touching an unrelated field mid-review doesn't re-fire this each time.
+  const enteringReview = normStatus(mapped.status) === 'for client review' && normStatus(existing[0]?.status) !== 'for client review';
+  if (enteringReview) {
+    // Stamp the review clock (used by the 24h idle-review reminder — see
+    // app/api/reminders/idle-review) and reset the "AM already reminded"
+    // guard for this fresh round.
+    await db
+      .update(videoCache)
+      .set({ reviewEnteredAt: new Date(), reviewIdleRemindedAt: null })
+      .where(eq(videoCache.clickupTaskId, task_id));
+
+    if (mapped.clientName) {
+      await notifyClientReviewReady({
+        clientName: mapped.clientName,
+        taskId: mapped.clickupTaskId,
+        videoTitle: mapped.clientFacingTitle || mapped.title,
+        portalOrigin: new URL(req.url).origin,
+      });
+    }
   }
 
   // Advisory: warn if task moved to "for client review" without a caption (non-one-time clients)
