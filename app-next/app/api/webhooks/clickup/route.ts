@@ -4,7 +4,12 @@ import { db } from '@/lib/db';
 import { videoCache, clients } from '@/lib/db/schema';
 import { mapTask } from '@/lib/clickup';
 import { publishVideo } from '@/lib/publish/publish-video';
+import { notifyClientReviewReady } from '@/lib/notify-client';
 import { eq } from 'drizzle-orm';
+
+function normStatus(s: string | null | undefined): string {
+  return (s ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
 
 export async function POST(req: Request) {
   const secret = process.env.CLICKUP_WEBHOOK_SECRET;
@@ -48,7 +53,7 @@ export async function POST(req: Request) {
 
   // Skip upsert if row has dirty = true
   const existing = await db
-    .select({ dirty: videoCache.dirty })
+    .select({ dirty: videoCache.dirty, status: videoCache.status })
     .from(videoCache)
     .where(eq(videoCache.clickupTaskId, task_id))
     .limit(1);
@@ -110,6 +115,20 @@ export async function POST(req: Request) {
         lastSyncedAt:      new Date(),
       },
     });
+
+  // Notify the client the moment a video actually ENTERS "for client review"
+  // — guarded to the transition itself (previous status wasn't already
+  // "for client review"), not every subsequent webhook fired while it sits
+  // there, so an AM/editor touching an unrelated field mid-review doesn't
+  // re-notify the client each time.
+  if (normStatus(mapped.status) === 'for client review' && normStatus(existing[0]?.status) !== 'for client review' && mapped.clientName) {
+    await notifyClientReviewReady({
+      clientName: mapped.clientName,
+      taskId: mapped.clickupTaskId,
+      videoTitle: mapped.clientFacingTitle || mapped.title,
+      portalOrigin: new URL(req.url).origin,
+    });
+  }
 
   // Advisory: warn if task moved to "for client review" without a caption (non-one-time clients)
   if (mapped.status.toLowerCase().includes('client review') && !mapped.caption && mapped.clientName) {

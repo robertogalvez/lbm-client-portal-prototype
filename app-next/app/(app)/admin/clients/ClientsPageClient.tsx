@@ -24,6 +24,9 @@ interface ClientRecord {
   showCalendar: boolean | null;
   showInvoices: boolean | null;
   showReport: boolean | null;
+  notifyEmail: boolean | null;
+  notifySms: boolean | null;
+  notifyPush: boolean | null;
   contactName: string | null;
   contactEmail: string | null;
   clientStatus: string | null;
@@ -80,6 +83,8 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
   const [fCalendar, setFCalendar] = useState(false);
   const [fInvoices, setFInvoices] = useState(false);
   const [fReport, setFReport] = useState(false);
+  const [fNotifyEmail, setFNotifyEmail] = useState(true);
+  const [fNotifySms, setFNotifySms] = useState(false);
 
   // Invite sub-form
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -94,6 +99,8 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
     setFCalendar(c.showCalendar ?? false);
     setFInvoices(c.showInvoices ?? false);
     setFReport(c.showReport ?? false);
+    setFNotifyEmail(c.notifyEmail ?? true);
+    setFNotifySms(c.notifySms ?? false);
     setMsg(''); setInviteOpen(false);
     setInvName(c.portalUsers.length === 0 ? (c.contactName ?? '') : '');
     setInvEmail(c.portalUsers.length === 0 ? (c.contactEmail ?? '') : '');
@@ -109,6 +116,8 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
       showCalendar: fCalendar,
       showInvoices: fInvoices,
       showReport: fReport,
+      notifyEmail: fNotifyEmail,
+      notifySms: fNotifySms,
     };
     try {
       const res = await fetch(`/api/admin/clients/${selected.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -426,6 +435,43 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                 </div>
                 <div onClick={() => setFReport(v => !v)} style={{ width: 40, height: 22, borderRadius: 11, background: fReport ? '#FF6000' : '#d4dbe2', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
                   <div style={{ position: 'absolute', top: 3, left: fReport ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
+                </div>
+              </div>
+
+              <div style={{ borderTop: '1px solid #e7ebef', margin: '4px 0' }} />
+
+              {/* Notification preferences */}
+              <div>
+                <span style={label}>Video-ready-for-review notifications</span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#111c28' }}>Email</div>
+                  <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Sent to {selected.contactEmail || 'the client’s contact email (not set)'}</div>
+                </div>
+                <div onClick={() => setFNotifyEmail(v => !v)} style={{ width: 40, height: 22, borderRadius: 11, background: fNotifyEmail ? '#FF6000' : '#d4dbe2', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                  <div style={{ position: 'absolute', top: 3, left: fNotifyEmail ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#111c28' }}>SMS</div>
+                  <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Sent to {selected.whatsappNumber || 'the client’s phone number (not set)'}</div>
+                </div>
+                <div onClick={() => setFNotifySms(v => !v)} style={{ width: 40, height: 22, borderRadius: 11, background: fNotifySms ? '#FF6000' : '#d4dbe2', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                  <div style={{ position: 'absolute', top: 3, left: fNotifySms ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', opacity: 0.5 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#111c28' }}>Push notification</div>
+                  <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Coming soon</div>
+                </div>
+                <div style={{ width: 40, height: 22, borderRadius: 11, background: '#d4dbe2', position: 'relative', cursor: 'not-allowed', flexShrink: 0 }}>
+                  <div style={{ position: 'absolute', top: 3, left: 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
                 </div>
               </div>
 

@@ -1,0 +1,58 @@
+// Notifies a client when one of their videos becomes ready for review — the
+// client-side counterpart to lib/notify-am.ts. Unlike the AM's single
+// notifyMethod choice, a client can have any combination of channels on at
+// once (independent toggles, admin-configured per client in the Clients
+// page), so this can send both email and SMS for the same event.
+//
+// Never throws: a notification failure must not break the webhook that
+// triggers it.
+
+import { db } from '@/lib/db';
+import { clients } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
+import { sendEmail } from '@/lib/email';
+import { sendSms, isSmsConfigured } from '@/lib/sms';
+
+export interface ReviewReadyNotice {
+  clientName: string;
+  taskId: string;
+  videoTitle: string;
+  portalOrigin: string;
+}
+
+export async function notifyClientReviewReady(notice: ReviewReadyNotice): Promise<void> {
+  try {
+    const [client] = await db
+      .select({ contactEmail: clients.contactEmail, whatsappNumber: clients.whatsappNumber, notifyEmail: clients.notifyEmail, notifySms: clients.notifySms })
+      .from(clients)
+      .where(eq(clients.name, notice.clientName))
+      .limit(1);
+    if (!client) return;
+
+    const videoUrl = `${notice.portalOrigin}/client/videos/${notice.taskId}`;
+
+    if (client.notifyEmail && client.contactEmail) {
+      await sendEmail({
+        to: client.contactEmail,
+        subject: `A new video is ready for your review: "${notice.videoTitle}"`,
+        htmlBody: `
+          <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
+            <p style="font-size: 16px; color: #111c28; margin: 0 0 16px;"><strong>${notice.videoTitle}</strong> is ready for your review.</p>
+            <a href="${videoUrl}" style="display: inline-block; background: #FF6000; color: #fff; font-weight: 600; font-size: 14px; padding: 12px 24px; border-radius: 8px; text-decoration: none;">
+              Watch &amp; review
+            </a>
+          </div>
+        `,
+      });
+    }
+    if (client.notifySms && client.whatsappNumber) {
+      if (!isSmsConfigured()) {
+        console.warn('[notifyClientReviewReady] notifySms is on but Twilio is not configured yet — skipping');
+      } else {
+        await sendSms({ to: client.whatsappNumber, body: `LBM Portal: "${notice.videoTitle}" is ready for your review. ${videoUrl}` });
+      }
+    }
+  } catch (e) {
+    console.error('[notifyClientReviewReady] failed:', e);
+  }
+}
