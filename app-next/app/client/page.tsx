@@ -116,11 +116,6 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     !['for client review', 'in progress (corrections)', 'ready to be posted', 'posted in socials'].includes(norm(t.status))
   );
   const monthStart  = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-  const postedThisMonth = postedTasks.filter(t => {
-    const ts = Number(t.dateUpdated);
-    const date = isNaN(ts) ? new Date(t.dateUpdated) : new Date(ts);
-    return date.getTime() >= monthStart;
-  }).length;
   const deliveredReels = postedTasks.filter(t => {
     const ts = Number(t.dateUpdated);
     const date = isNaN(ts) ? new Date(t.dateUpdated) : new Date(ts);
@@ -206,7 +201,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
               <div>
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' as const }}>
-                  {new Date().toLocaleString('en-US', { month: 'long' }).toUpperCase()} CONTENT
+                  CONTENT PIPELINE
                 </div>
                 <div style={{ fontSize: 17, fontWeight: 700, marginTop: 2, letterSpacing: '-0.01em' }}>
                   {clientTasks.length} video{clientTasks.length !== 1 ? 's' : ''} in pipeline
@@ -218,11 +213,11 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                   <div style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', fontWeight: 600 }}>to review</div>
                 </div>
                 <div style={{ width: 46, height: 46, borderRadius: '50%', background: `conic-gradient(#FF6000 ${pct}%, rgba(255,255,255,.16) 0)`, display: 'grid', placeItems: 'center' }}>
-                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#221e18', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800, color: '#fff' }}>{postedThisMonth}</div>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#221e18', display: 'grid', placeItems: 'center', fontSize: 9, fontWeight: 800, color: '#fff' }}>{postedTasks.length}/{clientTasks.length}</div>
                 </div>
               </div>
             </div>
-            {/* Agreed vs Delivered */}
+            {/* Agreed vs Delivered (this month) */}
             <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'rgba(255,255,255,.8)', flexWrap: 'wrap' }}>
               <div>Reels - Agreed: <span style={{ fontWeight: 700 }}>{agreedReels}</span> | Delivered: <span style={{ fontWeight: 700 }}>{deliveredReels}</span></div>
               <div>YT - Agreed: <span style={{ fontWeight: 700 }}>{agreedYoutube}</span> | Delivered: <span style={{ fontWeight: 700 }}>{deliveredYoutube}</span></div>
@@ -427,50 +422,59 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
         </div>
 
         {/* Pipeline stats banner */}
-        <div style={{background:'#1a1714', borderRadius:16, padding:'24px 32px', marginBottom:28, display:'flex', alignItems:'center', gap:32, color:'#fff'}}>
-          {/* Conic progress ring */}
-          <div style={{position:'relative', width:72, height:72, flexShrink:0}}>
-            <svg width="72" height="72" viewBox="0 0 72 72">
-              <circle cx="36" cy="36" r="30" fill="none" stroke="#333" strokeWidth="8"/>
-              <circle cx="36" cy="36" r="30" fill="none" stroke="#f97316" strokeWidth="8"
-                strokeDasharray={`${pct * 1.885} 188.5`} strokeLinecap="round"
-                transform="rotate(-90 36 36)"/>
-            </svg>
-            <span style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700}}>{postedTasks.length}/{clientTasks.length}</span>
-          </div>
-          <div style={{flex:1}}>
-            <div style={{fontSize:11, letterSpacing:2, color:'#888', fontWeight:600, marginBottom:4}}>
-              {new Date().toLocaleString('default',{month:'long'}).toUpperCase()} CONTENT PACKAGE
+        <div style={{background:'#1a1714', borderRadius:16, padding:'24px 32px', marginBottom:28, display:'flex', flexDirection:'column', gap:16, color:'#fff'}}>
+          <div style={{display:'flex', alignItems:'center', gap:32}}>
+            {/* Conic progress ring — arc and center label are the same fraction
+                (all-time posted / total pipeline), so the ring actually
+                illustrates the number next to it instead of a different one. */}
+            <div style={{position:'relative', width:72, height:72, flexShrink:0}}>
+              <svg width="72" height="72" viewBox="0 0 72 72">
+                <circle cx="36" cy="36" r="30" fill="none" stroke="#333" strokeWidth="8"/>
+                <circle cx="36" cy="36" r="30" fill="none" stroke="#f97316" strokeWidth="8"
+                  strokeDasharray={`${pct * 1.885} 188.5`} strokeLinecap="round"
+                  transform="rotate(-90 36 36)"/>
+              </svg>
+              <span style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700}}>{postedTasks.length}/{clientTasks.length}</span>
             </div>
-            <div style={{fontSize:20, fontWeight:700}}>{clientTasks.length} videos this month</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:11, letterSpacing:2, color:'#888', fontWeight:600, marginBottom:4}}>
+                CONTENT PIPELINE
+              </div>
+              <div style={{fontSize:20, fontWeight:700}}>{clientTasks.length} video{clientTasks.length !== 1 ? 's' : ''} in pipeline</div>
+            </div>
+            {/* Stat columns - made interactive with Reels/YouTube breakdown */}
+            <BannerStats stats={[
+              {
+                label:'Awaiting you',
+                count: reviewTasks.length,
+                reelCount: reviewTasks.filter(t => !t.isYoutube).length,
+                youtubeCount: reviewTasks.filter(t => t.isYoutube).length,
+                color:'#f59e0b',
+                tasks: reviewTasks,
+              },
+              {
+                label:'Published',
+                count: postedTasks.length,
+                reelCount: postedTasks.filter(t => !t.isYoutube).length,
+                youtubeCount: postedTasks.filter(t => t.isYoutube).length,
+                color:'#22c55e',
+                tasks: postedTasks,
+              },
+              {
+                label:'In production',
+                count: inProgress.length,
+                reelCount: inProgress.filter(t => !t.isYoutube).length,
+                youtubeCount: inProgress.filter(t => t.isYoutube).length,
+                color:'#60a5fa',
+                tasks: inProgress,
+              },
+            ]} />
           </div>
-          {/* Stat columns - made interactive with Reels/YouTube breakdown */}
-          <BannerStats stats={[
-            {
-              label:'Awaiting you',
-              count: reviewTasks.length,
-              reelCount: reviewTasks.filter(t => !t.isYoutube).length,
-              youtubeCount: reviewTasks.filter(t => t.isYoutube).length,
-              color:'#f59e0b',
-              tasks: reviewTasks,
-            },
-            {
-              label:'Published',
-              count: postedTasks.length,
-              reelCount: postedTasks.filter(t => !t.isYoutube).length,
-              youtubeCount: postedTasks.filter(t => t.isYoutube).length,
-              color:'#22c55e',
-              tasks: postedTasks,
-            },
-            {
-              label:'In production',
-              count: inProgress.length,
-              reelCount: inProgress.filter(t => !t.isYoutube).length,
-              youtubeCount: inProgress.filter(t => t.isYoutube).length,
-              color:'#60a5fa',
-              tasks: inProgress,
-            },
-          ]} />
+          {/* Agreed vs Delivered (this month) — same monthly quota pacing shown on mobile */}
+          <div style={{display:'flex', gap:24, fontSize:13, color:'rgba(255,255,255,.7)', flexWrap:'wrap', borderTop:'1px solid rgba(255,255,255,.1)', paddingTop:14}}>
+            <div>Reels - Agreed: <span style={{fontWeight:700, color:'#fff'}}>{agreedReels}</span> | Delivered: <span style={{fontWeight:700, color:'#fff'}}>{deliveredReels}</span></div>
+            <div>YT - Agreed: <span style={{fontWeight:700, color:'#fff'}}>{agreedYoutube}</span> | Delivered: <span style={{fontWeight:700, color:'#fff'}}>{deliveredYoutube}</span></div>
+          </div>
         </div>
 
         {/* Tab content */}
