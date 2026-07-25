@@ -16,7 +16,8 @@ export function InfoPopover({ tip }: { tip: string }) {
 
   function handleOpen(e: React.MouseEvent) {
     e.stopPropagation();
-    setRect(prev => prev ? null : btnRef.current!.getBoundingClientRect());
+    // Measure outside the updater: React may invoke updaters more than once.
+    setRect(rect ? null : btnRef.current!.getBoundingClientRect());
   }
 
   return (

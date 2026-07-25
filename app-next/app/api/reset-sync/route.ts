@@ -42,15 +42,9 @@ async function fetchAllTasksFromFolder(folderId: string, token: string) {
   return results.flat();
 }
 
-export async function GET() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const caller = await db.select({ role: authUsers.role }).from(authUsers).where(eq(authUsers.id, session.user.id)).limit(1);
-  if (caller[0]?.role === 'client') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  return runReset();
-}
-
+// POST only: runReset truncates and rebuilds video_cache, so exposing it over
+// GET let a link prefetch or a forged cross-site request wipe the table using
+// the visitor's own session cookie.
 export async function POST() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
