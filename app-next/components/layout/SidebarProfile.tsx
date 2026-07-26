@@ -44,6 +44,7 @@ export function SidebarProfile({ user }: { user: { name: string; email: string }
         </div>
       </div>
       <button
+        type="button"
         onClick={handleSignOut}
         disabled={signingOut}
         style={{

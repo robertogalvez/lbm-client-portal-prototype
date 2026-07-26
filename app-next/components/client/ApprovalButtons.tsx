@@ -124,6 +124,7 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
         />
         <div style={{ display: 'flex', gap: 9 }}>
           <button
+            type="button"
             onClick={() => { setState('idle'); setFeedback(''); setError(''); }}
             style={{
               flex: 1, padding: '11px 14px', borderRadius: 13,
@@ -166,6 +167,7 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
         </p>
         <div style={{ display: 'flex', gap: 9 }}>
           <button
+            type="button"
             onClick={() => { setState('idle'); setError(''); }}
             style={{
               flex: 1, padding: '11px 14px', borderRadius: 13,
@@ -208,6 +210,7 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
 
       <div style={{ display: 'flex', gap: 9 }}>
         <button
+          type="button"
           onClick={() => setState('revising')}
           disabled={state === 'loading'}
           style={{
@@ -226,6 +229,7 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
         </button>
 
         <button
+          type="button"
           onClick={() => setState('confirming')}
           disabled={state === 'loading'}
           style={{

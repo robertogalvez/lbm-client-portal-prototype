@@ -344,7 +344,7 @@ function ViewToggle({ view, setView }: { view: 'month' | 'list'; setView: (v: 'm
   return (
     <div style={{ display: 'inline-flex', background: '#f7f1ea', borderRadius: 8, padding: 2, gap: 1 }}>
       {(['month', 'list'] as const).map(v => (
-        <button key={v} onClick={() => setView(v)} style={{
+        <button type="button" key={v} onClick={() => setView(v)} style={{
           padding: '9px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 700,
           background: view === v ? '#fff' : 'transparent',
           color: view === v ? '#221e18' : '#9d9488',

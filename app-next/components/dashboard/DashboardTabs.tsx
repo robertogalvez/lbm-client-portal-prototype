@@ -162,6 +162,7 @@ function AttentionRow({ tone, text, cta, onClick }: { tone: 'red' | 'amber'; tex
       </svg>
       <div style={{ flex: 1, minWidth: 0, fontSize: 13.5, lineHeight: 1.5, color: '#334155' }}>{text}</div>
       <button
+        type="button"
         onClick={onClick}
         style={{ padding: '8px 14px', borderRadius: 8, border: `1px solid ${border}`, background: bg, color, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', flexShrink: 0 }}
       >
@@ -244,6 +245,7 @@ function DeliveryCell({ row, expanded, onToggle }: { row: ClientRow; expanded: b
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'flex-end' }}>
       <Chip tone={tone}>{label}</Chip>
       <button
+        type="button"
         onClick={onToggle}
         aria-expanded={expanded}
         title={expanded ? 'Hide Reels/YouTube breakdown' : 'Show Reels/YouTube breakdown'}
@@ -404,7 +406,7 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, att
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#111c28' }}>{drillStage.label}</div>
                 <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 1 }}>{drillTasks.length} video{drillTasks.length !== 1 ? 's' : ''}</div>
               </div>
-              <button onClick={() => setDrillStage(null)} style={{ width: 40, height: 40, borderRadius: 8, border: '1px solid #e7ebef', background: '#f5f7f9', cursor: 'pointer', display: 'grid', placeItems: 'center', color: '#54616f', fontSize: 16, fontFamily: 'inherit' }}>×</button>
+              <button type="button" onClick={() => setDrillStage(null)} style={{ width: 40, height: 40, borderRadius: 8, border: '1px solid #e7ebef', background: '#f5f7f9', cursor: 'pointer', display: 'grid', placeItems: 'center', color: '#54616f', fontSize: 16, fontFamily: 'inherit' }}>×</button>
             </div>
 
             {/* Task list */}
@@ -479,7 +481,7 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, att
       {/* Tab bar */}
       <div className="db-tab-strip">
         {(['overview', 'approvals', 'clients', 'editors', 'reports'] as const).map(t => (
-          <button key={t} style={tabStyle(t)} onClick={() => setActiveTab(t)}>
+          <button type="button" key={t} style={tabStyle(t)} onClick={() => setActiveTab(t)}>
             {t === 'overview' && 'Overview'}
             {t === 'approvals' && (<>Approvals <span style={ct(approvals.length, approvals.length > 0 ? 'amber' : undefined)}>{approvals.length}</span></>)}
             {t === 'clients' && (<>Clients <span style={ct(clients.length)}>{clients.length}</span></>)}
@@ -517,6 +519,7 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, att
                     const barPct = Math.round(stage.count / maxPipeline * 100);
                     return (
                       <button
+                        type="button"
                         key={stage.key}
                         onClick={() => setDrillStage(stage)}
                         style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '7px 9px', borderRadius: 8, border: '1px solid transparent', background: 'transparent', width: '100%', cursor: stage.count > 0 ? 'pointer' : 'default', textAlign: 'left', transition: 'background 130ms', fontFamily: 'inherit' }}
@@ -577,7 +580,7 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, att
                 <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>Top editors</h3>
                 <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>By first-pass clean</div>
               </div>
-              <button onClick={() => setActiveTab('editors')} style={{ fontSize: 12.5, fontWeight: 700, color: '#B23E00', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'inherit' }}>
+              <button type="button" onClick={() => setActiveTab('editors')} style={{ fontSize: 12.5, fontWeight: 700, color: '#B23E00', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'inherit' }}>
                 View all {editors.length}
               </button>
             </div>
@@ -673,6 +676,7 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, att
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <button
+                type="button"
                 onClick={toggleAllClientsExpanded}
                 disabled={filteredClients.length === 0}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 700, color: filteredClients.length === 0 ? '#c3cbd3' : '#B23E00', background: 'none', border: 'none', cursor: filteredClients.length === 0 ? 'default' : 'pointer', padding: 0, fontFamily: 'inherit', whiteSpace: 'nowrap' }}

@@ -45,6 +45,8 @@ export function Button({ children, variant = 'primary', size = 'md', iconLeft, i
 
   return (
     <button
+      // Defaults ahead of {...rest} so a caller can still pass type="submit".
+      type="button"
       style={style}
       disabled={disabled}
       onMouseDown={e => { if (!disabled) e.currentTarget.style.transform = 'scale(0.97)'; }}

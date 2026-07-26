@@ -141,6 +141,7 @@ export function FiltersBar({ members, ams, clients, hideDateRange }: Props) {
 
       {hasFilters && (
         <button
+          type="button"
           onClick={() => router.push(pathname)}
           style={{ fontSize: 12, color: '#8b97a4', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
         >

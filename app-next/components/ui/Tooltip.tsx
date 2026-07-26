@@ -23,6 +23,7 @@ export function InfoPopover({ tip }: { tip: string }) {
   return (
     <>
       <button
+        type="button"
         ref={btnRef}
         className="db-info-btn"
         onClick={handleOpen}

@@ -101,6 +101,7 @@ export function InvoicesView({ invoices, connected }: { invoices: Invoice[]; con
           const on = status === s;
           return (
             <button
+              type="button"
               key={s}
               onClick={() => setStatus(s)}
               style={{
@@ -157,6 +158,7 @@ export function InvoicesView({ invoices, connected }: { invoices: Invoice[]; con
             </span>
             <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
               <button
+                type="button"
                 onClick={() => downloadInvoice(r)}
                 style={{ flex: 1, fontSize: 13, fontWeight: 700, borderRadius: 13, padding: '10px 12px', border: '1px solid #ece4d8', background: '#f7f1ea', color: '#221e18', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
               >

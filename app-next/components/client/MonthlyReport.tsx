@@ -153,6 +153,7 @@ export function MonthlyReport({ clientName, videos }: { clientName: string; vide
         </div>
         {rows.length > 0 && (
           <button
+            type="button"
             onClick={() => exportHtml(clientName, monthText, rows)}
             style={{ fontSize: 12.5, fontWeight: 700, borderRadius: 10, padding: '8px 12px', border: `1px solid ${BORDER}`, background: '#f7f1ea', color: '#221e18', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >

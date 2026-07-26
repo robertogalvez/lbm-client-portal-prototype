@@ -46,6 +46,7 @@ export function NotificationBell({ tasks }: { tasks: ReviewTask[] }) {
   return (
     <div style={{ position: 'relative' }}>
       <button
+        type="button"
         onClick={() => setOpen(o => !o)}
         style={{
           width: 40, height: 40, borderRadius: 12,
@@ -85,7 +86,7 @@ export function NotificationBell({ tasks }: { tasks: ReviewTask[] }) {
             <div style={{ padding: '10px 14px', borderBottom: '1px solid #ece4d8', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notifications</span>
               {count > 0 && (
-                <button onClick={clearAll} style={{ fontSize: 11.5, fontWeight: 700, color: '#B23E00', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
+                <button type="button" onClick={clearAll} style={{ fontSize: 11.5, fontWeight: 700, color: '#B23E00', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
                   Clear all
                 </button>
               )}

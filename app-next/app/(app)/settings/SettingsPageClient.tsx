@@ -179,6 +179,7 @@ function ForceSyncSection() {
           </div>
         </div>
         <button
+          type="button"
           onClick={handleSync}
           disabled={isDisabled}
           style={{
@@ -364,6 +365,7 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
           <p style={{ fontSize: 13, color: '#8b97a4', margin: '4px 0 0' }}>Manage internal team access and roles</p>
         </div>
         <button
+          type="button"
           onClick={openInvite}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 7,
@@ -436,6 +438,7 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
                   <td style={{ padding: '12px 16px', color: '#8b97a4', fontSize: 12 }}>{fmtDate(user.createdAt)}</td>
                   <td style={{ padding: '12px 16px' }}>
                     <button
+                      type="button"
                       onClick={() => openEdit(user)}
                       style={{
                         fontSize: 12, fontWeight: 600, color: '#54616f',
@@ -624,6 +627,7 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
             {/* Drawer footer */}
             <div style={{ padding: '16px 24px', borderTop: '1px solid #e7ebef', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button
+                type="button"
                 onClick={drawer.mode === 'invite' ? saveInvite : saveRole}
                 disabled={saving || (drawer.mode === 'invite' && (!form.name || !form.email)) || (drawer.mode === 'edit' && form.notifyMethod === 'sms' && !form.phone.trim())}
                 style={{
@@ -639,6 +643,7 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
 
               {drawer.mode === 'edit' && drawer.user && drawer.user.id !== currentUserId && (
                 <button
+                  type="button"
                   onClick={() => deactivate(drawer.user!)}
                   disabled={saving}
                   style={{

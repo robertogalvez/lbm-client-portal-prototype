@@ -24,6 +24,7 @@ export function ViewAsBanner({ clientName }: { clientName: string }) {
     }}>
       <span>👁 Admin view — viewing <strong>{clientName}</strong>&apos;s portal exactly as they see it</span>
       <button
+        type="button"
         onClick={exit}
         disabled={exiting}
         style={{

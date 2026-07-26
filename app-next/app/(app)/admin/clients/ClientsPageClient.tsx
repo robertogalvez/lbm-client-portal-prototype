@@ -281,7 +281,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
               Show inactive{inactiveCount > 0 ? ` (${inactiveCount})` : ''}
             </label>
             {syncMsg && <span style={{ fontSize: 13, color: syncMsg.includes('rror') || syncMsg.includes('ail') ? '#cf3f36' : '#54616f' }}>{syncMsg}</span>}
-            <button onClick={syncNow} disabled={syncing} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 8, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontWeight: 600, fontSize: 14, cursor: syncing ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+            <button type="button" onClick={syncNow} disabled={syncing} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 8, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontWeight: 600, fontSize: 14, cursor: syncing ? 'default' : 'pointer', fontFamily: 'inherit' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}><path d="M21 2v6h-6M3 22v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L21 8M3 16l2.64 2.36A9 9 0 0 0 20.49 15" /></svg>
               {syncing ? 'Syncing…' : 'Sync now'}
             </button>
@@ -341,6 +341,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                         <button
+                          type="button"
                           onClick={e => viewAsClient(c, e)}
                           disabled={viewingAs === c.id}
                           title="View the portal exactly as this client sees it"
@@ -413,7 +414,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                 <span style={label}>Billing type</span>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {(['retainer', 'one_time'] as const).map(t => (
-                    <button key={t} onClick={() => setFType(t)} style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: `1px solid ${fType === t ? '#FF6000' : '#d4dbe2'}`, background: fType === t ? '#fff8f5' : '#fff', color: fType === t ? '#FF6000' : '#54616f', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    <button type="button" key={t} onClick={() => setFType(t)} style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: `1px solid ${fType === t ? '#FF6000' : '#d4dbe2'}`, background: fType === t ? '#fff8f5' : '#fff', color: fType === t ? '#FF6000' : '#54616f', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                       {t === 'retainer' ? 'Retainer' : 'One-time'}
                     </button>
                   ))}
@@ -496,7 +497,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                   <span style={label}>Portal access</span>
-                  <button onClick={() => { setInviteOpen(v => !v); setInvMsg(''); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: '#FF6000', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
+                  <button type="button" onClick={() => { setInviteOpen(v => !v); setInvMsg(''); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: '#FF6000', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 13, height: 13 }}><path d="M12 5v14M5 12h14" /></svg>
                     Invite user
                   </button>
@@ -508,8 +509,8 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                     <input aria-label="Email address" type="email" value={invEmail} onChange={e => setInvEmail(e.target.value)} placeholder="client@example.com" style={inp} />
                     {invMsg && <div style={{ fontSize: 12, color: invMsg === 'Invited!' ? '#14805f' : '#cf3f36' }}>{invMsg}</div>}
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => setInviteOpen(false)} style={{ flex: 1, padding: '7px 12px', borderRadius: 7, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-                      <button onClick={invite} disabled={inviting || !invEmail || !invName} style={{ flex: 1, padding: '7px 12px', borderRadius: 7, border: 'none', background: inviting || !invEmail || !invName ? '#eef1f4' : '#FF6000', color: inviting || !invEmail || !invName ? '#8b97a4' : '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      <button type="button" onClick={() => setInviteOpen(false)} style={{ flex: 1, padding: '7px 12px', borderRadius: 7, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                      <button type="button" onClick={invite} disabled={inviting || !invEmail || !invName} style={{ flex: 1, padding: '7px 12px', borderRadius: 7, border: 'none', background: inviting || !invEmail || !invName ? '#eef1f4' : '#FF6000', color: inviting || !invEmail || !invName ? '#8b97a4' : '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                         {inviting ? 'Sending…' : 'Send invite'}
                       </button>
                     </div>
@@ -532,8 +533,8 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                         </span>
                         {!u.emailVerified && (
                           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                            <button onClick={() => resendInvite(u)} title="Resend invite" style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Resend</button>
-                            <button onClick={() => cancelInvite(u)} title="Cancel invitation" style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #fbd5d0', background: '#fef2f1', color: '#cf3f36', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
+                            <button type="button" onClick={() => resendInvite(u)} title="Resend invite" style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Resend</button>
+                            <button type="button" onClick={() => cancelInvite(u)} title="Cancel invitation" style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #fbd5d0', background: '#fef2f1', color: '#cf3f36', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
                           </div>
                         )}
                       </div>
@@ -545,6 +546,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
               {/* Delete */}
               <div style={{ borderTop: '1px solid #e7ebef', paddingTop: 16, marginTop: 4 }}>
                 <button
+                  type="button"
                   onClick={del}
                   disabled={deleting || hasLinkedUsers}
                   title={hasLinkedUsers ? 'Remove all portal users before deleting this client' : ''}
@@ -560,8 +562,8 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
             <div style={{ padding: '14px 24px', borderTop: '1px solid #e7ebef', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
               {msg && <span style={{ flex: 1, fontSize: 13, color: msg.includes('rror') || msg.includes('ail') || msg.includes('annot') ? '#cf3f36' : '#14805f' }}>{msg}</span>}
               {!msg && <span style={{ flex: 1 }} />}
-              <button onClick={() => setDrawerOpen(false)} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-              <button onClick={save} disabled={saving} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: saving ? '#eef1f4' : '#FF6000', color: saving ? '#8b97a4' : '#fff', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button type="button" onClick={() => setDrawerOpen(false)} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+              <button type="button" onClick={save} disabled={saving} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: saving ? '#eef1f4' : '#FF6000', color: saving ? '#8b97a4' : '#fff', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
                 {saving ? 'Saving…' : 'Save changes'}
               </button>
             </div>
