@@ -54,7 +54,7 @@ export function FiltersBar({ members, ams, clients, hideDateRange }: Props) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
       {!hideDateRange && (
         <div style={{ position: 'relative' }}>
-          <select style={selectStyle} value={range} onChange={e => set('range', e.target.value)}>
+          <select aria-label="Date range" style={selectStyle} value={range} onChange={e => set('range', e.target.value)}>
             {DATE_RANGES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>
           <span style={chevronStyle}>▾</span>
@@ -62,7 +62,7 @@ export function FiltersBar({ members, ams, clients, hideDateRange }: Props) {
       )}
 
       <div style={{ position: 'relative' }}>
-        <select style={selectStyle} value={member} onChange={e => set('member', e.target.value)}>
+        <select aria-label="Filter by editor" style={selectStyle} value={member} onChange={e => set('member', e.target.value)}>
           <option value="">All editors</option>
           {members.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
@@ -70,7 +70,7 @@ export function FiltersBar({ members, ams, clients, hideDateRange }: Props) {
       </div>
 
       <div style={{ position: 'relative' }}>
-        <select style={selectStyle} value={am} onChange={e => set('am', e.target.value)}>
+        <select aria-label="Filter by account manager" style={selectStyle} value={am} onChange={e => set('am', e.target.value)}>
           <option value="">All AMs</option>
           {ams.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
@@ -78,7 +78,7 @@ export function FiltersBar({ members, ams, clients, hideDateRange }: Props) {
       </div>
 
       <div style={{ position: 'relative' }}>
-        <select style={selectStyle} value={client} onChange={e => set('client', e.target.value)}>
+        <select aria-label="Filter by client" style={selectStyle} value={client} onChange={e => set('client', e.target.value)}>
           <option value="">All clients</option>
           {clients.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
@@ -113,12 +113,20 @@ export function FiltersBar({ members, ams, clients, hideDateRange }: Props) {
 
       {/* Inactive clients toggle */}
       <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#54616f', userSelect: 'none' }}>
+        {/* Same hidden-checkbox pattern as the archived toggle above: this one
+            was a bare div, so it had no control to label and no keyboard path. */}
+        <input
+          type="checkbox"
+          checked={inactive}
+          onChange={e => set('inactive', e.target.checked ? '1' : '')}
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+        />
         <div
-          onClick={() => set('inactive', inactive ? '' : '1')}
+          aria-hidden="true"
           style={{
             width: 36, height: 20, borderRadius: 10,
             background: inactive ? '#FF6000' : '#d4dbe2',
-            position: 'relative', cursor: 'pointer', transition: 'background 0.2s',
+            position: 'relative', transition: 'background 0.2s',
             flexShrink: 0,
           }}
         >

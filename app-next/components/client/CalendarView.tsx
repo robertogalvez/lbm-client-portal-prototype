@@ -122,11 +122,11 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <button onClick={() => setWeekOffset(w => w - 1)} style={navBtn}>
+          <button type="button" aria-label="Previous week" onClick={() => setWeekOffset(w => w - 1)} style={navBtn}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="m15 18-6-6 6-6" /></svg>
           </button>
           <div style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#221e18' }}>{weekLabel}</div>
-          <button onClick={() => setWeekOffset(w => w + 1)} style={navBtn}>
+          <button type="button" aria-label="Next week" onClick={() => setWeekOffset(w => w + 1)} style={navBtn}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="m9 18 6-6-6-6" /></svg>
           </button>
           <ViewToggle view={view} setView={setView} />
@@ -166,9 +166,12 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color, background: bg, padding: '2px 6px', borderRadius: 5, marginTop: 3 }}>
                             <span style={{ width: 5, height: 5, borderRadius: '50%', background: color }} />{label}
                           </span>
+                          {/* Not an <a>/<button>: this sits inside the card's own
+                              link, and nesting either is invalid HTML. Reaching it
+                              by keyboard needs the card layout changed so this is
+                              a sibling of that link rather than a child. */}
                           {isInProcess(t) && t.rawDriveLink && (
                             <span
-                              role="link"
                               onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(t.rawDriveLink!, '_blank', 'noopener,noreferrer'); }}
                               style={{ display: 'block', marginTop: 3, fontSize: 10.5, fontWeight: 600, color: '#0f6fec', cursor: 'pointer' }}
                             >
@@ -198,11 +201,11 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {/* Controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <button onClick={prevMonth} style={navBtn}>
+        <button type="button" aria-label="Previous month" onClick={prevMonth} style={navBtn}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="m15 18-6-6 6-6" /></svg>
         </button>
         <div style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#221e18' }}>{monthLabel}</div>
-        <button onClick={nextMonth} style={navBtn}>
+        <button type="button" aria-label="Next month" onClick={nextMonth} style={navBtn}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="m9 18 6-6-6-6" /></svg>
         </button>
         <ViewToggle view={view} setView={setView} />
@@ -225,6 +228,10 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
               return (
                 <div
                   key={cell.key}
+                  // Deliberately not role="button": the cell contains per-video
+                  // links, and an interactive role here would nest them. Making
+                  // day-selection keyboard-reachable means moving the affordance
+                  // onto the date number as its own control.
                   onClick={() => setSelectedDay(isSelected ? null : cell.key)}
                   style={{
                     minHeight: 70, padding: '4px 4px 2px', borderRadius: 8, cursor: 'pointer',
@@ -274,9 +281,10 @@ export function CalendarView({ tasks }: { tasks: CalTask[] }) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12.5, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
                         <span style={{ fontSize: 10.5, fontWeight: 700, color, background: bg, padding: '1px 6px', borderRadius: 5 }}>{label}</span>
+                        {/* See the note on the week-view copy above: nested inside
+                            the card link, so it cannot be an anchor. */}
                         {isInProcess(t) && t.rawDriveLink && (
                           <span
-                            role="link"
                             onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(t.rawDriveLink!, '_blank', 'noopener,noreferrer'); }}
                             style={{ display: 'block', marginTop: 3, fontSize: 10.5, fontWeight: 600, color: '#0f6fec', cursor: 'pointer' }}
                           >
