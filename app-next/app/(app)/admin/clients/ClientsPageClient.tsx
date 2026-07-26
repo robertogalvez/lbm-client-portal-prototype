@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Toggle } from '@/components/ui/Toggle';
 
 interface PortalUser {
   id: string;
@@ -70,6 +71,17 @@ const readonlyRow: React.CSSProperties = {
 export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[] }) {
   const [clients, setClients] = useState<ClientRecord[]>(initial);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Escape closes the drawer. Without this the only ways out were clicking the
+  // backdrop or the close button, leaving keyboard users stuck behind it.
+  useEffect(() => {
+    if (!drawerOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setDrawerOpen(false);
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [drawerOpen]);
   const [selected, setSelected] = useState<ClientRecord | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -338,16 +350,18 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
       {/* Drawer */}
       {drawerOpen && selected && (
         <>
-          <div onClick={() => setDrawerOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(17,28,40,.3)', zIndex: 40 }} />
-          <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 460, background: '#fff', boxShadow: '-8px 0 32px rgba(17,28,40,.12)', zIndex: 50, display: 'flex', flexDirection: 'column', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}>
+          {/* Decorative click-away target. Hidden from assistive tech because it
+              is not a control — Escape and the close button do the same job. */}
+          <div aria-hidden="true" onClick={() => setDrawerOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(17,28,40,.3)', zIndex: 40 }} />
+          <div role="dialog" aria-modal="true" aria-labelledby="client-drawer-title" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 460, background: '#fff', boxShadow: '-8px 0 32px rgba(17,28,40,.12)', zIndex: 50, display: 'flex', flexDirection: 'column', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}>
 
             {/* Drawer header */}
             <div style={{ padding: '20px 24px', borderBottom: '1px solid #e7ebef', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: 0 }}>{selected.name}</h3>
+                <h3 id="client-drawer-title" style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: 0 }}>{selected.name}</h3>
                 <div style={{ fontSize: 13, color: '#8b97a4', marginTop: 3 }}>Client details</div>
               </div>
-              <button onClick={() => setDrawerOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#54616f', padding: 4 }}>
+              <button type="button" aria-label="Close client details" onClick={() => setDrawerOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#54616f', padding: 4 }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}><path d="M18 6 6 18M6 6l12 12" /></svg>
               </button>
             </div>
@@ -411,9 +425,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#111c28' }}>Show publishing calendar</div>
                   <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Client can see scheduled posts in their portal</div>
                 </div>
-                <div onClick={() => setFCalendar(v => !v)} style={{ width: 40, height: 22, borderRadius: 11, background: fCalendar ? '#FF6000' : '#d4dbe2', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
-                  <div style={{ position: 'absolute', top: 3, left: fCalendar ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
-                </div>
+                <Toggle checked={fCalendar} onChange={setFCalendar} label="Show publishing calendar" />
               </div>
 
               {/* Invoices toggle */}
@@ -422,9 +434,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#111c28' }}>Show invoices</div>
                   <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Client can see billing history in their portal</div>
                 </div>
-                <div onClick={() => setFInvoices(v => !v)} style={{ width: 40, height: 22, borderRadius: 11, background: fInvoices ? '#FF6000' : '#d4dbe2', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
-                  <div style={{ position: 'absolute', top: 3, left: fInvoices ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
-                </div>
+                <Toggle checked={fInvoices} onChange={setFInvoices} label="Show invoices" />
               </div>
 
               {/* Report toggle */}
@@ -433,9 +443,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#111c28' }}>Show posted-on-socials report</div>
                   <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Client can see a monthly report of published videos in their portal</div>
                 </div>
-                <div onClick={() => setFReport(v => !v)} style={{ width: 40, height: 22, borderRadius: 11, background: fReport ? '#FF6000' : '#d4dbe2', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
-                  <div style={{ position: 'absolute', top: 3, left: fReport ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
-                </div>
+                <Toggle checked={fReport} onChange={setFReport} label="Show posted-on-socials report" />
               </div>
 
               <div style={{ borderTop: '1px solid #e7ebef', margin: '4px 0' }} />
@@ -450,9 +458,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#111c28' }}>Email</div>
                   <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Sent to {selected.contactEmail || 'the client’s contact email (not set)'}</div>
                 </div>
-                <div onClick={() => setFNotifyEmail(v => !v)} style={{ width: 40, height: 22, borderRadius: 11, background: fNotifyEmail ? '#FF6000' : '#d4dbe2', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
-                  <div style={{ position: 'absolute', top: 3, left: fNotifyEmail ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
-                </div>
+                <Toggle checked={fNotifyEmail} onChange={setFNotifyEmail} label="Email notifications for videos ready for review" />
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -460,9 +466,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#111c28' }}>SMS</div>
                   <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Sent to {selected.whatsappNumber || 'the client’s phone number (not set)'}</div>
                 </div>
-                <div onClick={() => setFNotifySms(v => !v)} style={{ width: 40, height: 22, borderRadius: 11, background: fNotifySms ? '#FF6000' : '#d4dbe2', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
-                  <div style={{ position: 'absolute', top: 3, left: fNotifySms ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
-                </div>
+                <Toggle checked={fNotifySms} onChange={setFNotifySms} label="SMS notifications for videos ready for review" />
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', opacity: 0.5 }}>
@@ -470,9 +474,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#111c28' }}>Push notification</div>
                   <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Coming soon</div>
                 </div>
-                <div style={{ width: 40, height: 22, borderRadius: 11, background: '#d4dbe2', position: 'relative', cursor: 'not-allowed', flexShrink: 0 }}>
-                  <div style={{ position: 'absolute', top: 3, left: 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
-                </div>
+                <Toggle checked={false} disabled label="Push notifications (not yet available)" />
               </div>
 
               <div style={{ borderTop: '1px solid #e7ebef', margin: '4px 0' }} />
@@ -489,8 +491,8 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
 
                 {inviteOpen && (
                   <div style={{ background: '#f4f6f8', borderRadius: 10, padding: '14px', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <input value={invName} onChange={e => setInvName(e.target.value)} placeholder="Full name" style={inp} />
-                    <input type="email" value={invEmail} onChange={e => setInvEmail(e.target.value)} placeholder="client@example.com" style={inp} />
+                    <input aria-label="Full name" value={invName} onChange={e => setInvName(e.target.value)} placeholder="Full name" style={inp} />
+                    <input aria-label="Email address" type="email" value={invEmail} onChange={e => setInvEmail(e.target.value)} placeholder="client@example.com" style={inp} />
                     {invMsg && <div style={{ fontSize: 12, color: invMsg === 'Invited!' ? '#14805f' : '#cf3f36' }}>{invMsg}</div>}
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button onClick={() => setInviteOpen(false)} style={{ flex: 1, padding: '7px 12px', borderRadius: 7, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
