@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useVideoDecision } from './VideoDecisionContext';
 
 interface Props {
@@ -16,8 +16,14 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
   const { markDecided } = useVideoDecision();
+  // setState('loading') does not take effect until the next render, so a fast
+  // double-tap on a confirm button fires the request twice. A ref flips
+  // synchronously on the first call and blocks the second.
+  const inFlight = useRef(false);
 
   async function approve() {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setState('loading');
     setError('');
     try {
@@ -34,12 +40,17 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
       setState('done');
       markDecided();
     } catch (e) {
+      // Released only on failure: a successful decision is final, and the
+      // 'done' branch replaces these buttons entirely.
+      inFlight.current = false;
       setError(e instanceof Error ? e.message : 'Something went wrong');
       setState('idle');
     }
   }
 
   async function submitChangesRequest() {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setState('loading');
     setError('');
     try {
@@ -60,6 +71,7 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
       setState('done');
       markDecided();
     } catch (e) {
+      inFlight.current = false;
       setError(e instanceof Error ? e.message : 'Something went wrong');
       setState('revising');
     }
@@ -122,7 +134,11 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
           >
             Cancel
           </button>
+          {/* No disabled prop: once the request starts the component renders
+              its 'loading' branch and this button unmounts. The ref guard in
+              the handler is what stops a same-tick double click. */}
           <button
+            type="button"
             onClick={submitChangesRequest}
             style={{
               flex: 2, padding: '11px 14px', borderRadius: 13, border: 'none',
@@ -160,7 +176,10 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
           >
             Cancel
           </button>
+          {/* See the note on the request-changes button: the ref guard, not a
+              disabled prop, is what prevents a duplicate submission here. */}
           <button
+            type="button"
             onClick={approve}
             style={{
               flex: 2, padding: '11px 14px', borderRadius: 13, border: 'none',

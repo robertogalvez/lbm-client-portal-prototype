@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Toggle } from '@/components/ui/Toggle';
 
 interface PortalUser {
@@ -103,6 +103,10 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
   const [invEmail, setInvEmail] = useState('');
   const [invName, setInvName] = useState('');
   const [inviting, setInviting] = useState(false);
+  // Shared in-flight flag for the drawer's mutating actions. Unlike the
+  // useState flags above it updates synchronously, so it is what actually
+  // blocks a second click landing before the re-render disables the button.
+  const mutating = useRef(false);
   const [invMsg, setInvMsg] = useState('');
 
   function openEdit(c: ClientRecord) {
@@ -163,7 +167,11 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
 
   async function del() {
     if (!selected) return;
+    // setDeleting only takes effect on the next render, so the ref is what
+    // actually stops a second click from firing a second DELETE.
+    if (mutating.current) return;
     if (!confirm(`Delete "${selected.name}"? This cannot be undone, and it will reappear on the next ClickUp sync if it's still Active/Inactive there.`)) return;
+    mutating.current = true;
     setDeleting(true); setMsg('');
     try {
       const res = await fetch(`/api/admin/clients/${selected.id}`, { method: 'DELETE' });
@@ -174,6 +182,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Error');
     } finally {
+      mutating.current = false;
       setDeleting(false);
     }
   }
@@ -226,6 +235,9 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
 
   async function invite() {
     if (!selected || !invEmail || !invName) return;
+    // Guards against a double-click sending the client two invite emails.
+    if (mutating.current) return;
+    mutating.current = true;
     setInviting(true); setInvMsg('');
     try {
       const res = await fetch('/api/admin/create-client', {
@@ -244,6 +256,7 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
     } catch (e) {
       setInvMsg(e instanceof Error ? e.message : 'Error');
     } finally {
+      mutating.current = false;
       setInviting(false);
     }
   }
