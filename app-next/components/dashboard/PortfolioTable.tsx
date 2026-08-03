@@ -2,7 +2,19 @@
 
 import { useMemo, useState } from 'react';
 import { MetricStrip, type KpiData } from './MetricStrip';
+import { PortfolioMonthTable } from './PortfolioMonthTable';
 import type { HealthTier } from '@/lib/contracts';
+
+// Current month + the 5 before it, for the month look-back select.
+function recentMonths(): { value: string; label: string }[] {
+  const now = new Date();
+  return Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    return { value, label };
+  });
+}
 
 export interface PortfolioClientRow {
   id: string; // contract_periods.id
@@ -106,6 +118,8 @@ export function PortfolioTable({ kpis, rows, onSelect }: Props) {
   const [healthFilter, setHealthFilter] = useState<'all' | HealthTier>('all');
   const [sortKey, setSortKey] = useState<'client' | 'delivery' | 'inflight' | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [period, setPeriod] = useState('current');
+  const months = useMemo(() => recentMonths(), []);
 
   const healthCounts = useMemo(() => {
     const counts: Record<string, number> = { all: rows.length };
@@ -184,44 +198,52 @@ export function PortfolioTable({ kpis, rows, onSelect }: Props) {
             );
           })}
         </div>
-        <select disabled value="current" style={{ marginLeft: 'auto', fontSize: 13, padding: '6px 26px 6px 10px', borderRadius: 7, border: '1px solid #d4dbe2', color: '#8b97a4', background: '#fff' }} title="Month look-back is not built yet">
+        <select
+          value={period}
+          onChange={e => setPeriod(e.target.value)}
+          style={{ marginLeft: 'auto', fontSize: 13, padding: '6px 26px 6px 10px', borderRadius: 7, border: '1px solid #d4dbe2', color: '#111c28', background: '#fff' }}
+        >
           <option value="current">Current contract</option>
+          {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
         </select>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, color: '#8b97a4' }}>{filtered.length} of {rows.length}</span>
+        {period === 'current' && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, color: '#8b97a4' }}>{filtered.length} of {rows.length}</span>}
       </div>
 
-      {/* Table */}
-      <div style={{ border: '1px solid #e7ebef', borderRadius: 13, background: '#fff', overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: 940, borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr>
-                <th style={thStyle} onClick={() => toggleSort('client')} role="button">Client{sortIndicator('client')}</th>
-                <th style={thStyle}>Type</th>
-                <th style={thStyle}>Contract</th>
-                <th style={thStyle} onClick={() => toggleSort('delivery')} role="button">Delivery{sortIndicator('delivery')}</th>
-                <th style={thStyle}>Footage</th>
-                <th style={thStyle} onClick={() => toggleSort('inflight')} role="button">In flight{sortIndicator('inflight')}</th>
-                <th style={thStyle}>Status</th>
-                <th style={thStyle}>Billing</th>
-                <th style={thStyle} />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 && (
-                <tr><td colSpan={9} style={{ padding: '32px 16px', textAlign: 'center', color: '#8b97a4' }}>No active contracts yet.</td></tr>
-              )}
-              {GROUPS.map(group => {
-                const groupRows = sortWithin(filtered.filter(r => group.healths.includes(r.health)));
-                if (groupRows.length === 0) return null;
-                return (
-                  <FragmentGroup key={group.key} group={group} rows={groupRows} onSelect={onSelect} />
-                );
-              })}
-            </tbody>
-          </table>
+      {period !== 'current' ? (
+        <PortfolioMonthTable key={period} month={period} monthLabel={months.find(m => m.value === period)?.label ?? period} />
+      ) : (
+        <div style={{ border: '1px solid #e7ebef', borderRadius: 13, background: '#fff', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 940, borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th style={thStyle} onClick={() => toggleSort('client')} role="button">Client{sortIndicator('client')}</th>
+                  <th style={thStyle}>Type</th>
+                  <th style={thStyle}>Contract</th>
+                  <th style={thStyle} onClick={() => toggleSort('delivery')} role="button">Delivery{sortIndicator('delivery')}</th>
+                  <th style={thStyle}>Footage</th>
+                  <th style={thStyle} onClick={() => toggleSort('inflight')} role="button">In flight{sortIndicator('inflight')}</th>
+                  <th style={thStyle}>Status</th>
+                  <th style={thStyle}>Billing</th>
+                  <th style={thStyle} />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 && (
+                  <tr><td colSpan={9} style={{ padding: '32px 16px', textAlign: 'center', color: '#8b97a4' }}>No active contracts yet.</td></tr>
+                )}
+                {GROUPS.map(group => {
+                  const groupRows = sortWithin(filtered.filter(r => group.healths.includes(r.health)));
+                  if (groupRows.length === 0) return null;
+                  return (
+                    <FragmentGroup key={group.key} group={group} rows={groupRows} onSelect={onSelect} />
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
