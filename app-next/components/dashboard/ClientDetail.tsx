@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { HealthTier } from '@/lib/contracts';
 import { PLATFORMS } from './AssetInventory';
+import { ClientEditPanel, type ContractPeriodRecord, type SocialLinks } from '@/components/shared/ClientEditPanel';
 
 export interface LedgerRow {
   id: string;
@@ -26,6 +27,7 @@ export interface ContractHistoryRow {
 }
 
 export interface ClientDetailData {
+  clientId: string;
   name: string;
   type: 'retainer' | 'package';
   health: HealthTier;
@@ -51,7 +53,8 @@ export interface ClientDetailData {
   deliverableMix: { type: 'short_form' | 'youtube' | 'ad'; delivered: number }[];
   ledger: LedgerRow[];
   contractHistory: ContractHistoryRow[];
-  socialLinks: Record<string, { handle?: string; url?: string }> | null;
+  socialLinks: SocialLinks | null;
+  periods: ContractPeriodRecord[];
 }
 
 const HEALTH_LABEL: Record<HealthTier, string> = {
@@ -88,12 +91,14 @@ export function ClientDetail({ id, name, onBack }: { id: string; name: string; o
   const [data, setData] = useState<ClientDetailData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  function load() {
     fetch(`/api/dashboard/client-detail?id=${encodeURIComponent(id)}`)
       .then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status}`)))
       .then(setData)
       .catch(e => setError(e instanceof Error ? e.message : 'Failed to load'));
-  }, [id]);
+  }
+
+  useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps -- load reads `id` via closure and is redefined each render; re-running per `id` change (not per `load` identity change) is the intended behavior.
 
   return (
     <div>
@@ -104,13 +109,24 @@ export function ClientDetail({ id, name, onBack }: { id: string; name: string; o
 
       {error && <div style={{ color: '#cf3f36', fontSize: 13.5 }}>Couldn&apos;t load this client: {error}</div>}
       {!data && !error && <div style={{ color: '#8b97a4', fontSize: 13.5 }}>Loading…</div>}
-      {data && <ClientDetailBody data={data} />}
+      {data && <ClientDetailBody data={data} onRefresh={load} />}
     </div>
   );
 }
 
-function ClientDetailBody({ data }: { data: ClientDetailData }) {
+function ClientDetailBody({ data, onRefresh }: { data: ClientDetailData; onRefresh: () => void }) {
   const [ledgerFilter, setLedgerFilter] = useState<string>('all');
+  const [editOpen, setEditOpen] = useState(false);
+
+  // Escape closes the edit drawer — same pattern as the admin Clients drawer.
+  useEffect(() => {
+    if (!editOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setEditOpen(false);
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [editOpen]);
 
   const groupedLedger = LEDGER_STATUS_GROUPS.map(g => ({
     ...g,
@@ -138,6 +154,14 @@ function ClientDetailBody({ data }: { data: ClientDetailData }) {
           <div style={{ fontSize: 12.5, color: '#8b97a4', marginTop: 2 }}>{data.currentPeriod.label}</div>
         </div>
         <span style={{ fontSize: 12, fontWeight: 600, padding: '4px 11px', borderRadius: 8, color: '#54616f', background: '#eef1f4' }}>{HEALTH_LABEL[data.health]}</span>
+        <button
+          type="button"
+          onClick={() => setEditOpen(true)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" /></svg>
+          Edit contract & assets
+        </button>
       </div>
 
       {/* 6-col stat grid */}
@@ -286,6 +310,35 @@ function ClientDetailBody({ data }: { data: ClientDetailData }) {
           </Card>
         </div>
       </div>
+
+      {/* Edit drawer — same ClientEditPanel used by the admin Clients page,
+          so AMs can update contracts/social links without leaving this view. */}
+      {editOpen && (
+        <>
+          <div aria-hidden="true" onClick={() => setEditOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(17,28,40,.3)', zIndex: 40 }} />
+          <div role="dialog" aria-modal="true" aria-labelledby="client-edit-drawer-title" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 460, background: '#fff', boxShadow: '-8px 0 32px rgba(17,28,40,.12)', zIndex: 50, display: 'flex', flexDirection: 'column', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e7ebef', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <h3 id="client-edit-drawer-title" style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: 0 }}>{data.name}</h3>
+                <div style={{ fontSize: 13, color: '#8b97a4', marginTop: 3 }}>Edit contract & assets</div>
+              </div>
+              <button type="button" aria-label="Close edit panel" onClick={() => setEditOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#54616f', padding: 4 }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}><path d="M18 6 6 18M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
+              <ClientEditPanel
+                key={data.clientId}
+                clientId={data.clientId}
+                periods={data.periods}
+                socialLinks={data.socialLinks}
+                onPeriodsChange={onRefresh}
+                onSocialLinksSaved={onRefresh}
+              />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

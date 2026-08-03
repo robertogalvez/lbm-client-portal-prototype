@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { clients as clientsTable, contractPeriods } from '@/lib/db/schema';
+import { clients as clientsTable, contractPeriods, contractMonths } from '@/lib/db/schema';
 import { getDashboardTasks } from '@/lib/dashboard-tasks';
 import { fulfilment, beyondContract, healthTier, onCadence } from '@/lib/contracts';
 import type { ClientDetailData, LedgerRow, ContractHistoryRow } from '@/components/dashboard/ClientDetail';
+import type { ContractPeriodRecord } from '@/components/shared/ClientEditPanel';
 
 const EDITING_STATUSES = new Set(['qc final - am', 'tc - qc (somu)', 'in progress (corrections)', 'in progress (editor)']);
 function norm(s: string) {
@@ -45,16 +46,25 @@ export async function GET(req: Request) {
   const allPeriods = await db
     .select({
       id: contractPeriods.id,
+      clientId: contractPeriods.clientId,
       label: contractPeriods.label,
       startsOn: contractPeriods.startsOn,
       endsOn: contractPeriods.endsOn,
+      model: contractPeriods.model,
       cadencePerWeek: contractPeriods.cadencePerWeek,
+      monthlyQuota: contractPeriods.monthlyQuota,
       contractedTotal: contractPeriods.contractedTotal,
       state: contractPeriods.state,
+      carriedIn: contractPeriods.carriedIn,
+      notes: contractPeriods.notes,
     })
     .from(contractPeriods)
     .where(eq(contractPeriods.clientId, period.clientId))
     .orderBy(contractPeriods.startsOn);
+
+  const allMonths = allPeriods.length > 0
+    ? await db.select().from(contractMonths).where(inArray(contractMonths.periodId, allPeriods.map(p => p.id)))
+    : [];
 
   const { tasks: allTasks } = await getDashboardTasks();
   const clientTasks = allTasks.filter(t => norm(t.clientName ?? '') === norm(period.clientName));
@@ -99,7 +109,13 @@ export async function GET(req: Request) {
     };
   });
 
+  const periods: ContractPeriodRecord[] = allPeriods.map(p => ({
+    ...p,
+    months: allMonths.filter(m => m.periodId === p.id),
+  }));
+
   const data: ClientDetailData = {
+    clientId: period.clientId,
     name: period.clientName,
     type: period.model === 'package' ? 'package' : 'retainer',
     health,
@@ -126,6 +142,7 @@ export async function GET(req: Request) {
     ledger,
     contractHistory,
     socialLinks: period.socialLinks as Record<string, { handle?: string; url?: string }> | null,
+    periods,
   };
 
   return NextResponse.json(data);
