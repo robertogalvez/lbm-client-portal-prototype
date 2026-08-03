@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const PUBLIC_PATHS = [
-  '/login', '/api/auth', '/api/migrate', '/api/sync',
+  '/login', '/api/auth', '/api/migrate', '/api/sync', '/api/seed-contracts',
   // Self-authenticating endpoints (cron secret / HMAC / migrate secret in-handler)
   // must bypass the session redirect — they're called by ClickUp and the
   // scheduled functions, which have no session cookie.
