@@ -2,8 +2,8 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { authUsers, clients } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { authUsers, clients, contractPeriods, contractMonths } from '@/lib/db/schema';
+import { eq, inArray } from 'drizzle-orm';
 import { getTasksFromList, getClientQuotas } from '@/lib/clickup';
 import { getThumbnailUrl } from '@/lib/frameio';
 import { statusColors } from '@/components/ui/StatusBadge';
@@ -84,12 +84,23 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
       value => ({ value, error: null as string | null }),
       (e: unknown) => ({ value: [] as ClientQuota[], error: e instanceof Error ? e.message : 'Unknown error' }),
     ),
-    db.select({ showCalendar: clients.showCalendar, showInvoices: clients.showInvoices, showReport: clients.showReport }).from(clients).where(eq(clients.name, clientName)).limit(1),
+    db.select({ id: clients.id, showCalendar: clients.showCalendar, showInvoices: clients.showInvoices, showReport: clients.showReport }).from(clients).where(eq(clients.name, clientName)).limit(1),
   ]);
   const allTasks = tasksResult.value;
   const clientQuotas = quotasResult.value;
   const fetchError = tasksResult.error ?? quotasResult.error;
   const showCalendar = clientRecord?.showCalendar ?? false;
+
+  // Report contract data (§5.6/§7.1) — every period on file for this client
+  // plus their deviation-only contract_months rows, so the report's month
+  // selector can resolve the right agreement for whichever month is chosen,
+  // the same way the dashboard's month mode does.
+  const reportPeriods = clientRecord?.id
+    ? await db.select().from(contractPeriods).where(eq(contractPeriods.clientId, clientRecord.id)).orderBy(contractPeriods.startsOn)
+    : [];
+  const reportMonthRows = reportPeriods.length > 0
+    ? await db.select().from(contractMonths).where(inArray(contractMonths.periodId, reportPeriods.map(p => p.id)))
+    : [];
   const quickbooksConnected = isQuickBooksConfigured();
   // Only surface the Invoices tab once QuickBooks is actually wired up — otherwise
   // clients would see a tab full of labeled "sample data" as if it were real.
@@ -324,13 +335,20 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
 
           {/* ── Report tab ── */}
           {showReport && effectiveTab === 'report' && (
-            <MonthlyReport clientName={clientName} videos={postedTasks.map(t => ({
-              clickupTaskId: t.clickupTaskId,
-              title: t.title,
-              datePosted: t.publishDate ?? t.dateUpdated,
-              frameLink: t.frameLink,
-              instagramUrl: t.instagramUrl,
-            }))} />
+            <MonthlyReport
+              clientName={clientName}
+              periods={reportPeriods}
+              monthRows={reportMonthRows}
+              tasks={clientTasks.map(t => ({
+                clickupTaskId: t.clickupTaskId,
+                title: t.clientFacingTitle || t.title,
+                status: t.status,
+                deliverableType: t.deliverableType,
+                datePosted: t.publishDate ?? t.dateUpdated,
+                frameLink: t.frameLink,
+                instagramUrl: t.instagramUrl,
+              }))}
+            />
           )}
 
           {/* ── Account tab ── */}
@@ -579,13 +597,20 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
         )}
 
         {showReport && effectiveTab === 'report' && (
-          <MonthlyReport clientName={clientName} videos={postedTasks.map(t => ({
-            clickupTaskId: t.clickupTaskId,
-            title: t.title,
-            datePosted: t.publishDate ?? t.dateUpdated,
-            frameLink: t.frameLink,
-            instagramUrl: t.instagramUrl,
-          }))} />
+          <MonthlyReport
+            clientName={clientName}
+            periods={reportPeriods}
+            monthRows={reportMonthRows}
+            tasks={clientTasks.map(t => ({
+              clickupTaskId: t.clickupTaskId,
+              title: t.clientFacingTitle || t.title,
+              status: t.status,
+              deliverableType: t.deliverableType,
+              datePosted: t.publishDate ?? t.dateUpdated,
+              frameLink: t.frameLink,
+              instagramUrl: t.instagramUrl,
+            }))}
+          />
         )}
 
         {effectiveTab === 'account' && (
