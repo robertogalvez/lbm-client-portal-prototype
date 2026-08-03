@@ -123,6 +123,23 @@ export function attentionScore(input: { onHold: number; pendingReview: number; e
   return input.onHold * 3 + input.pendingReview * 2 + input.editing * 0.2 + HEALTH_WEIGHT[input.health];
 }
 
+/**
+ * First-pass health heuristic — the design handoff references health tiers
+ * (critical/watch/on-track/…) throughout but never specifies how to derive
+ * one from data; it's treated as already known. This maps it from what we
+ * do have: the contract's commercial state plus its fulfilment fraction.
+ * Thresholds (40% / 75%) are a starting point, not a spec value — revisit
+ * with LBM once real usage shows whether they group clients sensibly.
+ */
+export function healthTier(input: { contractState: ContractPeriod['state']; fulfilment: number | null }): HealthTier {
+  if (input.contractState === 'completed') return 'completed';
+  if (input.contractState === 'paused') return 'watch';
+  if (input.fulfilment === null) return 'on-track';
+  if (input.fulfilment < 0.4) return 'critical';
+  if (input.fulfilment < 0.75) return 'watch';
+  return 'on-track';
+}
+
 // ── Expiry / date labels (§7.2) ─────────────────────────────────────────────
 // Always computed against the real current date at render — never hardcode
 // a reference date, and never memoize this across renders.

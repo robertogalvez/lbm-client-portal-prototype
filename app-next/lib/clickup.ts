@@ -61,11 +61,20 @@ export interface MappedTask {
   assignedAmName: string | null;
   editorName: string | null;
   isYoutube: boolean;
+  deliverableType: 'short_form' | 'youtube' | 'ad';
   revisions: number | null;
   dateUpdated: string;
   dueDate: string | null;
   publishDate: string | null;   // ClickUp "Publish Date" — the scheduled go-live date
 }
+
+const DELIVERABLE_TYPE_MAP: Record<string, 'short_form' | 'youtube' | 'ad'> = {
+  'short-form': 'short_form',
+  'short form': 'short_form',
+  'youtube': 'youtube',
+  'ad': 'ad',
+  'ads': 'ad',
+};
 
 function findField(task: ClickUpTask, name: string): ClickUpField | undefined {
   return task.custom_fields.find(f => f.name === name);
@@ -95,6 +104,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
   const publishDateField = findField(task, 'Publish Date');
   const clientFacingTitleField = findField(task, 'Client-Facing Title');
   const revisionsField = findField(task, 'Revision #');
+  const deliverableTypeField = findField(task, 'Deliverable Type');
 
   const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
   const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
@@ -107,6 +117,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
   const amName    = amUsers?.[0]?.username ?? null;
   const editorName = task.assignees?.[0]?.username ?? null;
   const isYoutube  = (task.tags ?? []).some(tag => tag.name?.toLowerCase() === 'youtube');
+  const deliverableTypeIdx = typeof deliverableTypeField?.value === 'number' ? deliverableTypeField.value : null;
 
   let dueDate: string | null = null;
   if (task.due_date) {
@@ -145,6 +156,14 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
   const normStatus = task.status.status.toLowerCase().replace(/\s+/g, ' ').trim();
   const isPendingReview = normStatus === 'for client review';
 
+  // 'Deliverable Type' is a new ClickUp dropdown (short_form|youtube|ad) —
+  // falls back to the isYoutube tag for tasks created before the field
+  // existed, matching the same fallback in the sync-clickup.mts cron.
+  const deliverableTypeRaw = resolve(deliverableTypeField, deliverableTypeIdx);
+  const deliverableType = deliverableTypeRaw
+    ? (DELIVERABLE_TYPE_MAP[deliverableTypeRaw.toLowerCase()] ?? 'short_form')
+    : (isYoutube ? 'youtube' : 'short_form');
+
   return {
     clickupTaskId:    task.id,
     title:            task.name,
@@ -164,6 +183,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     assignedAmName:   amName,
     editorName,
     isYoutube,
+    deliverableType,
     revisions,
     dateUpdated:      task.date_updated,
     dueDate,
