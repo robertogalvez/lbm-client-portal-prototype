@@ -30,9 +30,17 @@ type PeriodSeed = {
 // doesn't reconcile against "Original Contract Scope" in the source sheet,
 // the sheet itself is internally inconsistent — noted per row rather than
 // silently corrected.
+// Production `clients.name` rows are first-name-only (confirmed via the
+// route's own allClientNames diagnostic — e.g. "Adam", "Volvi", "Hector",
+// "Saeed"), not "First Last" as the Inventory tab spells them. clientMatch
+// below matches that reality. Apex Interior has no corresponding client row
+// at all (not yet onboarded) — left out entirely rather than guessed at;
+// re-add once that client exists. Jay & Kristina Rodriguez are two separate
+// client rows in production ("Jay", "Kristina") with no way to represent a
+// joint client, so the package is attached to "Jay" only.
 const PERIODS: PeriodSeed[] = [
   {
-    clientMatch: 'adam sperber',
+    clientMatch: 'adam',
     label: 'Contract 1',
     startsOn: '2025-11-17',
     endsOn: '2026-02-15',
@@ -45,7 +53,7 @@ const PERIODS: PeriodSeed[] = [
     notes: 'Seeded from Inventory tab. Ledger runs past this contract\'s end date (known issue — see contract-schema-spec.md §11.2); dates left as-authored, not corrected here.',
   },
   {
-    clientMatch: 'volvi stern',
+    clientMatch: 'volvi',
     label: 'Contract 1',
     startsOn: '2026-01-20',
     endsOn: '2026-04-20',
@@ -58,7 +66,7 @@ const PERIODS: PeriodSeed[] = [
     notes: 'Seeded from Inventory tab. Renewed into Contract 2 (Apr 21, 2026). Sheet\'s own "Original Contract Scope" (24) and "Total Managed Deliverables" (16) disagree — used the latter; reconcile against LBM before relying on this number.',
   },
   {
-    clientMatch: 'volvi stern',
+    clientMatch: 'volvi',
     label: 'Contract 2',
     startsOn: '2026-04-21',
     endsOn: '2026-07-20',
@@ -71,7 +79,7 @@ const PERIODS: PeriodSeed[] = [
     notes: 'Seeded from Inventory tab.',
   },
   {
-    clientMatch: 'hector rosero',
+    clientMatch: 'hector',
     label: 'Contract 1',
     startsOn: '2026-02-10',
     endsOn: '2026-05-10',
@@ -83,21 +91,16 @@ const PERIODS: PeriodSeed[] = [
     carriedIn: 0,
     notes: 'Seeded from Inventory tab.',
   },
+  // Apex Interior omitted: no matching client row exists in production yet
+  // (confirmed via allClientNames). Re-add once that client is onboarded:
+  //   clientMatch: 'apex' (or whatever the client row ends up named), label:
+  //   'Contract 1', startsOn: '2026-05-12', endsOn: '2026-08-12', model:
+  //   'retainer', cadencePerWeek: 2, monthlyQuota: 8, contractedTotal: 25
+  //   (24 short-form + 1 website), state: 'active', carriedIn: 0, notes:
+  //   'Seeded from Inventory tab. Status noted as "Production Delayed –
+  //   Pending Footage" in the source sheet.'
   {
-    clientMatch: 'apex interior',
-    label: 'Contract 1',
-    startsOn: '2026-05-12',
-    endsOn: '2026-08-12',
-    model: 'retainer',
-    cadencePerWeek: 2,
-    monthlyQuota: 8,
-    contractedTotal: 25, // 24 short-form + 1 website
-    state: 'active',
-    carriedIn: 0,
-    notes: 'Seeded from Inventory tab. Status noted as "Production Delayed – Pending Footage" in the source sheet.',
-  },
-  {
-    clientMatch: 'saeed hammond',
+    clientMatch: 'saeed',
     label: 'Contract 1',
     startsOn: '2026-02-20',
     endsOn: '2026-05-20',
@@ -110,7 +113,7 @@ const PERIODS: PeriodSeed[] = [
     notes: 'Seeded from Inventory tab. Inventory tab (12/mo, 3x/week) conflicts with the Strategic Framework tab (8/mo, 2x/week) per contract-schema-spec.md §11.1 — this row uses Inventory; surface the conflict in the UI rather than silently picking a source.',
   },
   {
-    clientMatch: 'rodriguez', // "Jay & Kristina Rodriguez"
+    clientMatch: 'jay', // "Jay & Kristina Rodriguez" — attached to the "Jay" client row; "Kristina" is a separate client row production has no joint-client concept for
     label: 'Package 1',
     startsOn: '2026-05-01',
     endsOn: null, // package, open-ended ("Upon Completion")
@@ -120,7 +123,7 @@ const PERIODS: PeriodSeed[] = [
     contractedTotal: 40,
     state: 'active',
     carriedIn: 0,
-    notes: 'Seeded from Inventory tab, "Package-Based Clients" section.',
+    notes: 'Seeded from Inventory tab, "Package-Based Clients" section. Contract is jointly for Jay & Kristina Rodriguez, but production has separate "Jay" and "Kristina" client rows with no joint-client concept — attached to "Jay" only.',
   },
 ];
 
@@ -128,7 +131,7 @@ const PERIODS: PeriodSeed[] = [
 // contract-schema-spec.md, matched by (clientMatch, period label).
 const MONTHS: { clientMatch: string; periodLabel: string; month: string; active: boolean; quotaOverride: number | null; scopeNote: string | null; amended: boolean; note: string | null }[] = [
   {
-    clientMatch: 'hector rosero',
+    clientMatch: 'hector',
     periodLabel: 'Contract 1',
     month: '2026-04',
     active: true,
@@ -138,7 +141,7 @@ const MONTHS: { clientMatch: string; periodLabel: string; month: string; active:
     note: 'Mid-term ad amendment.',
   },
   {
-    clientMatch: 'volvi stern',
+    clientMatch: 'volvi',
     periodLabel: 'Contract 2',
     month: '2026-04',
     active: true,
@@ -148,7 +151,7 @@ const MONTHS: { clientMatch: string; periodLabel: string; month: string; active:
     note: 'Contract started Apr 21 — part month.',
   },
   {
-    clientMatch: 'adam sperber',
+    clientMatch: 'adam',
     periodLabel: 'Contract 1',
     month: '2026-05',
     active: false,
