@@ -95,6 +95,11 @@ export const clients = pgTable('clients', {
   // invites later (teammates) are untouched by sync — only the account this
   // column points at tracks ClickUp changes.
   primaryContactUserId: text('primary_contact_user_id'),
+  // Admin-entered platform handles for the Asset inventory tab — keyed by
+  // platform id ('instagram'|'facebook'|'tiktok'|'linkedin'|'youtube'|
+  // 'website'), each an optional { handle, url } pair. Not ClickUp-owned;
+  // AMs enter this directly, same as brandingConfig.
+  socialLinks:       jsonb('social_links'),
 });
 
 export const videoCache = pgTable('video_cache', {

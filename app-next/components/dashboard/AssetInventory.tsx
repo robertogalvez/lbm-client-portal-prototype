@@ -5,9 +5,17 @@ import { useState } from 'react';
 export interface AssetInventoryRow {
   id: string;
   name: string;
+  socialLinks: Record<string, { handle?: string; url?: string }> | null;
 }
 
-const PLATFORMS = ['Instagram', 'Facebook', 'TikTok', 'LinkedIn', 'YouTube', 'Website'] as const;
+const PLATFORMS = [
+  { key: 'instagram', label: 'Instagram', color: '#E1306C' },
+  { key: 'facebook', label: 'Facebook', color: '#1877F2' },
+  { key: 'tiktok', label: 'TikTok', color: '#111c28' },
+  { key: 'linkedin', label: 'LinkedIn', color: '#0A66C2' },
+  { key: 'youtube', label: 'YouTube', color: '#FF0000' },
+  { key: 'website', label: 'Website', color: '#54616f' },
+] as const;
 
 function initials(name: string): string {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -41,7 +49,7 @@ export function AssetInventory({ rows }: { rows: AssetInventoryRow[] }) {
             <thead>
               <tr>
                 <th style={thSticky}>Client</th>
-                {PLATFORMS.map(p => <th key={p} style={th}>{p}</th>)}
+                {PLATFORMS.map(p => <th key={p.key} style={th}>{p.label}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -56,16 +64,24 @@ export function AssetInventory({ rows }: { rows: AssetInventoryRow[] }) {
                       <span style={{ fontWeight: 600 }}>{r.name}</span>
                     </div>
                   </td>
-                  {PLATFORMS.map(p => (
-                    <td key={p} style={td}>
-                      {/* No per-platform handle is modeled in the schema yet
-                          (clients.brandingConfig holds Vista Social profile
-                          ids, not raw handles) — an em dash is the design's
-                          own documented fallback for a missing cell (§5.5),
-                          not a placeholder invented here. */}
-                      <span style={{ color: '#c3cbd3' }}>—</span>
-                    </td>
-                  ))}
+                  {PLATFORMS.map(p => {
+                    const entry = r.socialLinks?.[p.key];
+                    const handle = entry?.handle;
+                    const url = entry?.url;
+                    return (
+                      <td key={p.key} style={td}>
+                        {!handle && !url ? (
+                          // Design's own documented fallback for a missing
+                          // cell (§5.5) — not a placeholder invented here.
+                          <span style={{ color: '#c3cbd3' }}>—</span>
+                        ) : url ? (
+                          <a href={url} target="_blank" rel="noreferrer" style={{ color: p.color, fontWeight: 600, textDecoration: 'none' }}>{handle || url}</a>
+                        ) : (
+                          <span style={{ color: p.color, fontWeight: 600 }}>{handle}</span>
+                        )}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
