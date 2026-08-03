@@ -239,6 +239,8 @@ export async function POST(req: Request) {
       periodsUnmatchedClientNames: unmatched,
       monthsInserted,
       monthsSkippedNoPeriod: monthsSkipped,
+      // Diagnostic aid for fixing clientMatch strings when names above are unmatched.
+      allClientNames: unmatched.length > 0 ? clients.map(c => c.name) : undefined,
     });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
