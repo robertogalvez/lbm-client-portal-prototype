@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { InfoPopover } from '@/components/ui/Tooltip';
 import { EDITOR_PHASE_COLS } from './editor-phases';
 import { PipelineReport, type PipelineReportClient } from './PipelineReport';
@@ -8,6 +8,7 @@ import { MetricStrip, type KpiData } from './MetricStrip';
 import { PortfolioTable, type PortfolioClientRow } from './PortfolioTable';
 import { ClientDetail } from './ClientDetail';
 import { AssetInventory, type AssetInventoryRow } from './AssetInventory';
+import { FiltersBar } from './FiltersBar';
 export type { PipelineReportClient } from './PipelineReport';
 export type { KpiData } from './MetricStrip';
 export type { PortfolioClientRow } from './PortfolioTable';
@@ -45,6 +46,9 @@ interface Props {
   portfolioRows: PortfolioClientRow[];
   assetRows: AssetInventoryRow[];
   editors: EditorRow[];
+  allEditors: string[];
+  allAMs: string[];
+  allClients: string[];
   pipelineReport: PipelineReportClient[];
   reportAsOf: string;
   defaultTab?: string;
@@ -108,7 +112,7 @@ const thNum: React.CSSProperties = { ...thStyle, textAlign: 'center' };
 const td: React.CSSProperties = { padding: '11px 18px', borderBottom: '1px solid #e7ebef', verticalAlign: 'middle' };
 const tdNum: React.CSSProperties = { ...td, textAlign: 'center', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
 
-export function DashboardTabs({ kpis, approvals, portfolioKpis, portfolioRows, assetRows, editors, pipelineReport, reportAsOf, defaultTab }: Props) {
+export function DashboardTabs({ kpis, approvals, portfolioKpis, portfolioRows, assetRows, editors, allEditors, allAMs, allClients, pipelineReport, reportAsOf, defaultTab }: Props) {
   const [activeTab, setActiveTab] = useState<'clients' | 'approvals' | 'editors' | 'reports'>(
     (defaultTab as 'clients' | 'approvals' | 'editors' | 'reports') ?? 'clients'
   );
@@ -258,6 +262,11 @@ export function DashboardTabs({ kpis, approvals, portfolioKpis, portfolioRows, a
 
       {/* EDITORS */}
       <div style={{ display: activeTab === 'editors' ? 'block' : 'none', padding: '20px 24px 26px' }}>
+        <div style={{ marginBottom: 14 }}>
+          <Suspense fallback={null}>
+            <FiltersBar members={allEditors} ams={allAMs} clients={allClients} />
+          </Suspense>
+        </div>
         <div style={{ border: '1px solid #e7ebef', borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 18px', borderBottom: '1px solid #e7ebef', flexWrap: 'wrap' }}>
             <div>

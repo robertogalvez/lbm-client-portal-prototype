@@ -15,10 +15,9 @@ interface Props {
   members: string[];
   ams: string[];
   clients: string[];
-  hideDateRange?: boolean;
 }
 
-export function FiltersBar({ members, ams, clients, hideDateRange }: Props) {
+export function FiltersBar({ members, ams, clients }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -30,12 +29,16 @@ export function FiltersBar({ members, ams, clients, hideDateRange }: Props) {
     router.push(`${pathname}?${next.toString()}`);
   }, [params, pathname, router]);
 
+  const clear = useCallback(() => {
+    const next = new URLSearchParams(params.toString());
+    for (const key of ['range', 'member', 'am', 'client']) next.delete(key);
+    router.push(`${pathname}?${next.toString()}`);
+  }, [params, pathname, router]);
+
   const range    = params.get('range')    ?? 'month';
   const member   = params.get('member')   ?? '';
   const am       = params.get('am')       ?? '';
   const client   = params.get('client')   ?? '';
-  const archived = params.get('archived') === '1';
-  const inactive = params.get('inactive') === '1';
 
   const selectStyle: React.CSSProperties = {
     appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
@@ -48,18 +51,16 @@ export function FiltersBar({ members, ams, clients, hideDateRange }: Props) {
     fontSize: 10, color: '#8b97a4', pointerEvents: 'none',
   };
 
-  const hasFilters = (hideDateRange ? false : range !== 'all') || member || am || client || archived || inactive;
+  const hasFilters = range !== 'all' || member || am || client;
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-      {!hideDateRange && (
-        <div style={{ position: 'relative' }}>
-          <select aria-label="Date range" style={selectStyle} value={range} onChange={e => set('range', e.target.value)}>
-            {DATE_RANGES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-          </select>
-          <span style={chevronStyle}>▾</span>
-        </div>
-      )}
+      <div style={{ position: 'relative' }}>
+        <select aria-label="Date range" style={selectStyle} value={range} onChange={e => set('range', e.target.value)}>
+          {DATE_RANGES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+        </select>
+        <span style={chevronStyle}>▾</span>
+      </div>
 
       <div style={{ position: 'relative' }}>
         <select aria-label="Filter by editor" style={selectStyle} value={member} onChange={e => set('member', e.target.value)}>
@@ -85,64 +86,10 @@ export function FiltersBar({ members, ams, clients, hideDateRange }: Props) {
         <span style={chevronStyle}>▾</span>
       </div>
 
-      {/* Archived toggle */}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: '#54616f', userSelect: 'none', padding: '8px 0', minHeight: 40 }}>
-        <input
-          type="checkbox"
-          checked={archived}
-          onChange={e => set('archived', e.target.checked ? '1' : '')}
-          style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
-        />
-        <div
-          aria-hidden="true"
-          style={{
-            width: 36, height: 20, borderRadius: 10,
-            background: archived ? '#FF6000' : '#d4dbe2',
-            position: 'relative', transition: 'background 0.2s',
-            flexShrink: 0,
-          }}
-        >
-          <div style={{
-            position: 'absolute', top: 2, left: archived ? 18 : 2,
-            width: 16, height: 16, borderRadius: '50%', background: '#fff',
-            transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-          }} />
-        </div>
-        Show archived
-      </label>
-
-      {/* Inactive clients toggle */}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#54616f', userSelect: 'none' }}>
-        {/* Same hidden-checkbox pattern as the archived toggle above: this one
-            was a bare div, so it had no control to label and no keyboard path. */}
-        <input
-          type="checkbox"
-          checked={inactive}
-          onChange={e => set('inactive', e.target.checked ? '1' : '')}
-          style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
-        />
-        <div
-          aria-hidden="true"
-          style={{
-            width: 36, height: 20, borderRadius: 10,
-            background: inactive ? '#FF6000' : '#d4dbe2',
-            position: 'relative', transition: 'background 0.2s',
-            flexShrink: 0,
-          }}
-        >
-          <div style={{
-            position: 'absolute', top: 2, left: inactive ? 18 : 2,
-            width: 16, height: 16, borderRadius: '50%', background: '#fff',
-            transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-          }} />
-        </div>
-        Show inactive clients
-      </label>
-
       {hasFilters && (
         <button
           type="button"
-          onClick={() => router.push(pathname)}
+          onClick={clear}
           style={{ fontSize: 12, color: '#8b97a4', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
         >
           Clear filters
