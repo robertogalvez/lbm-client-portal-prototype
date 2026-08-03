@@ -367,10 +367,13 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
         </div>
 
         {/* Tab bar — mobile fixed, desktop inline at bottom of frame */}
-        <nav className="cp-tab-bar">
+        {/* Breakpoint variants of the same nav. Only one is ever displayed and
+            display:none keeps the other out of the accessibility tree, but the
+            labels are still distinct so the two landmarks never collide. */}
+        <nav aria-label="Sections" className="cp-tab-bar">
           <TabItems items={tabItems} />
         </nav>
-        <nav className="cp-tab-bar-desktop">
+        <nav aria-label="Sections, desktop" className="cp-tab-bar-desktop">
           <TabItems items={tabItems} />
         </nav>
       </div>
@@ -379,23 +382,23 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     {/* ─── Desktop layout (≥900px) ─── */}
     <div className="client-desktop">
       {/* Nav */}
-      <nav className="cd-nav">
+      <nav aria-label="Main" className="cd-nav">
         <div className="cd-nav-inner">
           <span className="cd-logo"><em>LEGACY MEDIA</em></span>
           <div className="cd-tabs">
-            <a href="/client?tab=reviews" className={`cd-tab${effectiveTab === 'reviews' ? ' cd-active' : ''}`}>
+            <Link href="/client?tab=reviews" className={`cd-tab${effectiveTab === 'reviews' ? ' cd-active' : ''}`}>
               Reviews {reviewTasks.length > 0 && <span className="cd-tab-badge">{reviewTasks.length}</span>}
-            </a>
+            </Link>
             {showCalendar && (
-              <a href="/client?tab=calendar" className={`cd-tab${effectiveTab === 'calendar' ? ' cd-active' : ''}`}>Calendar</a>
+              <Link href="/client?tab=calendar" className={`cd-tab${effectiveTab === 'calendar' ? ' cd-active' : ''}`}>Calendar</Link>
             )}
             {showInvoices && (
-              <a href="/client?tab=invoices" className={`cd-tab${effectiveTab === 'invoices' ? ' cd-active' : ''}`}>Invoices</a>
+              <Link href="/client?tab=invoices" className={`cd-tab${effectiveTab === 'invoices' ? ' cd-active' : ''}`}>Invoices</Link>
             )}
             {showReport && (
-              <a href="/client?tab=report" className={`cd-tab${effectiveTab === 'report' ? ' cd-active' : ''}`}>Report</a>
+              <Link href="/client?tab=report" className={`cd-tab${effectiveTab === 'report' ? ' cd-active' : ''}`}>Report</Link>
             )}
-            <a href="/client?tab=account" className={`cd-tab${effectiveTab === 'account' ? ' cd-active' : ''}`}>Account</a>
+            <Link href="/client?tab=account" className={`cd-tab${effectiveTab === 'account' ? ' cd-active' : ''}`}>Account</Link>
           </div>
           <div className="cd-nav-right">
             {isAdminClient && (

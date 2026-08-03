@@ -179,6 +179,7 @@ function ForceSyncSection() {
           </div>
         </div>
         <button
+          type="button"
           onClick={handleSync}
           disabled={isDisabled}
           style={{
@@ -259,6 +260,17 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
     setError('');
     setSuccess('');
   }
+
+  // Escape closes the drawer. Clicking the backdrop was the only pointer-free
+  // way out, which is no way out at all without a mouse.
+  useEffect(() => {
+    if (!drawer) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') close();
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [drawer]);
 
   async function saveInvite() {
     setSaving(true);
@@ -353,6 +365,7 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
           <p style={{ fontSize: 13, color: '#8b97a4', margin: '4px 0 0' }}>Manage internal team access and roles</p>
         </div>
         <button
+          type="button"
           onClick={openInvite}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 7,
@@ -425,6 +438,7 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
                   <td style={{ padding: '12px 16px', color: '#8b97a4', fontSize: 12 }}>{fmtDate(user.createdAt)}</td>
                   <td style={{ padding: '12px 16px' }}>
                     <button
+                      type="button"
                       onClick={() => openEdit(user)}
                       style={{
                         fontSize: 12, fontWeight: 600, color: '#54616f',
@@ -447,9 +461,12 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
 
       <ForceSyncSection />
 
-      {/* Drawer overlay */}
+      {/* Drawer overlay. role="presentation" on the backdrop: it is a click-away
+          wrapper around the dialog, not a control in its own right. Escape does
+          the same job for the keyboard. */}
       {drawer && (
         <div
+          role="presentation"
           onClick={close}
           style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)',
@@ -457,6 +474,9 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
           }}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-drawer-title"
             onClick={e => e.stopPropagation()}
             style={{
               width: 380, maxWidth: '92vw', background: '#fff', height: '100%',
@@ -466,10 +486,10 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
           >
             {/* Drawer header */}
             <div style={{ padding: '20px 24px', borderBottom: '1px solid #e7ebef', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#111c28' }}>
+              <div id="settings-drawer-title" style={{ fontSize: 15, fontWeight: 700, color: '#111c28' }}>
                 {drawer.mode === 'invite' ? 'Invite team member' : `Edit ${drawer.user?.name}`}
               </div>
-              <button onClick={close} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b97a4', padding: 11, margin: -7 }}>
+              <button type="button" aria-label="Close" onClick={close} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b97a4', padding: 11, margin: -7 }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
                   <path d="M18 6 6 18M6 6l12 12" />
                 </svg>
@@ -482,8 +502,9 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
               {drawer.mode === 'invite' && (
                 <>
                   <div>
-                    <label style={labelStyle}>Full name</label>
+                    <label htmlFor="member-name" style={labelStyle}>Full name</label>
                     <input
+                      id="member-name"
                       style={inputStyle}
                       value={form.name}
                       onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -491,8 +512,9 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
                     />
                   </div>
                   <div>
-                    <label style={labelStyle}>Email</label>
+                    <label htmlFor="member-email" style={labelStyle}>Email</label>
                     <input
+                      id="member-email"
                       style={inputStyle}
                       type="email"
                       value={form.email}
@@ -504,8 +526,9 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
               )}
 
               <div>
-                <label style={labelStyle}>Role</label>
+                <label htmlFor="member-role" style={labelStyle}>Role</label>
                 <select
+                  id="member-role"
                   style={{ ...inputStyle, cursor: 'pointer' }}
                   value={form.role}
                   onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
@@ -533,8 +556,9 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
                   </label>
                   {form.isAlsoClient && (
                     <div style={{ marginTop: 10 }}>
-                      <label style={labelStyle}>Client name</label>
+                      <label htmlFor="member-client-name" style={labelStyle}>Client name</label>
                       <select
+                        id="member-client-name"
                         style={{ ...inputStyle, cursor: 'pointer' }}
                         value={form.clientName}
                         onChange={e => setForm(f => ({ ...f, clientName: e.target.value }))}
@@ -551,11 +575,12 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
 
               {drawer.mode === 'edit' && form.role === 'account_manager' && (
                 <div>
-                  <label style={labelStyle}>Client decision notifications</label>
+                  <label htmlFor="member-notify-method" style={labelStyle}>Client decision notifications</label>
                   <p style={{ fontSize: 12, color: '#8b97a4', margin: '0 0 8px', lineHeight: 1.5 }}>
                     How this AM is notified when a client approves or requests changes on one of their videos, in addition to the ClickUp task comment.
                   </p>
                   <select
+                    id="member-notify-method"
                     style={{ ...inputStyle, cursor: 'pointer' }}
                     value={form.notifyMethod}
                     onChange={e => setForm(f => ({ ...f, notifyMethod: e.target.value }))}
@@ -567,8 +592,9 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
 
                   {form.notifyMethod === 'sms' && (
                     <div style={{ marginTop: 10 }}>
-                      <label style={labelStyle}>Phone number</label>
+                      <label htmlFor="member-phone" style={labelStyle}>Phone number</label>
                       <input
+                        id="member-phone"
                         style={inputStyle}
                         type="tel"
                         value={form.phone}
@@ -601,6 +627,7 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
             {/* Drawer footer */}
             <div style={{ padding: '16px 24px', borderTop: '1px solid #e7ebef', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button
+                type="button"
                 onClick={drawer.mode === 'invite' ? saveInvite : saveRole}
                 disabled={saving || (drawer.mode === 'invite' && (!form.name || !form.email)) || (drawer.mode === 'edit' && form.notifyMethod === 'sms' && !form.phone.trim())}
                 style={{
@@ -616,6 +643,7 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
 
               {drawer.mode === 'edit' && drawer.user && drawer.user.id !== currentUserId && (
                 <button
+                  type="button"
                   onClick={() => deactivate(drawer.user!)}
                   disabled={saving}
                   style={{

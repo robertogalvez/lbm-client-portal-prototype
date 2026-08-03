@@ -25,7 +25,9 @@ export async function POST() {
 
   let fixed = 0;
   let noValue = 0;
+  let failed = 0;
   const noValueTasks: string[] = [];
+  const failedTasks: string[] = [];
 
   // Bounded concurrency: fetch/patch a handful of tasks at a time instead of
   // one-by-one, without hammering the ClickUp rate limit.
@@ -36,6 +38,16 @@ export async function POST() {
         headers: { Authorization: token },
         cache: 'no-store',
       });
+      // Without this check an error body has no custom_fields, so the task
+      // falls through to the noValue bucket and gets reported as "no Client
+      // Name in ClickUp" when it was really a failed request — the exact
+      // diagnosis this route exists to produce. Eight concurrent requests
+      // make a 429 the likely case.
+      if (!res.ok) {
+        failed++;
+        failedTasks.push(`${row.clickupTaskId} — ${res.status} ${res.statusText}`);
+        return;
+      }
       const task = await res.json();
       const clientField = (task.custom_fields ?? []).find((f: any) => f.name === 'Client Name (AM)');
       const idx = typeof clientField?.value === 'number' ? clientField.value : null;
@@ -58,7 +70,7 @@ export async function POST() {
     }));
   }
 
-  return NextResponse.json({ fixed, noValue, noValueTasks });
+  return NextResponse.json({ fixed, noValue, noValueTasks, failed, failedTasks });
 }
 
 // GET: show what's still null (staff-only, same guard as POST)

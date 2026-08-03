@@ -82,6 +82,7 @@ export function RefreshButton() {
 
   return (
     <button
+      type="button"
       onClick={handleClick}
       disabled={isDisabled}
       title="Sync from ClickUp"

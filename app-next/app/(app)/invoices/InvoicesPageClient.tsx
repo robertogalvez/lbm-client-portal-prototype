@@ -136,6 +136,7 @@ export function InvoicesPageClient({ invoices, connected }: { invoices: Invoice[
           </p>
         </div>
         <button
+          type="button"
           onClick={() => exportCSV(filtered)}
           style={{ fontSize: 13, fontWeight: 600, borderRadius: 8, padding: '9px 14px', border: '1px solid #d4dbe2', background: '#fff', color: '#111c28', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7 }}
         >
@@ -184,6 +185,7 @@ export function InvoicesPageClient({ invoices, connected }: { invoices: Invoice[
               const tone = s === 'all' ? null : STATUS_TONE[s];
               return (
                 <button
+                  type="button"
                   key={s}
                   onClick={() => setStatus(s)}
                   style={{
@@ -254,6 +256,7 @@ export function InvoicesPageClient({ invoices, connected }: { invoices: Invoice[
                     </td>
                     <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                       <button
+                        type="button"
                         onClick={() => downloadInvoice(r)}
                         title="Download"
                         aria-label={`Download invoice ${r.id}`}

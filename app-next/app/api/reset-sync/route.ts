@@ -25,6 +25,11 @@ async function fetchAllTasks(listId: string, token: string) {
       headers: { Authorization: token },
       cache: 'no-store',
     });
+    // Abort rather than break: an error body yields no `tasks`, which would
+    // end pagination early and pass a partial list off as the complete one.
+    if (!res.ok) {
+      throw new Error(`ClickUp list ${listId} page ${page} failed: ${res.status} ${res.statusText}`);
+    }
     const data = await res.json();
     const tasks = data.tasks ?? [];
     all.push(...tasks);
@@ -36,21 +41,18 @@ async function fetchAllTasks(listId: string, token: string) {
 
 async function fetchAllTasksFromFolder(folderId: string, token: string) {
   const res = await fetch(`${BASE}/folder/${folderId}/list`, { headers: { Authorization: token } });
+  if (!res.ok) {
+    throw new Error(`ClickUp folder ${folderId} failed: ${res.status} ${res.statusText}`);
+  }
   const data = await res.json();
   const lists: any[] = data.lists ?? [];
   const results = await Promise.all(lists.map((l: any) => fetchAllTasks(l.id, token)));
   return results.flat();
 }
 
-export async function GET() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const caller = await db.select({ role: authUsers.role }).from(authUsers).where(eq(authUsers.id, session.user.id)).limit(1);
-  if (caller[0]?.role === 'client') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  return runReset();
-}
-
+// POST only: runReset truncates and rebuilds video_cache, so exposing it over
+// GET let a link prefetch or a forged cross-site request wipe the table using
+// the visitor's own session cookie.
 export async function POST() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

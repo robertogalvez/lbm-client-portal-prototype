@@ -21,6 +21,7 @@ export function LogoutButton({ style, label = 'Sign out' }: { style?: React.CSSP
 
   return (
     <button
+      type="button"
       onClick={handleLogout}
       style={{ ...DEFAULT_STYLE, ...style }}
     >

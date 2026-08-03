@@ -84,6 +84,7 @@ export function AmPicker({ members }: { members: string[] }) {
         )}
 
         <button
+          type="button"
           onClick={handleSave}
           disabled={saving || !selected}
           style={{
