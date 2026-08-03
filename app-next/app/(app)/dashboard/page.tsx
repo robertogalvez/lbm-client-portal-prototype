@@ -3,7 +3,7 @@ import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask, getClie
 import { getTasksFromDB } from '@/lib/db/queries';
 import { db } from '@/lib/db';
 import { clients as clientsTable } from '@/lib/db/schema';
-import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, PipelineStage, AttentionClient, TopEditor, StatusTask, AgreedDeliveredRow, BacklogRow, KpiData, PipelineReportClient } from '@/components/dashboard/DashboardTabs';
+import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, BacklogRow, KpiData, PipelineReportClient } from '@/components/dashboard/DashboardTabs';
 import { EDITOR_PHASE_COLS } from '@/components/dashboard/editor-phases';
 import { FiltersBar } from '@/components/dashboard/FiltersBar';
 
@@ -89,26 +89,9 @@ function kpiDelta(current: number, previous: number | null | undefined, higherIs
 
 const parseDate = (s: string) => { const n = Number(s); return isNaN(n) ? new Date(s).getTime() : n; };
 
-const PIPELINE_STAGES: { key: string; label: string; group: string; barColor: string; isRework: boolean }[] = [
-  { key: 'not ready',                 label: 'Not Ready',                  group: 'To do',          barColor: '#aeb9c6', isRework: false },
-  { key: 'backlog',                   label: 'Backlog',                     group: 'To do',          barColor: '#aeb9c6', isRework: false },
-  { key: 'not assigned',              label: 'Not Assigned',                group: 'To do',          barColor: '#aeb9c6', isRework: false },
-  { key: 'in progress (editor)',      label: 'In Progress (Editor)',        group: 'In progress',    barColor: '#2563eb', isRework: false },
-  { key: 'in progress (corrections)', label: 'In Progress (Corrections)',   group: 'In progress',    barColor: '#a86a00', isRework: true  },
-  { key: 'tc - qc (somu)',            label: 'TC / QC (Somu)',              group: 'Quality check',  barColor: '#7c66c4', isRework: false },
-  { key: 'qc final - am',             label: 'QC Final – AM',               group: 'Quality check',  barColor: '#7c66c4', isRework: false },
-  { key: 'for client review',         label: 'For Client Review',           group: 'Review & ship',  barColor: '#a86a00', isRework: false },
-  { key: 'ready to be posted',        label: 'Ready to be Posted',          group: 'Review & ship',  barColor: '#14805f', isRework: false },
-  { key: 'posted in socials',         label: 'Posted in Socials',           group: 'Review & ship',  barColor: '#14805f', isRework: false },
-];
-
-function buildPipeline(tasks: MappedTask[]): PipelineStage[] {
-  const counts: Record<string, number> = {};
-  for (const t of tasks) counts[norm(t.status)] = (counts[norm(t.status)] ?? 0) + 1;
-  return PIPELINE_STAGES.map(s => ({ ...s, count: counts[s.key] ?? 0 }));
-}
-
-const BACKLOG_STATUSES = new Set(PIPELINE_STAGES.filter(s => s.group === 'To do').map(s => s.key));
+// Statuses that count as raw, unedited footage on hand ("To do" stage of the
+// old pipeline funnel) — still needed by buildBacklog's footage-supply math.
+const BACKLOG_STATUSES = new Set(['not ready', 'backlog', 'not assigned']);
 
 function buildBacklog(tasks: MappedTask[]): BacklogRow[] {
   const map = new Map<string, number>();
@@ -211,25 +194,6 @@ function buildClients(tasks: MappedTask[], monthlyPosted: MappedTask[], quotas: 
       };
     })
     .sort((a, b) => b.total - a.total);
-}
-
-function buildAgreedVsDelivered(monthlyPosted: MappedTask[], quotas: ClientQuota[]): AgreedDeliveredRow[] {
-  const delivered = new Map<string, number>();
-  for (const t of monthlyPosted) {
-    if (!t.clientName) continue;
-    const key = norm(t.clientName);
-    delivered.set(key, (delivered.get(key) ?? 0) + 1);
-  }
-
-  return quotas
-    .map(q => ({ name: q.name, agreed: q.reelsPerMonth + q.ytPerMonth }))
-    .filter(q => q.agreed > 0)
-    .map(q => ({
-      name: q.name,
-      agreed: q.agreed,
-      delivered: delivered.get(norm(q.name)) ?? 0,
-    }))
-    .sort((a, b) => b.agreed - a.agreed);
 }
 
 function buildEditors(tasks: MappedTask[]): EditorRow[] {
@@ -358,34 +322,12 @@ export default async function DashboardPage({
 
   const postedThisMonth = monthlyPosted.length;
 
-  const pipeline    = buildPipeline(allTasks);
   const approvals   = buildApprovals(allTasks);
   const backlogRows = buildBacklog(allTasks);
   const clients     = buildClients(tasks, monthlyPosted, clientQuotas, backlogRows);
   const editors     = buildEditors(tasks);
-  const agreedVsDelivered = buildAgreedVsDelivered(monthlyPosted, clientQuotas);
-  const statusTasks: StatusTask[] = allTasks.map(t => ({
-    id: t.clickupTaskId,
-    title: t.title,
-    clientName: t.clientName,
-    amName: t.assignedAmName,
-    status: t.status,
-    frameLink: t.frameLink,
-    instagramUrl: t.instagramUrl,
-  }));
-
-  const attentionClients: AttentionClient[] = clients
-    .filter(c => c.inReview > 0 && c.oldestDays > 3)
-    .map(c => ({ name: c.name, daysWaiting: c.oldestDays }))
-    .sort((a, b) => b.daysWaiting - a.daysWaiting);
-
-  const topEditors: TopEditor[] = editors
-    .filter(e => e.firstPassClean !== null)
-    .slice(0, 3)
-    .map(e => ({ name: e.name, firstPassClean: e.firstPassClean! }));
 
   const monthLabel = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
-  const periodLabel = `${monthLabel} to date`;
 
   // KPI trend deltas vs. the prior comparable window (skipped for 'All time',
   // which has no meaningful "prior" window).
@@ -503,15 +445,9 @@ export default async function DashboardPage({
         approvals={approvals}
         clients={clients}
         editors={editors}
-        pipeline={pipeline}
-        attentionClients={attentionClients}
-        topEditors={topEditors}
-        statusTasks={statusTasks}
-        agreedVsDelivered={agreedVsDelivered}
         pipelineReport={buildPipelineReport(allTasks)}
         reportAsOf={new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-        periodLabel={periodLabel}
-        defaultTab='overview'
+        defaultTab='clients'
       />
     </main>
   );

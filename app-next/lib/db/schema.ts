@@ -1,4 +1,4 @@
-import { pgTable, varchar, text, timestamp, boolean, uuid, integer, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, varchar, text, timestamp, boolean, uuid, integer, jsonb, date } from 'drizzle-orm/pg-core';
 
 // ── BetterAuth tables ────────────────────────────────────────────────────────
 
@@ -133,6 +133,46 @@ export const videoCache = pgTable('video_cache', {
   // whenever the task re-enters "for client review" for a new round.
   reviewEnteredAt:       timestamp('review_entered_at'),
   reviewIdleRemindedAt:  timestamp('review_idle_reminded_at'),
+  // 'short_form' | 'youtube' | 'ad' — replaces isYoutube, which can't express
+  // an ad. Source of truth stays ClickUp (a "Deliverable Type" dropdown
+  // mapped in the sync); isYoutube is kept for backward compatibility with
+  // existing callers rather than dropped in the same change.
+  deliverableType:   varchar('deliverable_type', { length: 20 }).notNull().default('short_form'),
+});
+
+// One row per signed contract. A renewal is a second row for the same
+// client — this is what lets a client read as one client with two
+// contracts rather than two clients.
+export const contractPeriods = pgTable('contract_periods', {
+  id:               uuid('id').defaultRandom().primaryKey(),
+  clientId:         uuid('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  label:            varchar('label', { length: 80 }).notNull(),
+  startsOn:         date('starts_on').notNull(),
+  endsOn:           date('ends_on'),
+  model:            varchar('model', { length: 20 }).notNull(), // 'retainer' | 'package'
+  cadencePerWeek:   integer('cadence_per_week'),
+  monthlyQuota:     integer('monthly_quota'),
+  contractedTotal:  integer('contracted_total').notNull(),
+  // Authored, not derived — "renewed" vs "completed" is a commercial
+  // judgement the dates alone can't express.
+  state:            varchar('state', { length: 20 }).notNull(), // 'active'|'renewed'|'extended'|'paused'|'completed'
+  carriedIn:        integer('carried_in').default(0),
+  notes:            text('notes'),
+  createdAt:        timestamp('created_at').defaultNow(),
+});
+
+// Deviation-only: a row exists only when a month departs from the
+// standing agreement (contractPeriods.monthlyQuota). No row means the
+// standard agreement ran that month.
+export const contractMonths = pgTable('contract_months', {
+  id:             uuid('id').defaultRandom().primaryKey(),
+  periodId:       uuid('period_id').notNull().references(() => contractPeriods.id, { onDelete: 'cascade' }),
+  month:          varchar('month', { length: 7 }).notNull(), // '2026-04'
+  active:         boolean('active').notNull().default(true),
+  quotaOverride:  integer('quota_override'),
+  scopeNote:      varchar('scope_note', { length: 160 }),
+  amended:        boolean('amended').notNull().default(false),
+  note:           text('note'),
 });
 
 // Frame.io comments already mirrored into ClickUp (idempotency ledger for the
@@ -154,7 +194,9 @@ export const oauthTokens = pgTable('oauth_tokens', {
   updatedAt:       timestamp('updated_at').defaultNow(),
 });
 
-export type AuthUser    = typeof authUsers.$inferSelect;
-export type Client      = typeof clients.$inferSelect;
-export type VideoCache  = typeof videoCache.$inferSelect;
-export type OAuthToken  = typeof oauthTokens.$inferSelect;
+export type AuthUser       = typeof authUsers.$inferSelect;
+export type Client         = typeof clients.$inferSelect;
+export type VideoCache     = typeof videoCache.$inferSelect;
+export type OAuthToken     = typeof oauthTokens.$inferSelect;
+export type ContractPeriod = typeof contractPeriods.$inferSelect;
+export type ContractMonth  = typeof contractMonths.$inferSelect;

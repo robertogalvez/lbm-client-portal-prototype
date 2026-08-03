@@ -15,6 +15,7 @@ const videoCache = pgTable('video_cache', {
   status:            varchar('status', { length: 100 }),
   clientApproval:    varchar('client_approval', { length: 50 }),
   videoLevel:        varchar('video_level', { length: 50 }),
+  deliverableType:   varchar('deliverable_type', { length: 20 }).default('short_form'),
   caption:           text('caption'),
   publishingStatus:  varchar('publishing_status', { length: 50 }),
   frameioAssetId:    varchar('frameio_asset_id', { length: 100 }),
@@ -35,6 +36,13 @@ const videoCache = pgTable('video_cache', {
 
 const BASE = 'https://api.clickup.com/api/v2';
 const TERMINAL = ['Posted in Socials', 'Archived', 'Not Posted — Discarded'];
+const DELIVERABLE_TYPE_MAP: Record<string, string> = {
+  'short-form': 'short_form',
+  'short form': 'short_form',
+  'youtube': 'youtube',
+  'ad': 'ad',
+  'ads': 'ad',
+};
 
 function resolveOptionName(field: any, valueIndex: number): string | null {
   return field?.type_config?.options?.[valueIndex]?.name ?? null;
@@ -127,6 +135,7 @@ export default async function handler() {
 
     const clientField   = find('Client Name (AM)');
     const levelField    = find('Video Level (AM)');
+    const deliverableTypeField = find('Deliverable Type');
     const approvalField = find('CLIENT APPROVAL');
     const pubField      = find('Publishing Status');
     const captionField         = find('Captions');
@@ -139,6 +148,7 @@ export default async function handler() {
 
     const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
     const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
+    const deliverableTypeIdx = typeof deliverableTypeField?.value === 'number' ? deliverableTypeField.value : null;
     const approvalIdx        = typeof approvalField?.value === 'number' ? approvalField.value : null;
     const captionApprovalIdx = typeof captionApprovalField?.value === 'number' ? captionApprovalField.value : null;
     const pubIdx      = typeof pubField?.value === 'number' ? pubField.value : null;
@@ -148,6 +158,14 @@ export default async function handler() {
     const amName     = amUsers?.[0]?.username ?? null;
     const editorName = (task.assignees as { username?: string }[])?.[0]?.username ?? null;
     const isYoutube  = ((task.tags ?? []) as { name?: string }[]).some(tag => tag.name?.toLowerCase() === 'youtube');
+
+    // 'Deliverable Type' is a new ClickUp dropdown (short_form|youtube|ad) —
+    // falls back to the isYoutube tag for tasks created before the field
+    // existed, so short-form vs YouTube is never misclassified during rollout.
+    const deliverableTypeRaw = resolveByName('Deliverable Type', deliverableTypeIdx);
+    const deliverableType = deliverableTypeRaw
+      ? (DELIVERABLE_TYPE_MAP[deliverableTypeRaw.toLowerCase()] ?? 'short_form')
+      : (isYoutube ? 'youtube' : 'short_form');
 
     let dueDate: string | null = null;
     if (task.due_date) {
@@ -164,6 +182,7 @@ export default async function handler() {
       clientApproval:   resolveByName('CLIENT APPROVAL', approvalIdx),
       captionApproval:  resolveByName('CAPTION APPROVAL', captionApprovalIdx),
       videoLevel:       resolveByName('Video Level (AM)', levelIdx),
+      deliverableType,
       caption:          typeof captionField?.value === 'string' ? captionField.value : null,
       publishingStatus: resolveByName('Publishing Status', pubIdx),
       frameioAssetId:   typeof frameField?.value === 'string' ? frameField.value : null,
@@ -193,6 +212,7 @@ export default async function handler() {
     clientApproval:   excluded('client_approval'),
     captionApproval:  excluded('caption_approval'),
     videoLevel:       excluded('video_level'),
+    deliverableType:  excluded('deliverable_type'),
     caption:          excluded('caption'),
     publishingStatus: excluded('publishing_status'),
     frameioAssetId:   excluded('frameio_asset_id'),

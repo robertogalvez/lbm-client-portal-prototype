@@ -3,9 +3,7 @@
 import { useState, Fragment } from 'react';
 import { InfoPopover } from '@/components/ui/Tooltip';
 import { EDITOR_PHASE_COLS } from './editor-phases';
-import { AgreedVsDeliveredChart } from './AgreedVsDeliveredChart';
 import { PipelineReport, type PipelineReportClient } from './PipelineReport';
-import { InstagramLink } from '@/components/InstagramLink';
 export type { PipelineReportClient } from './PipelineReport';
 export { EDITOR_PHASE_COLS } from './editor-phases';
 
@@ -42,41 +40,6 @@ export interface EditorRow {
 }
 
 
-export interface PipelineStage {
-  key: string;
-  label: string;
-  group: string;
-  count: number;
-  barColor: string;
-  isRework: boolean;
-}
-
-export interface AttentionClient {
-  name: string;
-  daysWaiting: number;
-}
-
-export interface TopEditor {
-  name: string;
-  firstPassClean: number;
-}
-
-export interface StatusTask {
-  id: string;
-  title: string;
-  clientName: string | null;
-  amName: string | null;
-  status: string;
-  frameLink: string | null;
-  instagramUrl: string | null;
-}
-
-export interface AgreedDeliveredRow {
-  name: string;
-  agreed: number;
-  delivered: number;
-}
-
 export interface BacklogRow {
   name: string;
   backlogCount: number;
@@ -97,14 +60,8 @@ interface Props {
   approvals: ApprovalRow[];
   clients: ClientRow[];
   editors: EditorRow[];
-  pipeline: PipelineStage[];
-  attentionClients: AttentionClient[];
-  topEditors: TopEditor[];
-  statusTasks: StatusTask[];
-  agreedVsDelivered: AgreedDeliveredRow[];
   pipelineReport: PipelineReportClient[];
   reportAsOf: string;
-  periodLabel: string;
   defaultTab?: string;
 }
 
@@ -120,16 +77,18 @@ function initials(name: string): string {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-function KpiCard({ label, tip, value, dotColor, sub, subTone, delta }: KpiData) {
+// Pulse strip (§5.1): one bordered bar with hairline dividers between cells,
+// not five separate cards — density is a requirement, not a preference.
+function PulseCell({ label, tip, value, dotColor, sub, subTone, delta }: KpiData) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 12, padding: '14px 15px', flex: '1 1 0', minWidth: 140, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ fontSize: 11.5, color: '#54616f', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+    <div style={{ flex: '1 1 150px', minWidth: 0, padding: '11px 16px', borderRight: '1px solid #e7ebef', display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <div style={{ fontSize: 11.5, color: '#54616f', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-        {label}
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
         <InfoPopover tip={tip} />
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 9 }}>
-        <div style={{ fontSize: 26, fontWeight: 600, color: '#111c28', lineHeight: 1, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{value}</div>
+        <div style={{ fontSize: 22, fontWeight: 600, color: '#111c28', lineHeight: 1, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{value}</div>
         {delta && (
           <span style={{
             fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 5,
@@ -146,28 +105,6 @@ function KpiCard({ label, tip, value, dotColor, sub, subTone, delta }: KpiData) 
           {sub}
         </div>
       )}
-    </div>
-  );
-}
-
-function AttentionRow({ tone, text, cta, onClick }: { tone: 'red' | 'amber'; text: React.ReactNode; cta: string; onClick: () => void }) {
-  const color = tone === 'red' ? '#cf3f36' : '#a86a00';
-  const bg = tone === 'red' ? '#fdedeb' : '#fbf1dc';
-  const border = tone === 'red' ? '#f6d6d3' : '#f5e2b8';
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 18px', borderTop: '1px solid #e7ebef' }}>
-      <div style={{ width: 4, alignSelf: 'stretch', borderRadius: 2, background: color, flexShrink: 0 }} />
-      <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: 17, height: 17, flexShrink: 0 }}>
-        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4M12 17h.01" />
-      </svg>
-      <div style={{ flex: 1, minWidth: 0, fontSize: 13.5, lineHeight: 1.5, color: '#334155' }}>{text}</div>
-      <button
-        type="button"
-        onClick={onClick}
-        style={{ padding: '8px 14px', borderRadius: 8, border: `1px solid ${border}`, background: bg, color, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', flexShrink: 0 }}
-      >
-        {cta} →
-      </button>
     </div>
   );
 }
@@ -309,16 +246,13 @@ const thStickyNum: React.CSSProperties = { ...thStickyStyle, textAlign: 'center'
 const td: React.CSSProperties = { padding: '11px 18px', borderBottom: '1px solid #e7ebef', verticalAlign: 'middle' };
 const tdNum: React.CSSProperties = { ...td, textAlign: 'center', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
 
-const PIPELINE_GROUPS = ['To do', 'In progress', 'Quality check', 'Review & ship'];
-
-export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, attentionClients, topEditors, statusTasks, agreedVsDelivered, pipelineReport, reportAsOf, periodLabel, defaultTab }: Props) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'approvals' | 'clients' | 'editors' | 'reports'>(
-    (defaultTab as 'overview' | 'approvals' | 'clients' | 'editors' | 'reports') ?? 'overview'
+export function DashboardTabs({ kpis, approvals, clients, editors, pipelineReport, reportAsOf, defaultTab }: Props) {
+  const [activeTab, setActiveTab] = useState<'clients' | 'approvals' | 'editors' | 'reports'>(
+    (defaultTab as 'clients' | 'approvals' | 'editors' | 'reports') ?? 'clients'
   );
   const [approvalSearch, setApprovalSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
   const [editorSearch, setEditorSearch] = useState('');
-  const [drillStage, setDrillStage] = useState<PipelineStage | null>(null);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
 
   function toggleClientExpanded(name: string) {
@@ -328,8 +262,6 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, att
       return next;
     });
   }
-
-  const maxPipeline = Math.max(...pipeline.map(s => s.count), 1);
 
   const filteredApprovals = approvals.filter(r =>
     !approvalSearch || r.title.toLowerCase().includes(approvalSearch.toLowerCase()) || (r.clientName ?? '').toLowerCase().includes(approvalSearch.toLowerCase())
@@ -368,239 +300,23 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipeline, att
     color: tone === 'amber' ? '#a86a00' : '#54616f',
   });
 
-  const drillTasks = drillStage
-    ? statusTasks.filter(t => t.status.toLowerCase().replace(/\s+/g, ' ').trim() === drillStage.key)
-    : [];
-
-  // "Needs attention today" — ranked red-then-amber, derived from data already
-  // passed down rather than duplicated banner props.
-  const overdueApprovals = approvals.filter(a => a.daysWaiting > 3);
-  const oldestOverdue = overdueApprovals[0]; // `approvals` is sorted oldest-first
-  const overdueSeverity: 'red' | 'amber' = oldestOverdue && oldestOverdue.daysWaiting > 14 ? 'red' : 'amber';
-
-  const footageRiskClients = clients.filter(c => c.footageGap > 0).sort((a, b) => b.footageGap - a.footageGap);
-  // Critical = backlog on hand covers less than half of what's still needed —
-  // same 50% cut as `deliveryTone`'s amber/red split, so "critical" reads
-  // consistently across the dashboard.
-  const footageCritical = footageRiskClients.some(c => c.stillNeeded > 0 && c.backlogCount / c.stillNeeded < 0.5);
-  const footageSeverity: 'red' | 'amber' = footageCritical ? 'red' : 'amber';
-
   return (
     <div>
-      {/* Pipeline drill-down slide-over */}
-      {drillStage && (
-        <>
-          <div onClick={() => setDrillStage(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(17,28,40,0.35)', zIndex: 400 }} />
-          <div style={{
-            position: 'fixed', right: 0, top: 0, bottom: 0,
-            width: 420, maxWidth: '92vw',
-            background: '#fff', zIndex: 401,
-            display: 'flex', flexDirection: 'column',
-            boxShadow: '-4px 0 32px rgba(0,0,0,0.15)',
-            animation: 'db-slide-in 180ms ease',
-          }}>
-            {/* Header */}
-            <div style={{ padding: '16px 18px', borderBottom: '1px solid #e7ebef', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-              <div style={{ width: 10, height: 10, borderRadius: 3, background: drillStage.barColor, flexShrink: 0 }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#111c28' }}>{drillStage.label}</div>
-                <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 1 }}>{drillTasks.length} video{drillTasks.length !== 1 ? 's' : ''}</div>
-              </div>
-              <button type="button" onClick={() => setDrillStage(null)} style={{ width: 40, height: 40, borderRadius: 8, border: '1px solid #e7ebef', background: '#f5f7f9', cursor: 'pointer', display: 'grid', placeItems: 'center', color: '#54616f', fontSize: 16, fontFamily: 'inherit' }}>×</button>
-            </div>
-
-            {/* Task list */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {drillTasks.length === 0 ? (
-                <div style={{ padding: '40px 0', textAlign: 'center', color: '#8b97a4', fontSize: 13 }}>No videos in this stage</div>
-              ) : drillTasks.map(t => (
-                <div key={t.id} style={{ background: '#f8fafc', border: '1px solid #e7ebef', borderRadius: 10, padding: '11px 14px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                  <div style={{ width: 34, height: 22, borderRadius: 5, flexShrink: 0, display: 'grid', placeItems: 'center', background: 'linear-gradient(135deg,#2c3540,#4a5562)', marginTop: 2 }}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" style={{width:11,height:11,opacity:.8}}><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111c28', lineHeight: 1.3, marginBottom: 3 }}>{t.title}</div>
-                    <div style={{ fontSize: 11.5, color: '#8b97a4', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {t.clientName && <span>{t.clientName}</span>}
-                      {t.amName && <span>· {t.amName}</span>}
-                    </div>
-                  </div>
-                  {t.frameLink && (
-                    <a href={t.frameLink} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 600, color: '#5b6bff', textDecoration: 'none', flexShrink: 0, marginTop: 2 }}>Frame.io ↗</a>
-                  )}
-                  {t.instagramUrl && (
-                    <span style={{ flexShrink: 0, marginTop: 2 }}><InstagramLink url={t.instagramUrl} label="Instagram" compact /></span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Needs attention today */}
-      {(overdueApprovals.length > 0 || footageRiskClients.length > 0) && (
-        <div style={{ border: '1px solid #e7ebef', borderRadius: 12, background: '#fff', margin: '16px 24px 0', overflow: 'hidden' }}>
-          <div style={{ padding: '13px 18px 6px', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8b97a4' }}>
-            Needs attention today
-          </div>
-          {overdueApprovals.length > 0 && (
-            <AttentionRow
-              tone={overdueSeverity}
-              cta="Review approvals"
-              onClick={() => setActiveTab('approvals')}
-              text={
-                <>
-                  <strong style={{ color: '#111c28' }}>{overdueApprovals.length} video{overdueApprovals.length !== 1 ? 's' : ''}</strong>{' '}
-                  {overdueApprovals.length === 1 ? 'has' : 'have'} been awaiting client approval more than 3 days — oldest is {oldestOverdue!.daysWaiting}d ({oldestOverdue!.title}).
-                </>
-              }
-            />
-          )}
-          {footageRiskClients.length > 0 && (
-            <AttentionRow
-              tone={footageSeverity}
-              cta="View clients"
-              onClick={() => setActiveTab('clients')}
-              text={
-                <>
-                  <strong style={{ color: '#111c28' }}>{footageRiskClients.length} client{footageRiskClients.length !== 1 ? 's' : ''}</strong>{' '}
-                  {footageRiskClients.length === 1 ? 'is' : 'are'} on pace to miss this month&apos;s quota — {footageRiskClients.map(c => `${c.name} (short ${c.footageGap})`).join(', ')}.
-                </>
-              }
-            />
-          )}
-        </div>
-      )}
-
-      {/* KPI row */}
-      <div className="db-kpi-grid" style={{ margin: '16px 24px 0' }}>
-        {kpis.map(k => <KpiCard key={k.label} {...k} />)}
+      {/* Pulse strip (§5.1) */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', border: '1px solid #e7ebef', borderRadius: 12, background: '#fff', overflow: 'hidden', margin: '16px 24px 0' }}>
+        {kpis.map(k => <PulseCell key={k.label} {...k} />)}
       </div>
 
       {/* Tab bar */}
       <div className="db-tab-strip">
-        {(['overview', 'approvals', 'clients', 'editors', 'reports'] as const).map(t => (
+        {(['clients', 'approvals', 'editors', 'reports'] as const).map(t => (
           <button type="button" key={t} style={tabStyle(t)} onClick={() => setActiveTab(t)}>
-            {t === 'overview' && 'Overview'}
-            {t === 'approvals' && (<>Approvals <span style={ct(approvals.length, approvals.length > 0 ? 'amber' : undefined)}>{approvals.length}</span></>)}
             {t === 'clients' && (<>Clients <span style={ct(clients.length)}>{clients.length}</span></>)}
+            {t === 'approvals' && (<>Approvals <span style={ct(approvals.length, approvals.length > 0 ? 'amber' : undefined)}>{approvals.length}</span></>)}
             {t === 'editors' && (<>Editors <span style={ct(editors.length)}>{editors.length}</span></>)}
             {t === 'reports' && 'Reports'}
           </button>
         ))}
-      </div>
-
-      {/* OVERVIEW */}
-      <div style={{ display: activeTab === 'overview' ? 'block' : 'none', padding: '20px 24px 26px' }}>
-        {/* Pipeline card */}
-        <div style={{ border: '1px solid #e7ebef', borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 18px', borderBottom: '1px solid #e7ebef', flexWrap: 'wrap' }}>
-            <div>
-              <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 6 }}>
-                Production pipeline
-                <InfoPopover tip="Tasks grouped by phase. Each count shows how many videos are currently at that stage." />
-              </h3>
-              <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Click a stage to see videos in that status</div>
-            </div>
-            <span style={{ fontSize: 10.5, fontWeight: 700, color: '#8b97a4', background: '#f5f7f9', border: '1px solid #e7ebef', padding: '3px 8px', borderRadius: 7, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ width: 6, height: 6, borderRadius: 2, background: '#7B68EE', display: 'inline-block' }} />
-              ClickUp status
-            </span>
-          </div>
-          <div style={{ padding: '14px 18px 16px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {PIPELINE_GROUPS.map(group => {
-              const groupStages = pipeline.filter(s => s.group === group);
-              if (!groupStages.length) return null;
-              return (
-                <div key={group}>
-                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8b97a4', margin: '11px 0 5px' }}>{group}</div>
-                  {groupStages.map(stage => {
-                    const barPct = Math.round(stage.count / maxPipeline * 100);
-                    return (
-                      <button
-                        type="button"
-                        key={stage.key}
-                        onClick={() => setDrillStage(stage)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '7px 9px', borderRadius: 8, border: '1px solid transparent', background: 'transparent', width: '100%', cursor: stage.count > 0 ? 'pointer' : 'default', textAlign: 'left', transition: 'background 130ms', fontFamily: 'inherit' }}
-                        onMouseEnter={e => { if (stage.count > 0) e.currentTarget.style.background = '#f5f7f9'; }}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        <span className="db-stage-label">
-                          {stage.label}
-                          {stage.isRework && <span style={{ fontSize: 9.5, fontWeight: 700, color: '#a86a00', background: '#fbf1dc', padding: '1px 6px', borderRadius: 5 }}>rework</span>}
-                        </span>
-                        <div style={{ flex: 1, height: 8, background: '#f0f2f5', borderRadius: 100, overflow: 'hidden' }}>
-                          <div style={{ width: `${barPct}%`, height: '100%', borderRadius: 100, background: stage.barColor }} />
-                        </div>
-                        <span style={{ width: 30, textAlign: 'right', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', fontSize: 13, fontWeight: 700 }}>{stage.count}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Agreed vs. Delivered */}
-        <div style={{ marginTop: 14 }}>
-          <AgreedVsDeliveredChart rows={agreedVsDelivered} periodLabel={periodLabel} />
-        </div>
-
-        {/* 2-col: Needs attention + Top editors */}
-        <div className="db-ov2">
-          {/* Needs attention */}
-          <div style={{ border: '1px solid #e7ebef', borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid #e7ebef' }}>
-              <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>Needs attention</h3>
-              <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>Clients with review waiting &gt; 3 days</div>
-            </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <tbody>
-                {attentionClients.length === 0 ? (
-                  <tr><td style={{ padding: '16px 18px', color: '#8b97a4', fontSize: 13 }}>No overdue reviews 🎉</td></tr>
-                ) : attentionClients.map(c => (
-                  <tr key={c.name} style={{ cursor: 'pointer' }} onClick={() => setActiveTab('clients')}>
-                    <td style={{ ...td, fontWeight: 600 }}>{c.name}</td>
-                    <td style={{ ...tdNum }}><WaitBadge days={c.daysWaiting} /></td>
-                    <td style={{ ...tdNum }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: '#cf3f36', background: '#fdedeb', padding: '3px 9px', borderRadius: 7 }}>Needs attention</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Top editors */}
-          <div style={{ border: '1px solid #e7ebef', borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid #e7ebef' }}>
-              <div>
-                <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>Top editors</h3>
-                <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>By first-pass clean</div>
-              </div>
-              <button type="button" onClick={() => setActiveTab('editors')} style={{ fontSize: 12.5, fontWeight: 700, color: '#B23E00', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'inherit' }}>
-                View all {editors.length}
-              </button>
-            </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <tbody>
-                {topEditors.map(e => (
-                  <tr key={e.name} style={{ cursor: 'pointer' }} onClick={() => setActiveTab('editors')}>
-                    <td style={td}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600 }}>
-                        <span style={{ width: 28, height: 28, borderRadius: '50%', background: avatarColor(e.name), color: '#fff', display: 'grid', placeItems: 'center', fontSize: 10.5, fontWeight: 700, flexShrink: 0 }}>{initials(e.name)}</span>
-                        {e.name}
-                      </div>
-                    </td>
-                    <td style={tdNum}><CleanBar pct={e.firstPassClean} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
 
       {/* APPROVALS */}
