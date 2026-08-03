@@ -122,6 +122,11 @@ const readonlyRow: React.CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
 };
 
+const fieldCap: React.CSSProperties = {
+  display: 'block', fontSize: 11, fontWeight: 600, color: '#8b97a4',
+  marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.03em',
+};
+
 const smallBtn: React.CSSProperties = {
   flex: 1, padding: '7px 12px', borderRadius: 7, fontWeight: 600, fontSize: 13,
   cursor: 'pointer', fontFamily: 'inherit', border: '1px solid #d4dbe2', background: '#fff', color: '#54616f',
@@ -514,28 +519,58 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
 
   const periodFormJsx = (
     <div style={{ background: '#f4f6f8', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <input aria-label="Period label" value={periodForm.label} onChange={e => setPeriodForm(f => ({ ...f, label: e.target.value }))} placeholder="Label (e.g. Contract 1)" style={inp} />
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input aria-label="Start date" type="date" value={periodForm.startsOn} onChange={e => setPeriodForm(f => ({ ...f, startsOn: e.target.value }))} style={inp} />
-        <input aria-label="End date (blank = open-ended)" type="date" value={periodForm.endsOn} onChange={e => setPeriodForm(f => ({ ...f, endsOn: e.target.value }))} style={inp} />
+      <div>
+        <span style={fieldCap}>Label</span>
+        <input aria-label="Period label" value={periodForm.label} onChange={e => setPeriodForm(f => ({ ...f, label: e.target.value }))} placeholder="e.g. Contract 1" style={inp} />
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
-        <select aria-label="Delivery model" value={periodForm.model} onChange={e => setPeriodForm(f => ({ ...f, model: e.target.value }))} style={inp}>
-          {CONTRACT_MODELS.map(m => <option key={m} value={m}>{m}</option>)}
-        </select>
-        <select aria-label="Contract state" value={periodForm.state} onChange={e => setPeriodForm(f => ({ ...f, state: e.target.value }))} style={inp}>
-          {CONTRACT_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <div style={{ flex: 1 }}>
+          <span style={fieldCap}>Start date</span>
+          <input aria-label="Start date" type="date" value={periodForm.startsOn} onChange={e => setPeriodForm(f => ({ ...f, startsOn: e.target.value }))} style={inp} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <span style={fieldCap}>End date (blank = open-ended)</span>
+          <input aria-label="End date (blank = open-ended)" type="date" value={periodForm.endsOn} onChange={e => setPeriodForm(f => ({ ...f, endsOn: e.target.value }))} style={inp} />
+        </div>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
-        <input aria-label="Cadence per week" type="number" value={periodForm.cadencePerWeek} onChange={e => setPeriodForm(f => ({ ...f, cadencePerWeek: e.target.value }))} placeholder="Cadence/week" style={inp} />
-        <input aria-label="Monthly quota" type="number" value={periodForm.monthlyQuota} onChange={e => setPeriodForm(f => ({ ...f, monthlyQuota: e.target.value }))} placeholder="Monthly quota" style={inp} />
+        <div style={{ flex: 1 }}>
+          <span style={fieldCap}>Delivery model</span>
+          <select aria-label="Delivery model" value={periodForm.model} onChange={e => setPeriodForm(f => ({ ...f, model: e.target.value }))} style={inp}>
+            {CONTRACT_MODELS.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+        <div style={{ flex: 1 }}>
+          <span style={fieldCap}>Contract state</span>
+          <select aria-label="Contract state" value={periodForm.state} onChange={e => setPeriodForm(f => ({ ...f, state: e.target.value }))} style={inp}>
+            {CONTRACT_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
-        <input aria-label="Contracted total" type="number" value={periodForm.contractedTotal} onChange={e => setPeriodForm(f => ({ ...f, contractedTotal: e.target.value }))} placeholder="Contracted total *" style={inp} />
-        <input aria-label="Carried in" type="number" value={periodForm.carriedIn} onChange={e => setPeriodForm(f => ({ ...f, carriedIn: e.target.value }))} placeholder="Carried in" style={inp} />
+        <div style={{ flex: 1 }}>
+          <span style={fieldCap}>Cadence / week</span>
+          <input aria-label="Cadence per week" type="number" value={periodForm.cadencePerWeek} onChange={e => setPeriodForm(f => ({ ...f, cadencePerWeek: e.target.value }))} placeholder="e.g. 4" style={inp} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <span style={fieldCap}>Monthly quota</span>
+          <input aria-label="Monthly quota" type="number" value={periodForm.monthlyQuota} onChange={e => setPeriodForm(f => ({ ...f, monthlyQuota: e.target.value }))} placeholder="e.g. 16" style={inp} />
+        </div>
       </div>
-      <textarea aria-label="Notes" value={periodForm.notes} onChange={e => setPeriodForm(f => ({ ...f, notes: e.target.value }))} placeholder="Notes" rows={2} style={{ ...inp, resize: 'vertical' }} />
+      <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ flex: 1 }}>
+          <span style={fieldCap}>Contracted total *</span>
+          <input aria-label="Contracted total" type="number" value={periodForm.contractedTotal} onChange={e => setPeriodForm(f => ({ ...f, contractedTotal: e.target.value }))} placeholder="e.g. 63" style={inp} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <span style={fieldCap}>Carried in</span>
+          <input aria-label="Carried in" type="number" value={periodForm.carriedIn} onChange={e => setPeriodForm(f => ({ ...f, carriedIn: e.target.value }))} placeholder="0" style={inp} />
+        </div>
+      </div>
+      <div>
+        <span style={fieldCap}>Notes</span>
+        <textarea aria-label="Notes" value={periodForm.notes} onChange={e => setPeriodForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional — source of these numbers, known issues, etc." rows={2} style={{ ...inp, resize: 'vertical' }} />
+      </div>
       {periodMsg && <div style={{ fontSize: 12, color: '#cf3f36' }}>{periodMsg}</div>}
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="button" onClick={() => { setPeriodFormOpen(false); setEditingPeriodId(null); }} style={smallBtn}>Cancel</button>
@@ -549,12 +584,24 @@ export function ClientsPageClient({ clients: initial }: { clients: ClientRecord[
   function renderMonthForm(periodId: string) {
     return (
       <div style={{ background: '#fff', border: '1px dashed #d4dbe2', borderRadius: 8, padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <input aria-label="Month" type="month" value={monthForm.month} onChange={e => setMonthForm(f => ({ ...f, month: e.target.value }))} style={inp} />
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input aria-label="Quota override" type="number" value={monthForm.quotaOverride} onChange={e => setMonthForm(f => ({ ...f, quotaOverride: e.target.value }))} placeholder="Quota override" style={inp} />
-          <input aria-label="Scope note" value={monthForm.scopeNote} onChange={e => setMonthForm(f => ({ ...f, scopeNote: e.target.value }))} placeholder="Scope note" style={inp} />
+        <div>
+          <span style={fieldCap}>Month</span>
+          <input aria-label="Month" type="month" value={monthForm.month} onChange={e => setMonthForm(f => ({ ...f, month: e.target.value }))} style={inp} />
         </div>
-        <input aria-label="Note" value={monthForm.note} onChange={e => setMonthForm(f => ({ ...f, note: e.target.value }))} placeholder="Note" style={inp} />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ flex: 1 }}>
+            <span style={fieldCap}>Quota override</span>
+            <input aria-label="Quota override" type="number" value={monthForm.quotaOverride} onChange={e => setMonthForm(f => ({ ...f, quotaOverride: e.target.value }))} placeholder="Blank = use standing quota" style={inp} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <span style={fieldCap}>Scope note</span>
+            <input aria-label="Scope note" value={monthForm.scopeNote} onChange={e => setMonthForm(f => ({ ...f, scopeNote: e.target.value }))} placeholder="e.g. 20 short-form + 10 ads" style={inp} />
+          </div>
+        </div>
+        <div>
+          <span style={fieldCap}>Note</span>
+          <input aria-label="Note" value={monthForm.note} onChange={e => setMonthForm(f => ({ ...f, note: e.target.value }))} placeholder="Why this month deviates" style={inp} />
+        </div>
         <div style={{ display: 'flex', gap: 14 }}>
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#54616f', cursor: 'pointer' }}>
             <input type="checkbox" checked={monthForm.active} onChange={e => setMonthForm(f => ({ ...f, active: e.target.checked }))} /> Active
