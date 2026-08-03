@@ -6,6 +6,7 @@ import { EDITOR_PHASE_COLS } from './editor-phases';
 import { PipelineReport, type PipelineReportClient } from './PipelineReport';
 import { MetricStrip, type KpiData } from './MetricStrip';
 import { PortfolioTable, type PortfolioClientRow } from './PortfolioTable';
+import { ClientDetail } from './ClientDetail';
 export type { PipelineReportClient } from './PipelineReport';
 export type { KpiData } from './MetricStrip';
 export type { PortfolioClientRow } from './PortfolioTable';
@@ -108,6 +109,7 @@ export function DashboardTabs({ kpis, approvals, portfolioKpis, portfolioRows, e
   const [activeTab, setActiveTab] = useState<'clients' | 'approvals' | 'editors' | 'reports'>(
     (defaultTab as 'clients' | 'approvals' | 'editors' | 'reports') ?? 'clients'
   );
+  const [selectedClient, setSelectedClient] = useState<{ id: string; name: string } | null>(null);
   const [approvalSearch, setApprovalSearch] = useState('');
   const [editorSearch, setEditorSearch] = useState('');
 
@@ -220,7 +222,11 @@ export function DashboardTabs({ kpis, approvals, portfolioKpis, portfolioRows, e
 
       {/* CLIENTS */}
       <div style={{ display: activeTab === 'clients' ? 'block' : 'none', padding: '16px 26px 40px' }}>
-        <PortfolioTable kpis={portfolioKpis} rows={portfolioRows} />
+        {selectedClient ? (
+          <ClientDetail key={selectedClient.id} id={selectedClient.id} name={selectedClient.name} onBack={() => setSelectedClient(null)} />
+        ) : (
+          <PortfolioTable kpis={portfolioKpis} rows={portfolioRows} onSelect={row => setSelectedClient({ id: row.id, name: row.name })} />
+        )}
       </div>
 
       {/* EDITORS */}

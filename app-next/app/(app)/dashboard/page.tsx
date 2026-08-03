@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { eq } from 'drizzle-orm';
-import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask } from '@/lib/clickup';
-import { getTasksFromDB } from '@/lib/db/queries';
+import { isConfigured, MappedTask } from '@/lib/clickup';
+import { getDashboardTasks } from '@/lib/dashboard-tasks';
 import { db } from '@/lib/db';
 import { clients as clientsTable, contractPeriods, type ContractPeriod } from '@/lib/db/schema';
 import { fulfilment, attentionScore, healthTier, expiryLabel, type HealthTier } from '@/lib/contracts';
@@ -251,25 +251,8 @@ export default async function DashboardPage({
 
   const { range = 'month', member = '', am = '', client: clientFilter = '', inactive = '' } = await searchParams;
   const showInactive = inactive === '1';
-  const masterListId = process.env.CLICKUP_LIST_ID;
-  const folderId     = process.env.CLICKUP_FOLDER_ID;
   const [taskResult, clientStatusRows, activeContracts] = await Promise.all([
-    (async (): Promise<{ tasks: MappedTask[]; error: string | null }> => {
-      try {
-        let tasks = await getTasksFromDB();
-        // Fall back to live ClickUp if DB is empty
-        if (tasks.length === 0) {
-          if (masterListId) {
-            tasks = await getTasksFromList(masterListId, false);
-          } else if (folderId) {
-            tasks = await getTasksFromFolder(folderId, false);
-          }
-        }
-        return { tasks, error: null };
-      } catch (e) {
-        return { tasks: [], error: e instanceof Error ? e.message : 'Unknown error' };
-      }
-    })(),
+    getDashboardTasks(),
     // Hide Inactive clients (per the synced ClickUp Master Clients List) everywhere
     // on the dashboard by default — a client with no matching record (not yet
     // synced) is kept visible rather than silently hidden.
