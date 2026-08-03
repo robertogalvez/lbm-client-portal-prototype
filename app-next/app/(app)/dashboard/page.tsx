@@ -7,7 +7,7 @@ import { clients as clientsTable, contractPeriods, type ContractPeriod } from '@
 import { fulfilment, attentionScore, healthTier, expiryLabel, type HealthTier } from '@/lib/contracts';
 import { DashboardTabs, ApprovalRow, EditorRow, BacklogRow, KpiData, PipelineReportClient, PortfolioClientRow } from '@/components/dashboard/DashboardTabs';
 import { EDITOR_PHASE_COLS } from '@/components/dashboard/editor-phases';
-import { FiltersBar } from '@/components/dashboard/FiltersBar';
+import { InactiveToggle } from '@/components/dashboard/InactiveToggle';
 
 export const revalidate = 60;
 
@@ -315,7 +315,11 @@ export default async function DashboardPage({
   const clientApproved = metrics.approved;
   const firstPassCleanPct = metrics.firstPassClean;
 
-  const reviewTasks      = tasks.filter(t => norm(t.status) === 'for client review');
+  // KPI strip is visible on every tab, but the date-range/editor/AM/client
+  // filters now live only on the Editors tab's own toolbar — so the strip's
+  // values (including this sub-count) stay unfiltered, like the rest of
+  // periodMetrics, rather than reflecting a filter set on a different tab.
+  const reviewTasks      = allTasks.filter(t => norm(t.status) === 'for client review');
   const overdueInReview  = reviewTasks.filter(t => (now - parseDate(t.dateUpdated)) > 3 * DAY_MS);
   const overdueCount     = overdueInReview.length;
 
@@ -327,10 +331,7 @@ export default async function DashboardPage({
   // range — a monthly quota (or "this month" label) doesn't mean anything
   // prorated over a different window.
   const monthlyPosted = allTasks
-    .filter(t => norm(t.status) === POSTED && parseDate(t.dateUpdated) >= monthStart)
-    .filter(t => !member       || t.editorName     === member)
-    .filter(t => !am           || t.assignedAmName === am)
-    .filter(t => !clientFilter || t.clientName     === clientFilter);
+    .filter(t => norm(t.status) === POSTED && parseDate(t.dateUpdated) >= monthStart);
 
   const postedThisMonth = monthlyPosted.length;
 
@@ -373,11 +374,7 @@ export default async function DashboardPage({
   const prevBounds = previousWindowBounds(range, cutoff);
   const prevMetrics = prevBounds
     ? periodMetrics(
-        allTasks
-          .filter(t => { const d = parseDate(t.dateUpdated); return d >= prevBounds[0] && d < prevBounds[1]; })
-          .filter(t => !member       || t.editorName     === member)
-          .filter(t => !am           || t.assignedAmName === am)
-          .filter(t => !clientFilter || t.clientName     === clientFilter)
+        allTasks.filter(t => { const d = parseDate(t.dateUpdated); return d >= prevBounds[0] && d < prevBounds[1]; })
       )
     : null;
 
@@ -385,9 +382,6 @@ export default async function DashboardPage({
   const postedPrevMonth = allTasks
     .filter(t => norm(t.status) === POSTED)
     .filter(t => { const d = parseDate(t.dateUpdated); return d >= prevMonthStart && d < monthStart; })
-    .filter(t => !member       || t.editorName     === member)
-    .filter(t => !am           || t.assignedAmName === am)
-    .filter(t => !clientFilter || t.clientName     === clientFilter)
     .length;
 
   const kpis: KpiData[] = [
@@ -421,13 +415,6 @@ export default async function DashboardPage({
     },
   ];
 
-  const segRanges = [
-    { label: '30d', value: '30d' },
-    { label: '90d', value: '90d' },
-    { label: '1y',  value: '1y' },
-    { label: 'All', value: 'all' },
-  ];
-
   return (
     <main style={{ maxWidth: 1400 }}>
       {/* Topbar */}
@@ -443,27 +430,8 @@ export default async function DashboardPage({
           </div>
         </div>
         <div className="db-topbar-right">
-          <div style={{ display: 'inline-flex', background: '#f5f7f9', border: '1px solid #e7ebef', borderRadius: 9, padding: 3, gap: 2 }}>
-            {segRanges.map(r => {
-              const params = new URLSearchParams({ range: r.value, ...(member && { member }), ...(am && { am }), ...(clientFilter && { client: clientFilter }) });
-              return (
-                <a
-                  key={r.value}
-                  href={`/dashboard?${params}`}
-                  style={{
-                    fontSize: 12.5, fontWeight: 600, borderRadius: 7, padding: '6px 11px', textDecoration: 'none',
-                    background: range === r.value ? '#fff' : 'transparent',
-                    color: range === r.value ? '#111c28' : '#54616f',
-                    boxShadow: range === r.value ? '0 1px 2px rgba(17,28,40,.08)' : 'none',
-                  }}
-                >
-                  {r.label}
-                </a>
-              );
-            })}
-          </div>
           <Suspense fallback={null}>
-            <FiltersBar members={allEditors} ams={allAMs} clients={allClients} hideDateRange />
+            <InactiveToggle />
           </Suspense>
         </div>
       </div>
@@ -484,6 +452,9 @@ export default async function DashboardPage({
         portfolioRows={portfolioRows}
         assetRows={assetRows}
         editors={editors}
+        allEditors={allEditors}
+        allAMs={allAMs}
+        allClients={allClients}
         pipelineReport={buildPipelineReport(allTasks)}
         reportAsOf={new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
         defaultTab='clients'
