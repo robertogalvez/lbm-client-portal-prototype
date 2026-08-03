@@ -144,6 +144,7 @@ export async function POST(req: Request) {
       sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS primary_contact_user_id text`,
       sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS deliverable_type varchar(20) NOT NULL DEFAULT 'short_form'`,
       sql`UPDATE video_cache SET deliverable_type = 'youtube' WHERE is_youtube = true AND deliverable_type = 'short_form'`,
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS social_links jsonb`,
       sql`CREATE TABLE IF NOT EXISTS "contract_periods" (
         "id"                uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
         "client_id"         uuid NOT NULL REFERENCES "clients"("id") ON DELETE CASCADE,

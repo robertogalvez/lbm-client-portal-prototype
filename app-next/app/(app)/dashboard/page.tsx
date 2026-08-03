@@ -256,9 +256,9 @@ export default async function DashboardPage({
     // Hide Inactive clients (per the synced ClickUp Master Clients List) everywhere
     // on the dashboard by default — a client with no matching record (not yet
     // synced) is kept visible rather than silently hidden.
-    db.select({ id: clientsTable.id, name: clientsTable.name, clientStatus: clientsTable.clientStatus })
+    db.select({ id: clientsTable.id, name: clientsTable.name, clientStatus: clientsTable.clientStatus, socialLinks: clientsTable.socialLinks })
       .from(clientsTable)
-      .catch(() => [] as { id: string; name: string; clientStatus: string | null }[]),
+      .catch(() => [] as { id: string; name: string; clientStatus: string | null; socialLinks: unknown }[]),
     // Portfolio overview data source (§9): contract_periods with state='active',
     // joined to clients for the display name.
     db.select({
@@ -339,7 +339,7 @@ export default async function DashboardPage({
   const portfolioRows = buildPortfolio(activeContracts, allTasks, new Date(now));
   const assetRows = clientStatusRows
     .filter(c => showInactive || c.clientStatus !== 'Inactive')
-    .map(c => ({ id: c.id, name: c.name }));
+    .map(c => ({ id: c.id, name: c.name, socialLinks: c.socialLinks as Record<string, { handle?: string; url?: string }> | null }));
   const editors       = buildEditors(tasks);
 
   const backlogByNameForKpi = new Map(backlogRows.map(b => [norm(b.name), b.backlogCount]));

@@ -16,7 +16,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const body = await req.json();
   // Name, contact info, status, and quota are ClickUp-owned (synced from the
   // Master Clients List) — only portal-only fields are editable here.
-  const { type, frameioProjectId, vistaSocialProfileIds, showCalendar, showInvoices, showReport, notifyEmail, notifySms } = body;
+  const { type, frameioProjectId, vistaSocialProfileIds, showCalendar, showInvoices, showReport, notifyEmail, notifySms, socialLinks } = body;
+
+  const PLATFORM_KEYS = ['instagram', 'facebook', 'tiktok', 'linkedin', 'youtube', 'website'];
+  let cleanSocialLinks: Record<string, { handle?: string; url?: string }> | null = null;
+  if (socialLinks && typeof socialLinks === 'object') {
+    cleanSocialLinks = {};
+    for (const key of PLATFORM_KEYS) {
+      const entry = socialLinks[key];
+      const handle = typeof entry?.handle === 'string' ? entry.handle.trim() : '';
+      const url = typeof entry?.url === 'string' ? entry.url.trim() : '';
+      if (handle || url) cleanSocialLinks[key] = { handle: handle || undefined, url: url || undefined };
+    }
+    if (Object.keys(cleanSocialLinks).length === 0) cleanSocialLinks = null;
+  }
 
   const [updated] = await db.update(clients).set({
     type: type || null,
@@ -27,6 +40,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     showReport: showReport ?? false,
     notifyEmail: notifyEmail ?? true,
     notifySms: notifySms ?? false,
+    socialLinks: cleanSocialLinks,
   }).where(eq(clients.id, id)).returning();
 
   if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
