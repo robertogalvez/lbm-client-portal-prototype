@@ -24,6 +24,7 @@ export async function GET(req: Request) {
       id: contractPeriods.id,
       clientId: contractPeriods.clientId,
       clientName: clientsTable.name,
+      socialLinks: clientsTable.socialLinks,
       label: contractPeriods.label,
       startsOn: contractPeriods.startsOn,
       endsOn: contractPeriods.endsOn,
@@ -124,6 +125,7 @@ export async function GET(req: Request) {
     deliverableMix,
     ledger,
     contractHistory,
+    socialLinks: period.socialLinks as Record<string, { handle?: string; url?: string }> | null,
   };
 
   return NextResponse.json(data);
