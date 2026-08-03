@@ -39,6 +39,11 @@ async function fetchAllTasksFromList(listId: string, token: string) {
     const res = await fetch(`${BASE}/list/${listId}/task?include_closed=true&page=${page}`, {
       headers: { Authorization: token },
     });
+    // Abort rather than break: an error body yields no `tasks`, which would
+    // end pagination early and pass a partial list off as the complete one.
+    if (!res.ok) {
+      throw new Error(`ClickUp list ${listId} page ${page} failed: ${res.status} ${res.statusText}`);
+    }
     const data = await res.json();
     const tasks = data.tasks ?? [];
     all.push(...tasks);

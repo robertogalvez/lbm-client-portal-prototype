@@ -23,24 +23,28 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
   if (!caller || caller.role !== 'admin') redirect('/dashboard');
 
-  const users = await db
-    .select({
-      id: authUsers.id,
-      name: authUsers.name,
-      email: authUsers.email,
-      role: authUsers.role,
-      emailVerified: authUsers.emailVerified,
-      createdAt: authUsers.createdAt,
-      isAlsoClient: authUsers.isAlsoClient,
-      clientName: authUsers.clientName,
-      notifyMethod: authUsers.notifyMethod,
-      phone: authUsers.phone,
-    })
-    .from(authUsers)
-    .where(ne(authUsers.role, 'client'))
-    .orderBy(authUsers.createdAt);
-
-  const conn = await getConnectionStatus().catch(() => null);
+  // The user list and the Frame.io connection check are independent, and the
+  // latter goes out over the network — no reason to wait on it in series.
+  // The catch stays per-promise so a Frame.io failure does not reject both.
+  const [users, conn] = await Promise.all([
+    db
+      .select({
+        id: authUsers.id,
+        name: authUsers.name,
+        email: authUsers.email,
+        role: authUsers.role,
+        emailVerified: authUsers.emailVerified,
+        createdAt: authUsers.createdAt,
+        isAlsoClient: authUsers.isAlsoClient,
+        clientName: authUsers.clientName,
+        notifyMethod: authUsers.notifyMethod,
+        phone: authUsers.phone,
+      })
+      .from(authUsers)
+      .where(ne(authUsers.role, 'client'))
+      .orderBy(authUsers.createdAt),
+    getConnectionStatus().catch(() => null),
+  ]);
   const frameio = {
     connected: conn?.connected ?? false,
     mode: conn?.mode ?? 'disconnected',

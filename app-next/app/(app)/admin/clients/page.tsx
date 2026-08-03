@@ -16,13 +16,16 @@ export default async function AdminClientsPage() {
   const [caller] = await db.select({ role: authUsers.role }).from(authUsers).where(eq(authUsers.id, session.user.id)).limit(1);
   if (!caller || caller.role === 'client') redirect('/client');
 
-  const allClients = await db.select().from(clients).orderBy(clients.createdAt);
-  const quotas = await getClientQuotas();
-
-  const portalUsers = await db
-    .select({ id: authUsers.id, name: authUsers.name, email: authUsers.email, clientName: authUsers.clientName, emailVerified: authUsers.emailVerified })
-    .from(authUsers)
-    .where(eq(authUsers.role, 'client'));
+  // Independent of each other, so one round-trip of wall time instead of three.
+  // The role check above stays sequential — it gates whether we query at all.
+  const [allClients, quotas, portalUsers] = await Promise.all([
+    db.select().from(clients).orderBy(clients.createdAt),
+    getClientQuotas(),
+    db
+      .select({ id: authUsers.id, name: authUsers.name, email: authUsers.email, clientName: authUsers.clientName, emailVerified: authUsers.emailVerified })
+      .from(authUsers)
+      .where(eq(authUsers.role, 'client')),
+  ]);
 
   const clientsWithUsers = allClients.map(c => {
     const quota = quotas.find(q => q.name === c.name);

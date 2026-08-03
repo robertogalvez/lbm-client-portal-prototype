@@ -85,6 +85,7 @@ export default function LoginPage() {
                 It expires in 10 minutes.
               </p>
               <button
+                type="button"
                 onClick={() => { setState('idle'); setEmail(''); }}
                 style={{
                   marginTop: 24,

@@ -39,8 +39,8 @@ export function TeamPerformance({ editors }: { editors: EditorStat[] }) {
   return (
     <div>
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: '#f4f6f8', padding: 4, borderRadius: 8, width: 'fit-content' }}>
-        <button style={tabStyle(tab === 'leaderboard')} onClick={() => setTab('leaderboard')}>Task Leaderboard</button>
-        <button style={tabStyle(tab === 'deadline')} onClick={() => setTab('deadline')}>Deadline Accuracy</button>
+        <button type="button" style={tabStyle(tab === 'leaderboard')} onClick={() => setTab('leaderboard')}>Task Leaderboard</button>
+        <button type="button" style={tabStyle(tab === 'deadline')} onClick={() => setTab('deadline')}>Deadline Accuracy</button>
       </div>
 
       {tab === 'leaderboard' && (

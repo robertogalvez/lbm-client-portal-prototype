@@ -13,14 +13,16 @@ export async function GET() {
   const caller = await db.select({ role: authUsers.role }).from(authUsers).where(eq(authUsers.id, session.user.id)).limit(1);
   if (caller[0]?.role === 'client') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  const allClients = await db.select().from(clients).orderBy(clients.createdAt);
-  const quotas = await getClientQuotas();
-
-  // Count linked portal users per client (matched by name)
-  const portalUsers = await db
-    .select({ clientName: authUsers.clientName, email: authUsers.email, name: authUsers.name, id: authUsers.id, emailVerified: authUsers.emailVerified })
-    .from(authUsers)
-    .where(eq(authUsers.role, 'client'));
+  // Independent of each other, so one round-trip of wall time instead of three.
+  // portalUsers is the linked-portal-user count per client, matched by name.
+  const [allClients, quotas, portalUsers] = await Promise.all([
+    db.select().from(clients).orderBy(clients.createdAt),
+    getClientQuotas(),
+    db
+      .select({ clientName: authUsers.clientName, email: authUsers.email, name: authUsers.name, id: authUsers.id, emailVerified: authUsers.emailVerified })
+      .from(authUsers)
+      .where(eq(authUsers.role, 'client')),
+  ]);
 
   const result = allClients.map(c => {
     const quota = quotas.find(q => q.name === c.name);

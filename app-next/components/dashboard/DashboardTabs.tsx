@@ -182,6 +182,7 @@ function DeliveryCell({ row, expanded, onToggle }: { row: ClientRow; expanded: b
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'flex-end' }}>
       <Chip tone={tone}>{label}</Chip>
       <button
+        type="button"
         onClick={onToggle}
         aria-expanded={expanded}
         title={expanded ? 'Hide Reels/YouTube breakdown' : 'Show Reels/YouTube breakdown'}
@@ -309,7 +310,7 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipelineRepor
       {/* Tab bar */}
       <div className="db-tab-strip">
         {(['clients', 'approvals', 'editors', 'reports'] as const).map(t => (
-          <button key={t} style={tabStyle(t)} onClick={() => setActiveTab(t)}>
+          <button type="button" key={t} style={tabStyle(t)} onClick={() => setActiveTab(t)}>
             {t === 'clients' && (<>Clients <span style={ct(clients.length)}>{clients.length}</span></>)}
             {t === 'approvals' && (<>Approvals <span style={ct(approvals.length, approvals.length > 0 ? 'amber' : undefined)}>{approvals.length}</span></>)}
             {t === 'editors' && (<>Editors <span style={ct(editors.length)}>{editors.length}</span></>)}
@@ -391,6 +392,7 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipelineRepor
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <button
+                type="button"
                 onClick={toggleAllClientsExpanded}
                 disabled={filteredClients.length === 0}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 700, color: filteredClients.length === 0 ? '#c3cbd3' : '#B23E00', background: 'none', border: 'none', cursor: filteredClients.length === 0 ? 'default' : 'pointer', padding: 0, fontFamily: 'inherit', whiteSpace: 'nowrap' }}

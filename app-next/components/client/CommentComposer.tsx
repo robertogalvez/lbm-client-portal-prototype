@@ -37,6 +37,7 @@ export function CommentComposer() {
   if (!composing) {
     return (
       <button
+        type="button"
         onClick={openComposer}
         style={{
           width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid #ece4d8',
@@ -75,6 +76,7 @@ export function CommentComposer() {
       />
       <div style={{ display: 'flex', gap: 8 }}>
         <button
+          type="button"
           onClick={cancelComposer}
           disabled={submitting}
           style={{
@@ -86,6 +88,7 @@ export function CommentComposer() {
           Cancel
         </button>
         <button
+          type="button"
           onClick={submitComment}
           disabled={submitting || !text.trim()}
           style={{
