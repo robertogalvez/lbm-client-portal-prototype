@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { HealthTier } from '@/lib/contracts';
+import { PLATFORMS } from './AssetInventory';
 
 export interface LedgerRow {
   id: string;
@@ -50,6 +51,7 @@ export interface ClientDetailData {
   deliverableMix: { type: 'short_form' | 'youtube' | 'ad'; delivered: number }[];
   ledger: LedgerRow[];
   contractHistory: ContractHistoryRow[];
+  socialLinks: Record<string, { handle?: string; url?: string }> | null;
 }
 
 const HEALTH_LABEL: Record<HealthTier, string> = {
@@ -259,7 +261,28 @@ function ClientDetailBody({ data }: { data: ClientDetailData }) {
           </Card>
 
           <Card title="Channels & assets">
-            <div style={{ fontSize: 12.5, fontStyle: 'italic', color: '#8b97a4' }}>Not tracked — per-platform handles aren&apos;t modeled in the schema yet.</div>
+            {(() => {
+              const channels = PLATFORMS
+                .map(p => ({ ...p, entry: data.socialLinks?.[p.key] }))
+                .filter(p => p.entry?.handle || p.entry?.url);
+              if (channels.length === 0) {
+                return <div style={{ fontSize: 12.5, fontStyle: 'italic', color: '#8b97a4' }}>No channel handles on file yet — add them from Admin → Clients.</div>;
+              }
+              return channels.map(p => (
+                <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid #f0f2f5' }}>
+                  <span style={{ width: 30, height: 30, borderRadius: 8, background: p.color, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{p.label[0]}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600 }}>{p.label}</div>
+                    <div style={{ fontSize: 11.5, color: '#8b97a4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.entry?.handle || p.entry?.url}</div>
+                  </div>
+                  {p.entry?.url && (
+                    <a href={p.entry.url} target="_blank" rel="noreferrer" title={`Open ${p.label}`} style={{ color: '#8b97a4', flexShrink: 0 }}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><path d="M15 3h6v6" /><path d="M10 14 21 3" /></svg>
+                    </a>
+                  )}
+                </div>
+              ));
+            })()}
           </Card>
         </div>
       </div>

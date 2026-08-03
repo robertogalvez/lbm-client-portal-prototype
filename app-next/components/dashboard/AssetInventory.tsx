@@ -8,7 +8,7 @@ export interface AssetInventoryRow {
   socialLinks: Record<string, { handle?: string; url?: string }> | null;
 }
 
-const PLATFORMS = [
+export const PLATFORMS = [
   { key: 'instagram', label: 'Instagram', color: '#E1306C' },
   { key: 'facebook', label: 'Facebook', color: '#1877F2' },
   { key: 'tiktok', label: 'TikTok', color: '#111c28' },
