@@ -142,6 +142,35 @@ export async function POST(req: Request) {
       sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS review_entered_at timestamp`,
       sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS review_idle_reminded_at timestamp`,
       sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS primary_contact_user_id text`,
+      sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS deliverable_type varchar(20) NOT NULL DEFAULT 'short_form'`,
+      sql`UPDATE video_cache SET deliverable_type = 'youtube' WHERE is_youtube = true AND deliverable_type = 'short_form'`,
+      sql`CREATE TABLE IF NOT EXISTS "contract_periods" (
+        "id"                uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "client_id"         uuid NOT NULL REFERENCES "clients"("id") ON DELETE CASCADE,
+        "label"             varchar(80) NOT NULL,
+        "starts_on"         date NOT NULL,
+        "ends_on"           date,
+        "model"             varchar(20) NOT NULL,
+        "cadence_per_week"  integer,
+        "monthly_quota"     integer,
+        "contracted_total"  integer NOT NULL,
+        "state"             varchar(20) NOT NULL,
+        "carried_in"        integer DEFAULT 0,
+        "notes"             text,
+        "created_at"        timestamp DEFAULT now()
+      )`,
+      sql`CREATE INDEX IF NOT EXISTS "contract_periods_client_idx" ON "contract_periods" ("client_id")`,
+      sql`CREATE TABLE IF NOT EXISTS "contract_months" (
+        "id"              uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "period_id"       uuid NOT NULL REFERENCES "contract_periods"("id") ON DELETE CASCADE,
+        "month"           varchar(7) NOT NULL,
+        "active"          boolean NOT NULL DEFAULT true,
+        "quota_override"  integer,
+        "scope_note"      varchar(160),
+        "amended"         boolean NOT NULL DEFAULT false,
+        "note"            text,
+        UNIQUE ("period_id", "month")
+      )`,
     ]);
 
     const rows = await sql`
