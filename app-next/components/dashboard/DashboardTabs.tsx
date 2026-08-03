@@ -1,10 +1,14 @@
 'use client';
 
-import { useState, Fragment } from 'react';
+import { useState } from 'react';
 import { InfoPopover } from '@/components/ui/Tooltip';
 import { EDITOR_PHASE_COLS } from './editor-phases';
 import { PipelineReport, type PipelineReportClient } from './PipelineReport';
+import { MetricStrip, type KpiData } from './MetricStrip';
+import { PortfolioTable, type PortfolioClientRow } from './PortfolioTable';
 export type { PipelineReportClient } from './PipelineReport';
+export type { KpiData } from './MetricStrip';
+export type { PortfolioClientRow } from './PortfolioTable';
 export { EDITOR_PHASE_COLS } from './editor-phases';
 
 export interface ApprovalRow {
@@ -14,20 +18,6 @@ export interface ApprovalRow {
   amName: string | null;
   daysWaiting: number;
   frameLink: string | null;
-}
-
-export interface ClientRow {
-  name: string;
-  total: number;
-  inReview: number;
-  oldestDays: number;
-  reelsAgreed: number;
-  reelsDelivered: number;
-  ytAgreed: number;
-  ytDelivered: number;
-  backlogCount: number;
-  stillNeeded: number;
-  footageGap: number;
 }
 
 export interface EditorRow {
@@ -45,20 +35,11 @@ export interface BacklogRow {
   backlogCount: number;
 }
 
-export interface KpiData {
-  label: string;
-  tip: string;
-  value: string | number;
-  dotColor: string;
-  sub?: string;
-  subTone?: 'warn' | 'muted';
-  delta?: { text: string; good: boolean };
-}
-
 interface Props {
   kpis: KpiData[];
   approvals: ApprovalRow[];
-  clients: ClientRow[];
+  portfolioKpis: KpiData[];
+  portfolioRows: PortfolioClientRow[];
   editors: EditorRow[];
   pipelineReport: PipelineReportClient[];
   reportAsOf: string;
@@ -77,38 +58,6 @@ function initials(name: string): string {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-// Pulse strip (§5.1): one bordered bar with hairline dividers between cells,
-// not five separate cards — density is a requirement, not a preference.
-function PulseCell({ label, tip, value, dotColor, sub, subTone, delta }: KpiData) {
-  return (
-    <div style={{ flex: '1 1 150px', minWidth: 0, padding: '11px 16px', borderRight: '1px solid #e7ebef', display: 'flex', flexDirection: 'column', gap: 5 }}>
-      <div style={{ fontSize: 11.5, color: '#54616f', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
-        <InfoPopover tip={tip} />
-      </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 9 }}>
-        <div style={{ fontSize: 22, fontWeight: 600, color: '#111c28', lineHeight: 1, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{value}</div>
-        {delta && (
-          <span style={{
-            fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 5,
-            fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums',
-            color: delta.good ? '#14805f' : '#cf3f36',
-            background: delta.good ? '#e6f4ee' : '#fdedeb',
-          }}>
-            {delta.text}
-          </span>
-        )}
-      </div>
-      {sub && (
-        <div style={{ fontSize: 11, fontWeight: 600, color: subTone === 'warn' ? '#a86a00' : '#8b97a4', display: 'flex', alignItems: 'center', gap: 4 }}>
-          {sub}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function WaitBadge({ days }: { days: number }) {
   const color = days > 14 ? '#cf3f36' : days > 3 ? '#a86a00' : '#8b97a4';
   return (
@@ -116,93 +65,6 @@ function WaitBadge({ days }: { days: number }) {
       {days === 0 ? 'Today' : `${days}d`}
     </span>
   );
-}
-
-function StatusChip({ inReview, oldestDays }: { inReview: number; oldestDays: number }) {
-  if (inReview === 0) return <span style={{ fontSize: 11, fontWeight: 600, color: '#14805f', background: '#e6f4ee', padding: '3px 9px', borderRadius: 7 }}>On track</span>;
-  if (oldestDays > 3) return <span style={{ fontSize: 11, fontWeight: 600, color: '#a86a00', background: '#fbf1dc', padding: '3px 9px', borderRadius: 7 }}>Needs attention</span>;
-  return <span style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', background: '#eaf0ff', padding: '3px 9px', borderRadius: 7 }}>In review</span>;
-}
-
-type Tone = 'good' | 'warn' | 'bad' | 'none';
-const TONE_COLORS: Record<Tone, { color: string; bg: string }> = {
-  good: { color: '#14805f', bg: '#e6f4ee' },
-  warn: { color: '#a86a00', bg: '#fbf1dc' },
-  bad:  { color: '#cf3f36', bg: '#fdedeb' },
-  none: { color: '#8b97a4', bg: '#f5f7f9' },
-};
-
-function deliveryTone(delivered: number, agreed: number): Tone {
-  if (agreed <= 0) return 'none';
-  const pct = delivered / agreed;
-  if (pct >= 0.9) return 'good';
-  if (pct >= 0.5) return 'warn';
-  return 'bad';
-}
-
-function Chip({ tone, children }: { tone: Tone; children: React.ReactNode }) {
-  const t = TONE_COLORS[tone];
-  return (
-    <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 100, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', color: t.color, background: t.bg }}>
-      {children}
-    </span>
-  );
-}
-
-function MiniBar({ pct, tone }: { pct: number; tone: Tone | 'empty' }) {
-  const color = tone === 'empty' ? 'transparent' : TONE_COLORS[tone].color;
-  return (
-    <div style={{ height: 5, borderRadius: 100, background: '#eef1f4', overflow: 'hidden' }}>
-      <div style={{ width: `${Math.min(100, Math.max(0, pct))}%`, height: '100%', borderRadius: 100, background: color }} />
-    </div>
-  );
-}
-
-function Chevron({ expanded }: { expanded: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-      style={{ width: 13, height: 13, color: '#8b97a4', flexShrink: 0, transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 150ms ease' }}
-    >
-      <path d="m9 18 6-6-6-6" />
-    </svg>
-  );
-}
-
-function DeliveryCell({ row, expanded, onToggle }: { row: ClientRow; expanded: boolean; onToggle: () => void }) {
-  const totalAgreed = row.reelsAgreed + row.ytAgreed;
-  const totalDelivered = row.reelsDelivered + row.ytDelivered;
-  const tone = deliveryTone(totalDelivered, totalAgreed);
-  const pct = totalAgreed > 0 ? Math.round((totalDelivered / totalAgreed) * 100) : 0;
-  const label = tone === 'none' ? 'No quota' : tone === 'good' ? `On pace · ${pct}%` : tone === 'warn' ? `Behind · ${pct}%` : `At risk · ${pct}%`;
-  const reelsTone = row.reelsAgreed > 0 ? deliveryTone(row.reelsDelivered, row.reelsAgreed) : 'empty';
-  const ytTone = row.ytAgreed > 0 ? deliveryTone(row.ytDelivered, row.ytAgreed) : 'empty';
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'flex-end' }}>
-      <Chip tone={tone}>{label}</Chip>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
-        title={expanded ? 'Hide Reels/YouTube breakdown' : 'Show Reels/YouTube breakdown'}
-        style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'none', border: 'none', padding: '4px 4px 4px 8px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: 46 }}>
-          <MiniBar pct={row.reelsAgreed > 0 ? (row.reelsDelivered / row.reelsAgreed) * 100 : 0} tone={reelsTone} />
-          <MiniBar pct={row.ytAgreed > 0 ? (row.ytDelivered / row.ytAgreed) * 100 : 0} tone={ytTone} />
-        </div>
-        <Chevron expanded={expanded} />
-      </button>
-    </div>
-  );
-}
-
-function FootageChip({ row }: { row: ClientRow }) {
-  if (row.reelsAgreed + row.ytAgreed <= 0) return <Chip tone="none">N/A</Chip>;
-  if (row.stillNeeded <= 0) return <Chip tone="none">Quota met</Chip>;
-  if (row.footageGap > 0) return <Chip tone="bad">Short by {row.footageGap}</Chip>;
-  return <Chip tone="good">Buffer +{Math.abs(row.footageGap)}</Chip>;
 }
 
 function CleanBar({ pct }: { pct: number }) {
@@ -239,46 +101,20 @@ const thStyle: React.CSSProperties = {
   background: '#f5f7f9', borderBottom: '1px solid #e7ebef', whiteSpace: 'nowrap',
 };
 const thNum: React.CSSProperties = { ...thStyle, textAlign: 'center' };
-// Scoped to the Clients tab breakdown table — its header stays pinned while
-// scrolling a long client list, so column meaning is never out of view.
-const thStickyStyle: React.CSSProperties = { ...thStyle, position: 'sticky', top: 0, zIndex: 1 };
-const thStickyNum: React.CSSProperties = { ...thStickyStyle, textAlign: 'center' };
 const td: React.CSSProperties = { padding: '11px 18px', borderBottom: '1px solid #e7ebef', verticalAlign: 'middle' };
 const tdNum: React.CSSProperties = { ...td, textAlign: 'center', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
 
-export function DashboardTabs({ kpis, approvals, clients, editors, pipelineReport, reportAsOf, defaultTab }: Props) {
+export function DashboardTabs({ kpis, approvals, portfolioKpis, portfolioRows, editors, pipelineReport, reportAsOf, defaultTab }: Props) {
   const [activeTab, setActiveTab] = useState<'clients' | 'approvals' | 'editors' | 'reports'>(
     (defaultTab as 'clients' | 'approvals' | 'editors' | 'reports') ?? 'clients'
   );
   const [approvalSearch, setApprovalSearch] = useState('');
-  const [clientSearch, setClientSearch] = useState('');
   const [editorSearch, setEditorSearch] = useState('');
-  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
-
-  function toggleClientExpanded(name: string) {
-    setExpandedClients(prev => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name); else next.add(name);
-      return next;
-    });
-  }
 
   const filteredApprovals = approvals.filter(r =>
     !approvalSearch || r.title.toLowerCase().includes(approvalSearch.toLowerCase()) || (r.clientName ?? '').toLowerCase().includes(approvalSearch.toLowerCase())
   );
-  const filteredClients = clients.filter(r => !clientSearch || r.name.toLowerCase().includes(clientSearch.toLowerCase()));
   const filteredEditors = editors.filter(r => !editorSearch || r.name.toLowerCase().includes(editorSearch.toLowerCase()));
-
-  const allClientsExpanded = filteredClients.length > 0 && filteredClients.every(c => expandedClients.has(c.name));
-
-  function toggleAllClientsExpanded() {
-    setExpandedClients(prev => {
-      const next = new Set(prev);
-      if (allClientsExpanded) filteredClients.forEach(c => next.delete(c.name));
-      else filteredClients.forEach(c => next.add(c.name));
-      return next;
-    });
-  }
 
   const tabStyle = (t: string): React.CSSProperties => ({
     display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -303,15 +139,15 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipelineRepor
   return (
     <div>
       {/* Pulse strip (§5.1) */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', border: '1px solid #e7ebef', borderRadius: 12, background: '#fff', overflow: 'hidden', margin: '16px 24px 0' }}>
-        {kpis.map(k => <PulseCell key={k.label} {...k} />)}
+      <div style={{ margin: '16px 24px 0' }}>
+        <MetricStrip items={kpis} />
       </div>
 
       {/* Tab bar */}
       <div className="db-tab-strip">
         {(['clients', 'approvals', 'editors', 'reports'] as const).map(t => (
           <button type="button" key={t} style={tabStyle(t)} onClick={() => setActiveTab(t)}>
-            {t === 'clients' && (<>Clients <span style={ct(clients.length)}>{clients.length}</span></>)}
+            {t === 'clients' && (<>Clients <span style={ct(portfolioRows.length)}>{portfolioRows.length}</span></>)}
             {t === 'approvals' && (<>Approvals <span style={ct(approvals.length, approvals.length > 0 ? 'amber' : undefined)}>{approvals.length}</span></>)}
             {t === 'editors' && (<>Editors <span style={ct(editors.length)}>{editors.length}</span></>)}
             {t === 'reports' && 'Reports'}
@@ -383,96 +219,8 @@ export function DashboardTabs({ kpis, approvals, clients, editors, pipelineRepor
       </div>
 
       {/* CLIENTS */}
-      <div style={{ display: activeTab === 'clients' ? 'block' : 'none', padding: '20px 24px 26px' }}>
-        <div style={{ border: '1px solid #e7ebef', borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 18px', borderBottom: '1px solid #e7ebef', flexWrap: 'wrap' }}>
-            <div>
-              <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>Client breakdown</h3>
-              <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 2 }}>{clients.length} clients · pending review &amp; oldest wait</div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <button
-                type="button"
-                onClick={toggleAllClientsExpanded}
-                disabled={filteredClients.length === 0}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 700, color: filteredClients.length === 0 ? '#c3cbd3' : '#B23E00', background: 'none', border: 'none', cursor: filteredClients.length === 0 ? 'default' : 'pointer', padding: 0, fontFamily: 'inherit', whiteSpace: 'nowrap' }}
-              >
-                <Chevron expanded={allClientsExpanded} />
-                {allClientsExpanded ? 'Collapse all' : 'Expand all'}
-              </button>
-              <SearchInput value={clientSearch} onChange={setClientSearch} placeholder="Search clients…" />
-            </div>
-          </div>
-          <div className="db-tscroll" style={{ maxHeight: 400 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr>
-                  <th style={thStickyStyle}>Client</th>
-                  <th style={thStickyNum}>Total</th>
-                  <th style={thStickyNum}>In review <InfoPopover tip="Videos currently in 'For Client Review' status, waiting for client response." /></th>
-                  <th style={thStickyNum}>Oldest wait <InfoPopover tip="Days since the oldest unreviewed video last changed status." /></th>
-                  <th style={thStickyNum}>Status <InfoPopover tip="On track = no pending reviews · In review = 1+ video awaiting client · Needs attention = waiting >3 days." /></th>
-                  <th style={thStickyNum}>Delivery <InfoPopover tip="Combined % = (Reels + YouTube delivered) ÷ (Reels + YouTube agreed) from ClickUp's Master Clients List, prorated for the selected period. Click a row to see the Reels/YouTube breakdown." /></th>
-                  <th style={thStickyNum}>Footage <InfoPopover tip="Still needed (agreed − delivered, summed across Reels + YouTube) compared to backlog on hand. 'Short by N' means raw footage on hand won't cover the remaining quota — film more or pull from the Marketplace." /></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredClients.map(c => {
-                  const expanded = expandedClients.has(c.name);
-                  return (
-                    <Fragment key={c.name}>
-                    <tr style={{ borderBottom: expanded ? 'none' : '1px solid #e7ebef' }}>
-                      <td style={{ ...td, fontWeight: 600 }}>{c.name}</td>
-                      <td style={tdNum}>{c.total}</td>
-                      <td style={tdNum}>{c.inReview > 0 ? <span style={{ fontWeight: 600, color: c.oldestDays > 3 ? '#a86a00' : '#2563eb' }}>{c.inReview}</span> : <span style={{ color: '#8b97a4' }}>—</span>}</td>
-                      <td style={tdNum}>{c.inReview > 0 ? <WaitBadge days={c.oldestDays} /> : <span style={{ color: '#8b97a4' }}>—</span>}</td>
-                      <td style={tdNum}><StatusChip inReview={c.inReview} oldestDays={c.oldestDays} /></td>
-                      <td style={tdNum}><DeliveryCell row={c} expanded={expanded} onToggle={() => toggleClientExpanded(c.name)} /></td>
-                      <td style={tdNum}><FootageChip row={c} /></td>
-                    </tr>
-                    {expanded && (
-                      <tr style={{ borderBottom: '1px solid #e7ebef' }}>
-                        <td colSpan={7} style={{ padding: '4px 18px 14px 46px', background: '#fafbfc' }}>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 28 }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 140 }}>
-                              <span style={{ fontSize: 11, color: '#8b97a4', fontWeight: 600 }}>Reels / mo</span>
-                              <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                                {c.reelsAgreed > 0 ? `${c.reelsDelivered} / ${c.reelsAgreed}` : <span style={{ color: '#8b97a4', fontWeight: 400 }}>No quota set</span>}
-                              </span>
-                              <MiniBar pct={c.reelsAgreed > 0 ? (c.reelsDelivered / c.reelsAgreed) * 100 : 0} tone={c.reelsAgreed > 0 ? deliveryTone(c.reelsDelivered, c.reelsAgreed) : 'empty'} />
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 140 }}>
-                              <span style={{ fontSize: 11, color: '#8b97a4', fontWeight: 600 }}>YouTube / mo</span>
-                              <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                                {c.ytAgreed > 0 ? `${c.ytDelivered} / ${c.ytAgreed}` : <span style={{ color: '#8b97a4', fontWeight: 400 }}>No quota set</span>}
-                              </span>
-                              <MiniBar pct={c.ytAgreed > 0 ? (c.ytDelivered / c.ytAgreed) * 100 : 0} tone={c.ytAgreed > 0 ? deliveryTone(c.ytDelivered, c.ytAgreed) : 'empty'} />
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 140 }}>
-                              <span style={{ fontSize: 11, color: '#8b97a4', fontWeight: 600 }}>Backlog on hand</span>
-                              <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{c.backlogCount} raw video{c.backlogCount === 1 ? '' : 's'}</span>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 140 }}>
-                              <span style={{ fontSize: 11, color: '#8b97a4', fontWeight: 600 }}>Still needed</span>
-                              <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: c.footageGap > 0 ? '#cf3f36' : '#111c28' }}>
-                                {c.reelsAgreed + c.ytAgreed <= 0
-                                  ? 'No quota to measure against'
-                                  : c.stillNeeded <= 0
-                                    ? '0 — quota already met'
-                                    : `${c.stillNeeded} video${c.stillNeeded === 1 ? '' : 's'} → ${c.footageGap > 0 ? `short by ${c.footageGap}` : `buffer +${Math.abs(c.footageGap)}`}`}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      <div style={{ display: activeTab === 'clients' ? 'block' : 'none', padding: '16px 26px 40px' }}>
+        <PortfolioTable kpis={portfolioKpis} rows={portfolioRows} />
       </div>
 
       {/* EDITORS */}

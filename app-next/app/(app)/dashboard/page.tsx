@@ -1,9 +1,11 @@
 import { Suspense } from 'react';
-import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask, getClientQuotas, ClientQuota } from '@/lib/clickup';
+import { eq } from 'drizzle-orm';
+import { getTasksFromFolder, getTasksFromList, isConfigured, MappedTask } from '@/lib/clickup';
 import { getTasksFromDB } from '@/lib/db/queries';
 import { db } from '@/lib/db';
-import { clients as clientsTable } from '@/lib/db/schema';
-import { DashboardTabs, ApprovalRow, ClientRow, EditorRow, BacklogRow, KpiData, PipelineReportClient } from '@/components/dashboard/DashboardTabs';
+import { clients as clientsTable, contractPeriods, type ContractPeriod } from '@/lib/db/schema';
+import { fulfilment, attentionScore, healthTier, expiryLabel, type HealthTier } from '@/lib/contracts';
+import { DashboardTabs, ApprovalRow, EditorRow, BacklogRow, KpiData, PipelineReportClient, PortfolioClientRow } from '@/components/dashboard/DashboardTabs';
 import { EDITOR_PHASE_COLS } from '@/components/dashboard/editor-phases';
 import { FiltersBar } from '@/components/dashboard/FiltersBar';
 
@@ -146,54 +148,66 @@ function buildApprovals(tasks: MappedTask[]): ApprovalRow[] {
 // are browsed); `monthlyPosted` drives Reels/YouTube delivered — always the
 // current calendar month, regardless of the browsed range, since a monthly
 // quota promise doesn't mean anything prorated over a different window.
-function buildClients(tasks: MappedTask[], monthlyPosted: MappedTask[], quotas: ClientQuota[], backlogRows: BacklogRow[]): ClientRow[] {
-  const map = new Map<string, { total: number; inReview: number; oldestDays: number }>();
-  for (const t of tasks) {
-    const name = t.clientName ?? 'Unknown';
-    if (!map.has(name)) map.set(name, { total: 0, inReview: 0, oldestDays: 0 });
-    const s = map.get(name)!;
-    s.total++;
-    if (norm(t.status) === 'for client review') {
-      s.inReview++;
-      const d = daysAgo(t.dateUpdated);
-      if (d > s.oldestDays) s.oldestDays = d;
-    }
-  }
+// Statuses counted as "in active editing" for the portfolio's In-flight
+// column — the same set `periodMetrics` uses for the "In production" KPI,
+// so the two numbers never disagree about what counts as active work.
+const EDITING_STATUSES = new Set(['qc final - am', 'tc - qc (somu)', 'in progress (corrections)', 'in progress (editor)']);
 
-  const deliveredByName = new Map<string, { reels: number; yt: number }>();
-  for (const t of monthlyPosted) {
-    const name = t.clientName ?? 'Unknown';
-    if (!deliveredByName.has(name)) deliveredByName.set(name, { reels: 0, yt: 0 });
-    const d = deliveredByName.get(name)!;
-    if (t.isYoutube) d.yt++; else d.reels++;
-  }
+const fmtDate = (d: string | Date) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-  const quotaByName = new Map(quotas.map(q => [norm(q.name), q]));
-  const backlogByName = new Map(backlogRows.map(b => [norm(b.name), b.backlogCount]));
+interface ContractJoinRow {
+  id: string;
+  clientName: string;
+  label: string;
+  startsOn: string;
+  endsOn: string | null;
+  model: string;
+  contractedTotal: number;
+  state: ContractPeriod['state'];
+}
 
-  return Array.from(map.entries())
-    .map(([name, s]) => {
-      const delivered = deliveredByName.get(name) ?? { reels: 0, yt: 0 };
-      const q = quotaByName.get(norm(name));
-      const reelsAgreed = q?.reelsPerMonth ?? 0;
-      const ytAgreed = q?.ytPerMonth ?? 0;
-      const stillNeeded = Math.max(reelsAgreed - delivered.reels, 0) + Math.max(ytAgreed - delivered.yt, 0);
-      const backlogCount = backlogByName.get(norm(name)) ?? 0;
-      return {
-        name,
-        total: s.total,
-        inReview: s.inReview,
-        oldestDays: s.oldestDays,
-        reelsAgreed,
-        reelsDelivered: delivered.reels,
-        ytAgreed,
-        ytDelivered: delivered.yt,
-        backlogCount,
-        stillNeeded,
-        footageGap: stillNeeded - backlogCount,
-      };
-    })
-    .sort((a, b) => b.total - a.total);
+// Portfolio overview, current-contract mode (§5.2). video_cache has no real
+// foreign key to `clients` — its `clientId` is a ClickUp custom-field option
+// id, a different id space from `clients.clickupTaskId` (a ClickUp task id).
+// Matching by normalized name is what the rest of this file already does
+// (see buildBacklog/buildEditors) and is the only reliable join available.
+function buildPortfolio(periods: ContractJoinRow[], allTasks: MappedTask[], now: Date): PortfolioClientRow[] {
+  return periods.map(p => {
+    const clientTasks = allTasks.filter(t => norm(t.clientName ?? '') === norm(p.clientName));
+    const periodStartMs = new Date(p.startsOn).getTime();
+
+    const delivered = clientTasks.filter(t =>
+      norm(t.status) === 'posted in socials' && parseDate(t.dateUpdated) >= periodStartMs
+    ).length;
+    const inReview = clientTasks.filter(t => norm(t.status) === 'for client review').length;
+    const editing = clientTasks.filter(t => EDITING_STATUSES.has(norm(t.status))).length;
+    // ClickUp's live status vocabulary here has no "on hold" state (see
+    // PIPELINE_STAGES/EDITING_STATUSES — grep confirms none exists), unlike
+    // the Excel-only client-ledger reference data. Always 0 until one does.
+    const onHold = 0;
+
+    const fulfilmentFrac = fulfilment(delivered, p.contractedTotal);
+    const health: HealthTier = healthTier({ contractState: p.state, fulfilment: fulfilmentFrac });
+    const expiry = expiryLabel({ endsOn: p.endsOn, state: p.state }, now);
+
+    return {
+      id: p.id,
+      name: p.clientName,
+      subtitle: p.label,
+      health,
+      type: p.model === 'package' ? 'package' : 'retainer',
+      periodText: `${fmtDate(p.startsOn)} – ${p.endsOn ? fmtDate(p.endsOn) : 'Open'}`,
+      expiryText: expiry.text,
+      expiryTone: expiry.tone,
+      delivered,
+      contracted: p.contractedTotal,
+      fulfilmentPct: fulfilmentFrac !== null ? fulfilmentFrac * 100 : null,
+      inReview,
+      editing,
+      onHold,
+      attentionScore: attentionScore({ onHold, pendingReview: inReview, editing, health }),
+    } satisfies PortfolioClientRow;
+  }).sort((a, b) => b.attentionScore - a.attentionScore);
 }
 
 function buildEditors(tasks: MappedTask[]): EditorRow[] {
@@ -239,7 +253,7 @@ export default async function DashboardPage({
   const showInactive = inactive === '1';
   const masterListId = process.env.CLICKUP_LIST_ID;
   const folderId     = process.env.CLICKUP_FOLDER_ID;
-  const [taskResult, clientStatusRows, clientQuotas] = await Promise.all([
+  const [taskResult, clientStatusRows, activeContracts] = await Promise.all([
     (async (): Promise<{ tasks: MappedTask[]; error: string | null }> => {
       try {
         let tasks = await getTasksFromDB();
@@ -262,7 +276,22 @@ export default async function DashboardPage({
     db.select({ name: clientsTable.name, clientStatus: clientsTable.clientStatus })
       .from(clientsTable)
       .catch(() => [] as { name: string; clientStatus: string | null }[]),
-    getClientQuotas().catch(() => [] as ClientQuota[]),
+    // Portfolio overview data source (§9): contract_periods with state='active',
+    // joined to clients for the display name.
+    db.select({
+        id: contractPeriods.id,
+        clientName: clientsTable.name,
+        label: contractPeriods.label,
+        startsOn: contractPeriods.startsOn,
+        endsOn: contractPeriods.endsOn,
+        model: contractPeriods.model,
+        contractedTotal: contractPeriods.contractedTotal,
+        state: contractPeriods.state,
+      })
+      .from(contractPeriods)
+      .innerJoin(clientsTable, eq(contractPeriods.clientId, clientsTable.id))
+      .where(eq(contractPeriods.state, 'active'))
+      .catch(() => [] as ContractJoinRow[]),
   ]);
 
   let allTasks = taskResult.tasks;
@@ -322,10 +351,34 @@ export default async function DashboardPage({
 
   const postedThisMonth = monthlyPosted.length;
 
-  const approvals   = buildApprovals(allTasks);
-  const backlogRows = buildBacklog(allTasks);
-  const clients     = buildClients(tasks, monthlyPosted, clientQuotas, backlogRows);
-  const editors     = buildEditors(tasks);
+  const approvals     = buildApprovals(allTasks);
+  const backlogRows   = buildBacklog(allTasks);
+  const portfolioRows = buildPortfolio(activeContracts, allTasks, new Date(now));
+  const editors       = buildEditors(tasks);
+
+  const backlogByNameForKpi = new Map(backlogRows.map(b => [norm(b.name), b.backlogCount]));
+  const portfolioKpis: KpiData[] = [
+    {
+      label: 'Active contracts', value: portfolioRows.length, dotColor: '#FF6000',
+      tip: 'Count of retainer and package clients with an active contract period.',
+    },
+    {
+      label: 'Needs attention', value: portfolioRows.filter(r => r.health === 'critical' || r.health === 'watch').length, dotColor: '#cf3f36',
+      tip: 'Clients whose health is critical or watch.',
+    },
+    {
+      label: 'Pending client review', value: portfolioRows.reduce((sum, r) => sum + r.inReview, 0), dotColor: '#a86a00',
+      tip: 'Videos awaiting client approval, summed across active-contract clients.',
+    },
+    {
+      label: 'In active editing', value: portfolioRows.reduce((sum, r) => sum + r.editing, 0), dotColor: '#2563eb',
+      tip: 'Videos currently in an editing/QC stage, summed across active-contract clients.',
+    },
+    {
+      label: 'Footage starved', value: portfolioRows.filter(r => (backlogByNameForKpi.get(norm(r.name)) ?? 0) === 0).length, dotColor: '#cf3f36',
+      tip: 'Clients with zero raw footage in ClickUp\'s pre-production statuses (Not Ready / Backlog / Not Assigned).',
+    },
+  ];
 
   const monthLabel = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 
@@ -438,12 +491,11 @@ export default async function DashboardPage({
         </div>
       )}
 
-      {/* Tabbed workspace (owns the "Needs attention today" panel + KPI row so
-          CTAs there can switch tabs client-side). */}
       <DashboardTabs
         kpis={kpis}
         approvals={approvals}
-        clients={clients}
+        portfolioKpis={portfolioKpis}
+        portfolioRows={portfolioRows}
         editors={editors}
         pipelineReport={buildPipelineReport(allTasks)}
         reportAsOf={new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
