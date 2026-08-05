@@ -116,10 +116,12 @@ export const FIELD = {
   readyToPublish: { id: 'c2e603af-a70b-43c2-b257-fe9a02336336', name: 'Ready to Publish?' },
   instagramUrl:   { id: '55eb3666-a703-47d5-8805-8bdb23fb3d07', name: 'Instagram URL' },
   postedStatus:   { id: '05c724d8-261b-40c6-b736-53869eb5c913', name: 'Posted Status' },
-  // Newly created field — no stable UUID captured yet, so this matches by name
-  // only (findFieldRef falls back to name when the id doesn't match). Backfill
-  // the id here once known, per the convention above.
-  vistaMediaUrl:  { id: '', name: 'VistaSocial Media URL' },
+  // Lives on the "Posting Board" list (workspace 90131939077, list
+  // 901323443204), not the videographer's-backlog list the other fields above
+  // were verified against — tasks are multi-homed into Posting Board once
+  // ready to post, so the field travels with the task regardless of which
+  // list a given request views it from.
+  vistaMediaUrl:  { id: 'db5ae240-38e9-4f36-80e9-9860040facbc', name: 'VistaSocial Media URL' },
 } as const satisfies Record<string, FieldRef>;
 
 // DB `publishing_status` cache value (no live ClickUp "Publishing Status" field
