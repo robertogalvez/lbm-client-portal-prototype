@@ -43,6 +43,7 @@ export async function GET(req: Request) {
   const probe = url.searchParams.get('probe') === '1';
   const writeTestCommentCount = Math.max(0, Math.min(5, parseInt(url.searchParams.get('writeTestComment') ?? '0', 10) || 0));
   const shareId = url.searchParams.get('shareId');
+  const frameLinkParam = url.searchParams.get('frameLink');
   const shortLink = url.searchParams.get('shortLink');
 
   const report: Record<string, unknown> = {
@@ -147,6 +148,19 @@ export async function GET(req: Request) {
     } catch (e) {
       const err = e as frameio.FrameioError;
       report.shareError = { error: err?.message ?? String(e), status: err?.status };
+    }
+  }
+
+  // Resolve an arbitrary Frame.io link (share URL, f.io short link, or asset
+  // URL) with no ClickUp task involved — for ad-hoc probing of a link a
+  // human just pasted in, same auth + resolution path resolveFinalAsset()
+  // uses for real tasks.
+  if (frameLinkParam) {
+    try {
+      report.frameLinkResolved = await frameio.resolveFinalAsset(frameLinkParam);
+    } catch (e) {
+      const err = e as frameio.FrameioError;
+      report.frameLinkError = { error: err?.message ?? String(e), stage: err?.stage, status: err?.status };
     }
   }
 
