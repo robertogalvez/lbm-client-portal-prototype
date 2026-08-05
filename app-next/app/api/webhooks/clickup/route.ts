@@ -6,6 +6,8 @@ import { mapTask } from '@/lib/clickup';
 import { publishVideo } from '@/lib/publish/publish-video';
 import { notifyClientReviewReady } from '@/lib/notify-client';
 import { eq } from 'drizzle-orm';
+import * as clickupWrite from '@/lib/clickup-write';
+import * as frameio from '@/lib/frameio';
 
 function normStatus(s: string | null | undefined): string {
   return (s ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -53,7 +55,7 @@ export async function POST(req: Request) {
 
   // Skip upsert if row has dirty = true
   const existing = await db
-    .select({ dirty: videoCache.dirty, status: videoCache.status })
+    .select({ dirty: videoCache.dirty, status: videoCache.status, frameioAssetId: videoCache.frameioAssetId })
     .from(videoCache)
     .where(eq(videoCache.clickupTaskId, task_id))
     .limit(1);
@@ -115,6 +117,25 @@ export async function POST(req: Request) {
         lastSyncedAt:      new Date(),
       },
     });
+
+  // Frame.io link changed — resolve the signed, high-quality download URL and
+  // mirror it onto a plain ClickUp field. This exists so tools that only see
+  // ClickUp (e.g. ClickUp Brain driving Vista Social's MCP) can read a usable
+  // media URL without needing our Frame.io OAuth credentials themselves.
+  // Best-effort: the reconcile cron + the next webhook fire (re-comparing
+  // against the cached value) are the retry path, so a failure here is never
+  // fatal to the rest of the webhook.
+  const frameLinkChanged = !!mapped.frameLink && mapped.frameLink !== existing[0]?.frameioAssetId;
+  if (frameLinkChanged && frameio.isConfigured()) {
+    try {
+      const asset = await frameio.resolveFinalAsset(mapped.frameLink!);
+      if (asset.ready && asset.downloadUrl) {
+        await clickupWrite.setUrlField(task, clickupWrite.FIELD.vistaMediaUrl, asset.downloadUrl);
+      }
+    } catch (e) {
+      console.error('Frame.io → Vista Social media URL mirror failed:', e instanceof Error ? e.message : e);
+    }
+  }
 
   // The moment a video actually ENTERS "for client review" — guarded to the
   // transition itself (previous status wasn't already "for client review"),
