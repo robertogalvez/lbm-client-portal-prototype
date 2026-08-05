@@ -45,6 +45,7 @@ export async function GET(req: Request) {
   const shareId = url.searchParams.get('shareId');
   const frameLinkParam = url.searchParams.get('frameLink');
   const shortLink = url.searchParams.get('shortLink');
+  const writeVistaField = url.searchParams.get('writeVistaField') === '1';
 
   const report: Record<string, unknown> = {
     env: {
@@ -96,6 +97,25 @@ export async function GET(req: Request) {
         } catch (e) {
           const err = e as frameio.FrameioError;
           report.frameProbe = { error: err?.message ?? String(e), stage: err?.stage, status: err?.status };
+        }
+      }
+
+      // Opt-in: exercises the exact webhook path that mirrors the resolved
+      // Frame.io download URL onto the "VistaSocial Media URL" ClickUp field —
+      // lets us verify that field/write path without waiting for a real
+      // Frame-link-change webhook to fire.
+      if (writeVistaField && frameLink) {
+        try {
+          const asset = await frameio.resolveFinalAsset(frameLink);
+          if (asset.ready && asset.downloadUrl) {
+            const wrote = await clickup.setUrlField(task, clickup.FIELD.vistaMediaUrl, asset.downloadUrl);
+            report.vistaFieldWrite = { wrote, downloadUrl: asset.downloadUrl };
+          } else {
+            report.vistaFieldWrite = { wrote: false, reason: `asset not ready (status: ${asset.status ?? 'unknown'})` };
+          }
+        } catch (e) {
+          const err = e as frameio.FrameioError;
+          report.vistaFieldWrite = { error: err?.message ?? String(e), stage: err?.stage, status: err?.status };
         }
       }
 
