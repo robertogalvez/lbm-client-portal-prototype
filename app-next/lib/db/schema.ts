@@ -199,9 +199,25 @@ export const oauthTokens = pgTable('oauth_tokens', {
   updatedAt:       timestamp('updated_at').defaultNow(),
 });
 
-export type AuthUser       = typeof authUsers.$inferSelect;
-export type Client         = typeof clients.$inferSelect;
-export type VideoCache     = typeof videoCache.$inferSelect;
-export type OAuthToken     = typeof oauthTokens.$inferSelect;
-export type ContractPeriod = typeof contractPeriods.$inferSelect;
-export type ContractMonth  = typeof contractMonths.$inferSelect;
+// Server-side deferred approvals — a row persists for 30 s while the client
+// may undo, then an execute call applies the ClickUp writes. Rows are deleted
+// on undo or marked executed after the window closes.
+export const pendingDecisions = pgTable('pending_decisions', {
+  id:           uuid('id').defaultRandom().primaryKey(),
+  taskId:       varchar('task_id', { length: 100 }).notNull(),
+  action:       varchar('action', { length: 30 }).notNull(), // 'approve'|'approve_with_fixes'|'changes'
+  payload:      jsonb('payload').notNull(),                  // full request body for re-execution
+  executeAfter: timestamp('execute_after').notNull(),
+  userId:       text('user_id').notNull(),
+  clientName:   varchar('client_name', { length: 255 }).notNull(),
+  createdAt:    timestamp('created_at').defaultNow(),
+  executed:     boolean('executed').notNull().default(false),
+});
+
+export type AuthUser        = typeof authUsers.$inferSelect;
+export type Client          = typeof clients.$inferSelect;
+export type VideoCache      = typeof videoCache.$inferSelect;
+export type OAuthToken      = typeof oauthTokens.$inferSelect;
+export type ContractPeriod  = typeof contractPeriods.$inferSelect;
+export type ContractMonth   = typeof contractMonths.$inferSelect;
+export type PendingDecision = typeof pendingDecisions.$inferSelect;

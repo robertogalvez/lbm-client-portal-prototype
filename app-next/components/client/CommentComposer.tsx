@@ -29,7 +29,7 @@ export function CommentComposer() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14, flexShrink: 0 }}>
           <path d="M9 12l2 2 4-4" /><circle cx="12" cy="12" r="9" />
         </svg>
-        Feedback submitted — comments are now closed
+        Decision submitted — comments are now closed
       </div>
     );
   }
