@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useVideoDecision } from './VideoDecisionContext';
-import { useVideoPlayer } from './VideoPlayerContext';
+import { useVideoPlayerOptional } from './VideoPlayerContext';
 
 interface Props {
   taskId: string;
@@ -30,7 +30,8 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
   const executeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { markDecided } = useVideoDecision();
-  const { comments } = useVideoPlayer();
+  const player = useVideoPlayerOptional();
+  const comments = player?.comments ?? [];
 
   const hasNotes = comments.length > 0;
 

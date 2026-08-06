@@ -130,3 +130,11 @@ export function useVideoPlayer(): PlayerState {
   if (!ctx) throw new Error('useVideoPlayer must be used within a VideoPlayerProvider');
   return ctx;
 }
+
+// Safe variant — returns null outside a VideoPlayerProvider.
+// Use this in components that may render both inside and outside the provider
+// (e.g. ApprovalButtons appears on the main client listing as well as the
+// video detail page).
+export function useVideoPlayerOptional(): PlayerState | null {
+  return useContext(PlayerContext);
+}
