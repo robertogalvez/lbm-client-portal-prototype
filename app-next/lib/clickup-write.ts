@@ -116,6 +116,12 @@ export const FIELD = {
   readyToPublish: { id: 'c2e603af-a70b-43c2-b257-fe9a02336336', name: 'Ready to Publish?' },
   instagramUrl:   { id: '55eb3666-a703-47d5-8805-8bdb23fb3d07', name: 'Instagram URL' },
   postedStatus:   { id: '05c724d8-261b-40c6-b736-53869eb5c913', name: 'Posted Status' },
+  // Lives on the "Posting Board" list (workspace 90131939077, list
+  // 901323443204), not the videographer's-backlog list the other fields above
+  // were verified against — tasks are multi-homed into Posting Board once
+  // ready to post, so the field travels with the task regardless of which
+  // list a given request views it from.
+  vistaMediaUrl:  { id: 'db5ae240-38e9-4f36-80e9-9860040facbc', name: 'VistaSocial Media URL' },
 } as const satisfies Record<string, FieldRef>;
 
 // DB `publishing_status` cache value (no live ClickUp "Publishing Status" field
@@ -130,8 +136,11 @@ export const PUBLISHING_STATUS = {
 // live from the workspace's `status`/`available_statuses`, which are lowercase
 // regardless of how ClickUp's UI capitalizes them for display).
 export const TASK_STATUS = {
-  readyToBePosted: 'ready to be posted',
-  postedInSocials: 'posted in socials',
+  readyToBePosted:      'ready to be posted',
+  postedInSocials:      'posted in socials',
+  // Approved but held for fix checklist items — sits between "for client review"
+  // and "ready to be posted". Must exist in every pipeline list before this ships.
+  approvedFixesPending: 'approved · fixes pending',
 } as const;
 
 // Values of the "Posted Status" custom field. This field is FEEDBACK, written by
@@ -145,4 +154,43 @@ export const POSTED_STATUS = {
 
 export function normStatus(s: string | null | undefined): string {
   return (s ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+// ── Checklist helpers ────────────────────────────────────────────────────────
+
+export async function createChecklist(taskId: string, name: string): Promise<{ id: string }> {
+  const r = await cuRequest<{ checklist: { id: string } }>(`/task/${taskId}/checklist`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+  return { id: r.checklist.id };
+}
+
+export async function addChecklistItem(checklistId: string, name: string): Promise<{ id: string }> {
+  const r = await cuRequest<{ checklist_item: { id: string } }>(`/checklist/${checklistId}/checklist_item`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+  return { id: r.checklist_item.id };
+}
+
+export async function resolveChecklistItem(checklistItemId: string, resolved: boolean): Promise<void> {
+  await cuRequest(`/checklist_item/${checklistItemId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ resolved }),
+  });
+}
+
+export async function createClientFixesChecklist(
+  taskId: string,
+  items: string[],
+  dateLabel: string,
+): Promise<{ checklistId: string; itemIds: string[] }> {
+  const { id: checklistId } = await createChecklist(taskId, `Client fixes — ${dateLabel}`);
+  const itemIds: string[] = [];
+  for (const name of items) {
+    const { id } = await addChecklistItem(checklistId, name);
+    itemIds.push(id);
+  }
+  return { checklistId, itemIds };
 }

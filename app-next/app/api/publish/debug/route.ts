@@ -43,7 +43,9 @@ export async function GET(req: Request) {
   const probe = url.searchParams.get('probe') === '1';
   const writeTestCommentCount = Math.max(0, Math.min(5, parseInt(url.searchParams.get('writeTestComment') ?? '0', 10) || 0));
   const shareId = url.searchParams.get('shareId');
+  const frameLinkParam = url.searchParams.get('frameLink');
   const shortLink = url.searchParams.get('shortLink');
+  const writeVistaField = url.searchParams.get('writeVistaField') === '1';
 
   const report: Record<string, unknown> = {
     env: {
@@ -98,6 +100,25 @@ export async function GET(req: Request) {
         }
       }
 
+      // Opt-in: exercises the exact webhook path that mirrors the resolved
+      // Frame.io download URL onto the "VistaSocial Media URL" ClickUp field —
+      // lets us verify that field/write path without waiting for a real
+      // Frame-link-change webhook to fire.
+      if (writeVistaField && frameLink) {
+        try {
+          const asset = await frameio.resolveFinalAsset(frameLink);
+          if (asset.ready && asset.downloadUrl) {
+            const wrote = await clickup.setUrlField(task, clickup.FIELD.vistaMediaUrl, asset.downloadUrl);
+            report.vistaFieldWrite = { wrote, downloadUrl: asset.downloadUrl };
+          } else {
+            report.vistaFieldWrite = { wrote: false, reason: `asset not ready (status: ${asset.status ?? 'unknown'})` };
+          }
+        } catch (e) {
+          const err = e as frameio.FrameioError;
+          report.vistaFieldWrite = { error: err?.message ?? String(e), stage: err?.stage, status: err?.status };
+        }
+      }
+
       // Opt-in write test: exercises the exact createComment() path the
       // native player's composer uses, N times in a row, to surface the real
       // Frame.io error behind a generic "Could not save to Frame.io" message.
@@ -147,6 +168,19 @@ export async function GET(req: Request) {
     } catch (e) {
       const err = e as frameio.FrameioError;
       report.shareError = { error: err?.message ?? String(e), status: err?.status };
+    }
+  }
+
+  // Resolve an arbitrary Frame.io link (share URL, f.io short link, or asset
+  // URL) with no ClickUp task involved — for ad-hoc probing of a link a
+  // human just pasted in, same auth + resolution path resolveFinalAsset()
+  // uses for real tasks.
+  if (frameLinkParam) {
+    try {
+      report.frameLinkResolved = await frameio.resolveFinalAsset(frameLinkParam);
+    } catch (e) {
+      const err = e as frameio.FrameioError;
+      report.frameLinkError = { error: err?.message ?? String(e), stage: err?.stage, status: err?.status };
     }
   }
 
