@@ -31,7 +31,7 @@ export function DashboardTabs({ pipelineStageTotals, pipelineStalledTotals, pipe
 
   const tabStyle = (t: Tab): React.CSSProperties => ({
     display: 'inline-flex', alignItems: 'center', gap: 8,
-    padding: '13px 15px 12px', fontSize: 13.5, fontWeight: 600,
+    padding: '11px 15px 10px', fontSize: 13.5, fontWeight: 600,
     color: activeTab === t ? '#B23E00' : '#8b97a4',
     marginBottom: -1, cursor: 'pointer', background: 'none', border: 'none',
     borderBottomStyle: 'solid', borderBottomWidth: 2,
@@ -56,7 +56,7 @@ export function DashboardTabs({ pipelineStageTotals, pipelineStalledTotals, pipe
       </div>
 
       {/* PRODUCTION OVERVIEW */}
-      <div style={{ display: activeTab === 'overview' ? 'block' : 'none', padding: '20px 24px 40px' }}>
+      <div style={{ display: activeTab === 'overview' ? 'block' : 'none', padding: '14px 24px 40px' }}>
         <PipelineAnalytics
           stageTotals={pipelineStageTotals}
           stalledTotals={pipelineStalledTotals}
@@ -66,7 +66,7 @@ export function DashboardTabs({ pipelineStageTotals, pipelineStalledTotals, pipe
       </div>
 
       {/* CLIENTS */}
-      <div style={{ display: activeTab === 'clients' ? 'block' : 'none', padding: '20px 24px 40px' }}>
+      <div style={{ display: activeTab === 'clients' ? 'block' : 'none', padding: '14px 24px 40px' }}>
         {selectedClient ? (
           <ClientDetail key={selectedClient.id} id={selectedClient.id} name={selectedClient.name} onBack={() => setSelectedClient(null)} />
         ) : (
