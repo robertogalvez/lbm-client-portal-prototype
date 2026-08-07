@@ -247,7 +247,7 @@ function FlowStage({ label, dot, count, stalled, caption, showArrow }: { label: 
   return (
     <>
       {showArrow && (
-        <div style={{ flex: '0 0 22px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d4dbe2', fontSize: 15 }}>→</div>
+        <div className="pipeline-flow-arrow" style={{ flex: '0 0 22px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d4dbe2', fontSize: 15 }}>→</div>
       )}
       <div style={{ flex: '1 1 150px', minWidth: 148, padding: '4px 6px' }}>
         <div style={{ border: '1px solid #e7ebef', background: '#f5f7f9', borderRadius: 10, padding: '14px 14px 12px', height: '100%' }}>
