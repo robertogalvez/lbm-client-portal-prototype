@@ -1,4 +1,3 @@
-import { Suspense } from 'react';
 import { eq } from 'drizzle-orm';
 import { isConfigured, MappedTask } from '@/lib/clickup';
 import { getDashboardTasks } from '@/lib/dashboard-tasks';
@@ -6,7 +5,6 @@ import { db } from '@/lib/db';
 import { clients as clientsTable, contractPeriods, type ContractPeriod } from '@/lib/db/schema';
 import { fulfilment, attentionScore, healthTier, expiryLabel, type HealthTier } from '@/lib/contracts';
 import { DashboardTabs, KpiData, PortfolioClientRow, PipelineStage, PipelineStageCounts, PipelinePeriod, PipelinePeriodStat, PipelineClientRow } from '@/components/dashboard/DashboardTabs';
-import { InactiveToggle } from '@/components/dashboard/InactiveToggle';
 
 export const revalidate = 60;
 
@@ -350,34 +348,6 @@ export default async function DashboardPage({
 
   return (
     <main style={{ maxWidth: 1400 }}>
-      {/* Topbar */}
-      <div className="db-topbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '15px 24px', borderBottom: '1px solid #e7ebef' }}>
-        <div>
-          <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em' }}>Production Overview</div>
-          <div style={{ fontSize: 12.5, color: '#8b97a4', marginTop: 1, display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: '#14805f', fontWeight: 600 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#14805f', display: 'inline-block' }} />
-              Live from ClickUp
-            </span>
-            · cached 60s
-          </div>
-        </div>
-        <div className="db-topbar-right">
-          <Suspense fallback={null}>
-            <InactiveToggle />
-          </Suspense>
-        </div>
-      </div>
-
-      {/* Persistent glance zone */}
-      {error && (
-        <div style={{ margin: '18px 24px 0' }}>
-          <div style={{ background: '#fdedeb', border: '1px solid #f8d0cc', borderRadius: 8, padding: '12px 16px', fontSize: 13, color: '#cf3f36' }}>
-            ClickUp error: {error}
-          </div>
-        </div>
-      )}
-
       <DashboardTabs
         pipelineStageTotals={pipelineStageTotals}
         pipelineStalledTotals={pipelineStalledTotals}
@@ -386,6 +356,7 @@ export default async function DashboardPage({
         portfolioKpis={portfolioKpis}
         portfolioRows={portfolioRows}
         assetRows={assetRows}
+        error={error}
       />
     </main>
   );
