@@ -639,15 +639,13 @@ body {
   .am-client-grid { grid-template-columns: 1fr; }
 }
 
-/* Tab strip — allow horizontal scroll instead of overflowing the page when
-   there isn't room for every tab on a narrow screen. */
-.db-tab-strip {
-  display: flex;
-  gap: 2px;
-  padding: 0 24px;
-  border-bottom: 1px solid #e7ebef;
-  margin-top: 16px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+/* Pipeline analytics flow strip: stage boxes wrap to one per row on very
+   narrow screens, so the connecting arrow should point down, not right. */
+@media (max-width: 420px) {
+  .pipeline-flow-arrow {
+    flex-basis: 100% !important;
+    width: 100%;
+    transform: rotate(90deg);
+    padding: 2px 0;
+  }
 }
-.db-tab-strip button { flex-shrink: 0; }

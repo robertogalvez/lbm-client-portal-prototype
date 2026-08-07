@@ -3,9 +3,8 @@
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useCallback } from 'react';
 
-// Applies everywhere on the dashboard (portfolio, approvals, editors, reports),
-// unlike the date-range/editor/AM/client filters which only scope the Editors
-// tab's rows — so this toggle lives in the global topbar, not FiltersBar.
+// Applies everywhere on the dashboard (pipeline analytics and clients alike),
+// so this toggle lives in the global topbar rather than any one section.
 export function InactiveToggle() {
   const router = useRouter();
   const pathname = usePathname();
