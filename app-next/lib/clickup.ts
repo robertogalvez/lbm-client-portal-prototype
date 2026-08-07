@@ -65,7 +65,11 @@ export interface MappedTask {
   revisions: number | null;
   dateUpdated: string;
   dueDate: string | null;
-  publishDate: string | null;   // ClickUp "Publish Date" — the scheduled go-live date
+  // ClickUp "Publish Date (VistaSocial)" — the actual/scheduled go-live date
+  // for the post. Status POSTED_IN_SOCIALS just means the video has been
+  // queued into VistaSocial; this date is what tells you whether it has
+  // actually gone live yet (past/present) or is still scheduled (future).
+  publishDate: string | null;
 }
 
 const DELIVERABLE_TYPE_MAP: Record<string, 'short_form' | 'youtube' | 'ad'> = {
@@ -101,7 +105,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
   const instagramUrlField = findField(task, 'Instagram URL');
   const amField       = findField(task, 'Account Manager (AM)');
   const qcField       = findField(task, 'QUALITY CHECK (Somu)');
-  const publishDateField = findField(task, 'Publish Date');
+  const publishDateField = findField(task, 'Publish Date (VistaSocial)');
   const clientFacingTitleField = findField(task, 'Client-Facing Title');
   const revisionsField = findField(task, 'Revision #');
   const deliverableTypeField = findField(task, 'Deliverable Type');
@@ -125,7 +129,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     dueDate = isNaN(ms) ? task.due_date : new Date(ms).toISOString();
   }
 
-  // "Publish Date" is a ClickUp date field — its value is epoch ms (string|number).
+  // "Publish Date (VistaSocial)" is a ClickUp date field — its value is epoch ms (string|number).
   let publishDate: string | null = null;
   const pubMs = Number(publishDateField?.value);
   if (Number.isFinite(pubMs) && pubMs > 0) publishDate = new Date(pubMs).toISOString();

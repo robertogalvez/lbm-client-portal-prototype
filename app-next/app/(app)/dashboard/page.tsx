@@ -79,9 +79,15 @@ function buildPortfolio(periods: ContractJoinRow[], allTasks: MappedTask[], now:
     const clientTasks = allTasks.filter(t => norm(t.clientName ?? '') === norm(p.clientName));
     const periodStartMs = new Date(p.startsOn).getTime();
 
-    const delivered = clientTasks.filter(t =>
-      norm(t.status) === POSTED && parseDate(t.dateUpdated) >= periodStartMs
-    ).length;
+    // A POSTED task whose publish date is still in the future hasn't
+    // actually gone live yet — see resolvePostedAt below — so it doesn't
+    // count toward delivered until that date arrives.
+    const nowMs = now.getTime();
+    const delivered = clientTasks.filter(t => {
+      if (norm(t.status) !== POSTED) return false;
+      const postedAt = resolvePostedAt(t);
+      return postedAt >= periodStartMs && postedAt <= nowMs;
+    }).length;
     const inReview = clientTasks.filter(t => norm(t.status) === 'for client review').length;
     const editing = clientTasks.filter(t => EDITING_STATUSES.has(norm(t.status))).length;
     // ClickUp's live status vocabulary here has no "on hold" state (see
@@ -121,6 +127,13 @@ function buildPortfolio(periods: ContractJoinRow[], allTasks: MappedTask[], now:
 // in-flight count. "Posted" is the only date-scoped stage: the other five
 // describe where a video sits *right now*, which doesn't change depending on
 // which period you're looking at.
+//
+// POSTED_IN_SOCIALS just means the video has been queued into VistaSocial —
+// it isn't necessarily live yet. `publishDate` ("Publish Date (VistaSocial)")
+// is what actually says when it goes/went live; a POSTED task whose
+// publishDate is still in the future hasn't happened yet, so it's folded
+// into "Ready to Post" rather than counted as Posted (or silently vanishing
+// from the board until its publish date arrives).
 const PIPELINE_STAGE_KEYS: PipelineStage[] = ['backlog', 'editing', 'qc', 'review', 'ready'];
 const STALL_MS = 3 * DAY_MS; // matches the dashboard's existing >3d "overdue" threshold
 
@@ -135,6 +148,13 @@ function pipelineStageOf(normStatus: string): PipelineStage | null {
   if (normStatus === 'for client review') return 'review';
   if (normStatus === 'ready to be posted') return 'ready';
   return null; // POSTED, handled separately by the caller
+}
+
+// The actual go-live moment for a POSTED task: publishDate when set (the
+// source of truth), falling back to dateUpdated for tasks posted before this
+// field was tracked, or posted manually outside VistaSocial.
+function resolvePostedAt(t: MappedTask): number {
+  return t.publishDate ? new Date(t.publishDate).getTime() : parseDate(t.dateUpdated);
 }
 
 function buildPipelineClientRows(
@@ -155,6 +175,24 @@ function buildPipelineClientRows(
   for (const t of allTasks) {
     const name = t.clientName ?? 'Unknown';
     const status = norm(t.status);
+
+    if (status === POSTED) {
+      const postedAt = resolvePostedAt(t);
+      if (postedAt <= now) {
+        const row = rowFor(name);
+        (Object.keys(postedCutoffs) as PipelinePeriod[]).forEach(p => {
+          if (postedAt >= postedCutoffs[p]) row.posted[p]++;
+        });
+        continue;
+      }
+      // Scheduled for a future publish date — not live yet, so it still
+      // reads as in-flight (Ready to Post) rather than as Posted.
+      const row = rowFor(name);
+      row.counts.ready++;
+      if (now - parseDate(t.dateUpdated) > STALL_MS) row.stalled.ready++;
+      continue;
+    }
+
     const stage = pipelineStageOf(status);
     if (stage) {
       const row = rowFor(name);
@@ -162,14 +200,6 @@ function buildPipelineClientRows(
       // Backlog isn't a "stall" concept — a client's raw-footage supply is
       // tracked separately (buildBacklog / "Footage starved" KPI).
       if (stage !== 'backlog' && now - parseDate(t.dateUpdated) > STALL_MS) row.stalled[stage]++;
-      continue;
-    }
-    if (status === POSTED) {
-      const row = rowFor(name);
-      const updated = parseDate(t.dateUpdated);
-      (Object.keys(postedCutoffs) as PipelinePeriod[]).forEach(p => {
-        if (updated >= postedCutoffs[p]) row.posted[p]++;
-      });
     }
   }
 
@@ -303,7 +333,7 @@ export default async function DashboardPage({
 
   const countPostedInWindow = (start: number, end: number) =>
     allTasks.filter(t => norm(t.status) === POSTED)
-      .filter(t => { const d = parseDate(t.dateUpdated); return d >= start && d < end; })
+      .filter(t => { const d = resolvePostedAt(t); return d >= start && d < end; })
       .length;
 
   const postedPrev = {

@@ -21,24 +21,52 @@ interface Props {
   assetRows: AssetInventoryRow[];
 }
 
+const TABS = ['overview', 'clients'] as const;
+type Tab = typeof TABS[number];
+
 export function DashboardTabs({ pipelineStageTotals, pipelineStalledTotals, pipelinePeriods, pipelineClientRows, portfolioKpis, portfolioRows, assetRows }: Props) {
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [selectedClient, setSelectedClient] = useState<{ id: string; name: string } | null>(null);
   const [clientsView, setClientsView] = useState<'portfolio' | 'assets'>('portfolio');
 
+  const tabStyle = (t: Tab): React.CSSProperties => ({
+    display: 'inline-flex', alignItems: 'center', gap: 8,
+    padding: '13px 15px 12px', fontSize: 13.5, fontWeight: 600,
+    color: activeTab === t ? '#B23E00' : '#8b97a4',
+    marginBottom: -1, cursor: 'pointer', background: 'none', border: 'none',
+    borderBottomStyle: 'solid', borderBottomWidth: 2,
+    borderBottomColor: activeTab === t ? '#FF6000' : 'transparent',
+    fontFamily: 'inherit', transition: 'color 130ms',
+  });
+
+  const ct = (count: number): React.CSSProperties => ({
+    fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700,
+    padding: '1px 7px', borderRadius: 100, background: '#f5f7f9', color: '#54616f',
+  });
+
   return (
-    <div style={{ padding: '20px 24px 40px', display: 'flex', flexDirection: 'column', gap: 34 }}>
-      <PipelineAnalytics
-        stageTotals={pipelineStageTotals}
-        stalledTotals={pipelineStalledTotals}
-        periods={pipelinePeriods}
-        clientRows={pipelineClientRows}
-      />
+    <div>
+      <div className="db-tab-strip">
+        <button type="button" style={tabStyle('overview')} onClick={() => setActiveTab('overview')}>
+          Production Overview
+        </button>
+        <button type="button" style={tabStyle('clients')} onClick={() => setActiveTab('clients')}>
+          Clients <span style={ct(portfolioRows.length)}>{portfolioRows.length}</span>
+        </button>
+      </div>
+
+      {/* PRODUCTION OVERVIEW */}
+      <div style={{ display: activeTab === 'overview' ? 'block' : 'none', padding: '20px 24px 40px' }}>
+        <PipelineAnalytics
+          stageTotals={pipelineStageTotals}
+          stalledTotals={pipelineStalledTotals}
+          periods={pipelinePeriods}
+          clientRows={pipelineClientRows}
+        />
+      </div>
 
       {/* CLIENTS */}
-      <div>
-        <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.005em', marginBottom: 2 }}>Clients</div>
-        <div style={{ fontSize: 12, color: '#8b97a4', marginBottom: 14 }}>Portfolio overview &amp; asset inventory</div>
-
+      <div style={{ display: activeTab === 'clients' ? 'block' : 'none', padding: '20px 24px 40px' }}>
         {selectedClient ? (
           <ClientDetail key={selectedClient.id} id={selectedClient.id} name={selectedClient.name} onBack={() => setSelectedClient(null)} />
         ) : (
