@@ -5,8 +5,7 @@ import { getDashboardTasks } from '@/lib/dashboard-tasks';
 import { db } from '@/lib/db';
 import { clients as clientsTable, contractPeriods, type ContractPeriod } from '@/lib/db/schema';
 import { fulfilment, attentionScore, healthTier, expiryLabel, type HealthTier } from '@/lib/contracts';
-import { DashboardTabs, ApprovalRow, EditorRow, BacklogRow, KpiData, PipelineReportClient, PortfolioClientRow } from '@/components/dashboard/DashboardTabs';
-import { EDITOR_PHASE_COLS } from '@/components/dashboard/editor-phases';
+import { DashboardTabs, KpiData, PortfolioClientRow, PipelineStage, PipelineStageCounts, PipelinePeriod, PipelinePeriodStat, PipelineClientRow } from '@/components/dashboard/DashboardTabs';
 import { InactiveToggle } from '@/components/dashboard/InactiveToggle';
 
 export const revalidate = 60;
@@ -15,66 +14,10 @@ function norm(s: string) {
   return s.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-function daysAgo(dateStr: string): number {
-  const ts = Number(dateStr);
-  const date = isNaN(ts) ? new Date(dateStr) : new Date(ts);
-  return Math.floor((Date.now() - date.getTime()) / 86_400_000);
-}
+const parseDate = (s: string) => { const n = Number(s); return isNaN(n) ? new Date(s).getTime() : n; };
 
-function rangeCutoff(range: string): number {
-  if (range === 'month') {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  }
-  if (range === '30d')  return Date.now() - 30  * 86_400_000;
-  if (range === '90d')  return Date.now() - 90  * 86_400_000;
-  if (range === '1y')   return Date.now() - 365 * 86_400_000;
-  return 0;
-}
-
-// The equal-length window immediately preceding `cutoff`, used to compute
-// KPI trend deltas. 'all' has no meaningful "prior" window.
-function previousWindowBounds(range: string, cutoff: number): [number, number] | null {
-  if (range === 'month') {
-    const d = new Date(cutoff);
-    const prevMonth = new Date(d.getFullYear(), d.getMonth() - 1, 1);
-    const currMonth = new Date(cutoff);
-    return [prevMonth.getTime(), currMonth.getTime()];
-  }
-  if (range === '30d')  return [cutoff - 30  * 86_400_000, cutoff];
-  if (range === '90d')  return [cutoff - 90  * 86_400_000, cutoff];
-  if (range === '1y')   return [cutoff - 365 * 86_400_000, cutoff];
-  return null;
-}
-
-function periodMetrics(list: MappedTask[]) {
-  // In production: videos actively being worked on
-  const inProdStatuses = new Set([
-    'qc final - am',
-    'tc - qc (somu)',
-    'in progress (corrections)',
-    'in progress (editor)',
-  ]);
-  const inProd = list.filter(t => inProdStatuses.has(norm(t.status))).length;
-
-  // Pending approval: videos in client hands
-  const pending = list.filter(t => norm(t.status) === 'for client review').length;
-
-  // Client-approved: READY TO BE POSTED with CLIENT APPROVAL = Approved
-  const approved = list.filter(t =>
-    norm(t.status) === 'ready to be posted' &&
-    t.clientApproval?.toLowerCase() === 'approved'
-  ).length;
-
-  // First-pass clean: videos that reached posting with 0 or null revisions
-  // Null revisions = video bypassed QC Board (went Backlog → Posted directly, no revisions needed)
-  // 0 revisions = video passed QC Board on first pass without corrections
-  const readyToPost = list.filter(t => norm(t.status) === 'ready to be posted');
-  const cleanPass = readyToPost.filter(t => t.revisions === 0 || t.revisions === null).length;
-  const firstPassClean = readyToPost.length > 0 ? Math.round(cleanPass / readyToPost.length * 100) : null;
-
-  return { inProd, pending, approved, firstPassClean };
-}
+const DAY_MS = 86_400_000;
+const POSTED = 'posted in socials';
 
 // Delta chip for a KPI card: arrow + magnitude, colored by whether the
 // direction is actually good for that metric (e.g. Pending approval going
@@ -89,13 +32,14 @@ function kpiDelta(current: number, previous: number | null | undefined, higherIs
   return { text: `${arrow} ${magnitude}`, good };
 }
 
-const parseDate = (s: string) => { const n = Number(s); return isNaN(n) ? new Date(s).getTime() : n; };
-
 // Statuses that count as raw, unedited footage on hand ("To do" stage of the
-// old pipeline funnel) — still needed by buildBacklog's footage-supply math.
+// pipeline) — feeds buildBacklog's footage-supply math AND the pipeline
+// analytics "Backlog" stage below, so both agree on what counts as backlog.
 const BACKLOG_STATUSES = new Set(['not ready', 'backlog', 'not assigned']);
+const QC_STATUSES = new Set(['tc - qc (somu)', 'qc final - am']);
+const PIPELINE_EDITING_STATUSES = new Set(['in progress (editor)', 'in progress (corrections)']);
 
-function buildBacklog(tasks: MappedTask[]): BacklogRow[] {
+function buildBacklog(tasks: MappedTask[]): { name: string; backlogCount: number }[] {
   const map = new Map<string, number>();
   for (const t of tasks) {
     const name = t.clientName ?? 'Unknown';
@@ -107,50 +51,9 @@ function buildBacklog(tasks: MappedTask[]): BacklogRow[] {
     .sort((a, b) => a.backlogCount - b.backlogCount);
 }
 
-// Per-client pipeline snapshot for the Reports tab: raw footage waiting to be
-// edited (supply health) plus what's left downstream toward publishing.
-const NEW_FOOTAGE_STATUSES = new Set(['not ready', 'not assigned', 'in progress (editor)']);
-const QC_STATUSES = new Set(['tc - qc (somu)', 'qc final - am']);
-
-function buildPipelineReport(tasks: MappedTask[]): PipelineReportClient[] {
-  const map = new Map<string, PipelineReportClient>();
-  for (const t of tasks) {
-    const name = t.clientName ?? 'Unknown';
-    if (!map.has(name)) {
-      map.set(name, { name, newFootage: 0, corrections: 0, qc: 0, clientReview: 0, readyToPublish: 0 });
-    }
-    const r = map.get(name)!;
-    const s = norm(t.status);
-    if (NEW_FOOTAGE_STATUSES.has(s)) r.newFootage++;
-    else if (s === 'in progress (corrections)') r.corrections++;
-    else if (QC_STATUSES.has(s)) r.qc++;
-    else if (s === 'for client review') r.clientReview++;
-    else if (s === 'ready to be posted') r.readyToPublish++;
-  }
-  return Array.from(map.values());
-}
-
-function buildApprovals(tasks: MappedTask[]): ApprovalRow[] {
-  return tasks
-    .filter(t => norm(t.status) === 'for client review')
-    .map(t => ({
-      id: t.clickupTaskId,
-      title: t.title,
-      clientName: t.clientName,
-      amName: t.assignedAmName,
-      daysWaiting: daysAgo(t.dateUpdated),
-      frameLink: t.frameLink,
-    }))
-    .sort((a, b) => b.daysWaiting - a.daysWaiting);
-}
-
-// `tasks` drives Total/In review/Oldest wait (scoped to whatever range/filters
-// are browsed); `monthlyPosted` drives Reels/YouTube delivered — always the
-// current calendar month, regardless of the browsed range, since a monthly
-// quota promise doesn't mean anything prorated over a different window.
 // Statuses counted as "in active editing" for the portfolio's In-flight
-// column — the same set `periodMetrics` uses for the "In production" KPI,
-// so the two numbers never disagree about what counts as active work.
+// column (Clients section) — merges Editing/QC/Corrections into one bucket,
+// unlike the finer-grained pipeline analytics stages below.
 const EDITING_STATUSES = new Set(['qc final - am', 'tc - qc (somu)', 'in progress (corrections)', 'in progress (editor)']);
 
 const fmtDate = (d: string | Date) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -170,20 +73,20 @@ interface ContractJoinRow {
 // foreign key to `clients` — its `clientId` is a ClickUp custom-field option
 // id, a different id space from `clients.clickupTaskId` (a ClickUp task id).
 // Matching by normalized name is what the rest of this file already does
-// (see buildBacklog/buildEditors) and is the only reliable join available.
+// (see buildBacklog) and is the only reliable join available.
 function buildPortfolio(periods: ContractJoinRow[], allTasks: MappedTask[], now: Date): PortfolioClientRow[] {
   return periods.map(p => {
     const clientTasks = allTasks.filter(t => norm(t.clientName ?? '') === norm(p.clientName));
     const periodStartMs = new Date(p.startsOn).getTime();
 
     const delivered = clientTasks.filter(t =>
-      norm(t.status) === 'posted in socials' && parseDate(t.dateUpdated) >= periodStartMs
+      norm(t.status) === POSTED && parseDate(t.dateUpdated) >= periodStartMs
     ).length;
     const inReview = clientTasks.filter(t => norm(t.status) === 'for client review').length;
     const editing = clientTasks.filter(t => EDITING_STATUSES.has(norm(t.status))).length;
     // ClickUp's live status vocabulary here has no "on hold" state (see
-    // PIPELINE_STAGES/EDITING_STATUSES — grep confirms none exists), unlike
-    // the Excel-only client-ledger reference data. Always 0 until one does.
+    // EDITING_STATUSES — grep confirms none exists), unlike the Excel-only
+    // client-ledger reference data. Always 0 until one does.
     const onHold = 0;
 
     const fulfilmentFrac = fulfilment(delivered, p.contractedTotal);
@@ -210,33 +113,96 @@ function buildPortfolio(periods: ContractJoinRow[], allTasks: MappedTask[], now:
   }).sort((a, b) => b.attentionScore - a.attentionScore);
 }
 
-function buildEditors(tasks: MappedTask[]): EditorRow[] {
-  const phaseKeys = new Set(EDITOR_PHASE_COLS.map(p => p.key));
-  const map = new Map<string, { active: number; approved: number; rework: number; phases: Record<string, number> }>();
-  for (const t of tasks) {
-    const name = t.editorName;
-    if (!name) continue;
-    if (!map.has(name)) map.set(name, { active: 0, approved: 0, rework: 0, phases: {} });
-    const s = map.get(name)!;
-    const st = norm(t.status);
-    if (st !== 'posted in socials') s.active++;
-    if (t.clientApproval?.toLowerCase() === 'approved') s.approved++;
-    if (st === 'in progress (corrections)') s.rework++;
-    if (phaseKeys.has(st)) s.phases[st] = (s.phases[st] ?? 0) + 1;
+// ── Pipeline analytics (day / week / month, per client) ─────────────────────
+//
+// Five in-flight stages partition every non-terminal, non-hidden status
+// exactly once (no leaks, no overlaps) — so summing them for any client, or
+// across all clients, always equals that client's/the portfolio's true
+// in-flight count. "Posted" is the only date-scoped stage: the other five
+// describe where a video sits *right now*, which doesn't change depending on
+// which period you're looking at.
+const PIPELINE_STAGE_KEYS: PipelineStage[] = ['backlog', 'editing', 'qc', 'review', 'ready'];
+const STALL_MS = 3 * DAY_MS; // matches the dashboard's existing >3d "overdue" threshold
+
+function emptyStageCounts(): PipelineStageCounts {
+  return { backlog: 0, editing: 0, qc: 0, review: 0, ready: 0 };
+}
+
+function pipelineStageOf(normStatus: string): PipelineStage | null {
+  if (BACKLOG_STATUSES.has(normStatus)) return 'backlog';
+  if (PIPELINE_EDITING_STATUSES.has(normStatus)) return 'editing';
+  if (QC_STATUSES.has(normStatus)) return 'qc';
+  if (normStatus === 'for client review') return 'review';
+  if (normStatus === 'ready to be posted') return 'ready';
+  return null; // POSTED, handled separately by the caller
+}
+
+function buildPipelineClientRows(
+  allTasks: MappedTask[],
+  now: number,
+  postedCutoffs: Record<PipelinePeriod, number>,
+): { rows: PipelineClientRow[]; stageTotals: PipelineStageCounts; stalledTotals: PipelineStageCounts; postedTotals: Record<PipelinePeriod, number> } {
+  const map = new Map<string, PipelineClientRow>();
+  const rowFor = (name: string) => {
+    let row = map.get(name);
+    if (!row) {
+      row = { name, counts: emptyStageCounts(), stalled: emptyStageCounts(), posted: { today: 0, week: 0, month: 0 } };
+      map.set(name, row);
+    }
+    return row;
+  };
+
+  for (const t of allTasks) {
+    const name = t.clientName ?? 'Unknown';
+    const status = norm(t.status);
+    const stage = pipelineStageOf(status);
+    if (stage) {
+      const row = rowFor(name);
+      row.counts[stage]++;
+      // Backlog isn't a "stall" concept — a client's raw-footage supply is
+      // tracked separately (buildBacklog / "Footage starved" KPI).
+      if (stage !== 'backlog' && now - parseDate(t.dateUpdated) > STALL_MS) row.stalled[stage]++;
+      continue;
+    }
+    if (status === POSTED) {
+      const row = rowFor(name);
+      const updated = parseDate(t.dateUpdated);
+      (Object.keys(postedCutoffs) as PipelinePeriod[]).forEach(p => {
+        if (updated >= postedCutoffs[p]) row.posted[p]++;
+      });
+    }
   }
-  return Array.from(map.entries())
-    .map(([name, s]) => {
-      const total = s.approved + s.rework;
-      const firstPassClean = total > 0 ? Math.round(s.approved / total * 100) : null;
-      return { name, ...s, firstPassClean };
-    })
-    .sort((a, b) => (b.firstPassClean ?? -1) - (a.firstPassClean ?? -1));
+
+  const rows = Array.from(map.values()).sort((a, b) => {
+    const totalA = PIPELINE_STAGE_KEYS.reduce((s, k) => s + a.counts[k], 0);
+    const totalB = PIPELINE_STAGE_KEYS.reduce((s, k) => s + b.counts[k], 0);
+    return totalB - totalA || a.name.localeCompare(b.name);
+  });
+
+  // Every total below is summed straight from `rows` — the same numbers the
+  // per-client matrix renders — so the pulse strip, the flow strip, and the
+  // matrix's own footer can never disagree with each other.
+  const stageTotals = PIPELINE_STAGE_KEYS.reduce((acc, k) => {
+    acc[k] = rows.reduce((s, r) => s + r.counts[k], 0);
+    return acc;
+  }, emptyStageCounts());
+  const stalledTotals = PIPELINE_STAGE_KEYS.reduce((acc, k) => {
+    acc[k] = rows.reduce((s, r) => s + r.stalled[k], 0);
+    return acc;
+  }, emptyStageCounts());
+  const postedTotals: Record<PipelinePeriod, number> = {
+    today: rows.reduce((s, r) => s + r.posted.today, 0),
+    week:  rows.reduce((s, r) => s + r.posted.week, 0),
+    month: rows.reduce((s, r) => s + r.posted.month, 0),
+  };
+
+  return { rows, stageTotals, stalledTotals, postedTotals };
 }
 
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; member?: string; am?: string; client?: string; inactive?: string }>;
+  searchParams: Promise<{ inactive?: string }>;
 }) {
   if (!isConfigured()) {
     return (
@@ -249,7 +215,7 @@ export default async function DashboardPage({
     );
   }
 
-  const { range = 'month', member = '', am = '', client: clientFilter = '', inactive = '' } = await searchParams;
+  const { inactive = '' } = await searchParams;
   const showInactive = inactive === '1';
   const [taskResult, clientStatusRows, activeContracts] = await Promise.all([
     getDashboardTasks(),
@@ -287,61 +253,12 @@ export default async function DashboardPage({
     allTasks = allTasks.filter(t => !t.clientName || !inactiveNames.has(norm(t.clientName)));
   }
 
-  const cutoff = rangeCutoff(range);
-
-  // Build dropdown lists from the full unfiltered set
-  const unique = (arr: (string | null)[]) => [...new Set(arr.filter(Boolean))].sort() as string[];
-  const allEditors = unique(allTasks.map(t => t.editorName));
-  const allAMs     = unique(allTasks.map(t => t.assignedAmName));
-  const allClients = unique(allTasks.map(t => t.clientName));
-
-  const tasks = allTasks
-    .filter(t => cutoff === 0 || parseDate(t.dateUpdated) >= cutoff)
-    .filter(t => !member       || t.editorName     === member)
-    .filter(t => !am           || t.assignedAmName === am)
-    .filter(t => !clientFilter || t.clientName     === clientFilter);
-
   const now = Date.now();
-  const DAY_MS = 86_400_000;
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-
-  const POSTED = 'posted in socials';
-  
-  // Use correct periodMetrics calculation for KPI display
-  // Status counts should ignore date filters - a video's status doesn't change based on update recency
-  const metrics = periodMetrics(allTasks);
-  const inProduction = metrics.inProd;
-  const pendingApproval = metrics.pending;
-  const clientApproved = metrics.approved;
-  const firstPassCleanPct = metrics.firstPassClean;
-
-  // KPI strip is visible on every tab, but the date-range/editor/AM/client
-  // filters now live only on the Editors tab's own toolbar — so the strip's
-  // values (including this sub-count) stay unfiltered, like the rest of
-  // periodMetrics, rather than reflecting a filter set on a different tab.
-  const reviewTasks      = allTasks.filter(t => norm(t.status) === 'for client review');
-  const overdueInReview  = reviewTasks.filter(t => (now - parseDate(t.dateUpdated)) > 3 * DAY_MS);
-  const overdueCount     = overdueInReview.length;
-
-  const clientApprovedTasks = tasks.filter(t => norm(t.status) === 'ready to be posted' && t.clientApproval?.toLowerCase() === 'approved');
-  const inCorrectionsTasks = tasks.filter(t => norm(t.status) === 'in progress (corrections)');
-
-  // Quota pacing (Delivery/Footage) and the "Posted this month" KPI are both
-  // always scoped to the current calendar month, independent of the browsed
-  // range — a monthly quota (or "this month" label) doesn't mean anything
-  // prorated over a different window.
-  const monthlyPosted = allTasks
-    .filter(t => norm(t.status) === POSTED && parseDate(t.dateUpdated) >= monthStart);
-
-  const postedThisMonth = monthlyPosted.length;
-
-  const approvals     = buildApprovals(allTasks);
   const backlogRows   = buildBacklog(allTasks);
   const portfolioRows = buildPortfolio(activeContracts, allTasks, new Date(now));
   const assetRows = clientStatusRows
     .filter(c => showInactive || c.clientStatus !== 'Inactive')
     .map(c => ({ id: c.id, name: c.name, socialLinks: c.socialLinks as Record<string, { handle?: string; url?: string }> | null }));
-  const editors       = buildEditors(tasks);
 
   const backlogByNameForKpi = new Map(backlogRows.map(b => [norm(b.name), b.backlogCount]));
   const portfolioKpis: KpiData[] = [
@@ -367,53 +284,39 @@ export default async function DashboardPage({
     },
   ];
 
-  const monthLabel = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
-
-  // KPI trend deltas vs. the prior comparable window (skipped for 'All time',
-  // which has no meaningful "prior" window).
-  const prevBounds = previousWindowBounds(range, cutoff);
-  const prevMetrics = prevBounds
-    ? periodMetrics(
-        allTasks.filter(t => { const d = parseDate(t.dateUpdated); return d >= prevBounds[0] && d < prevBounds[1]; })
-      )
-    : null;
-
+  // Period windows for the pipeline analytics section. "Today" and "This
+  // month" are calendar-aligned; "This week" is a rolling 7 days — the same
+  // convention the dashboard already used for its other rolling ranges.
+  const todayStart = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime();
+  const yesterdayStart = todayStart - DAY_MS;
+  const weekCutoff = now - 7 * DAY_MS;
+  const prevWeekCutoff = weekCutoff - 7 * DAY_MS;
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
   const prevMonthStart = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).getTime();
-  const postedPrevMonth = allTasks
-    .filter(t => norm(t.status) === POSTED)
-    .filter(t => { const d = parseDate(t.dateUpdated); return d >= prevMonthStart && d < monthStart; })
-    .length;
 
-  const kpis: KpiData[] = [
-    {
-      label: 'In production', value: inProduction, dotColor: '#FF6000',
-      tip: 'All tasks not yet posted — across every stage from To Do through QC and Review.',
-      delta: kpiDelta(inProduction, prevMetrics?.inProd, true),
-    },
-    {
-      label: 'Pending approval', value: pendingApproval, dotColor: '#a86a00',
-      tip: "Videos sitting in 'For Client Review' waiting for client sign-off.",
-      sub: overdueCount > 0 ? `${overdueCount} overdue >3d` : undefined,
-      subTone: overdueCount > 0 ? 'warn' : undefined,
-      delta: kpiDelta(pendingApproval, prevMetrics?.pending, false),
-    },
-    {
-      label: 'First-pass clean', value: firstPassCleanPct !== null ? `${firstPassCleanPct}%` : '—', dotColor: '#14805f',
-      tip: 'Approved ÷ (Approved + currently in Corrections), within this range. A snapshot of current rework load, not a per-task history of revision rounds.',
-      delta: firstPassCleanPct !== null ? kpiDelta(firstPassCleanPct, prevMetrics?.firstPassClean, true, 'pts') : undefined,
-    },
-    {
-      label: 'Client-approved', value: clientApproved, dotColor: '#14805f',
-      tip: 'Videos the client has marked Approved in this range. Not exclusive of the other tiles — overlaps with In production (not yet posted) and Posted this month.',
-      delta: kpiDelta(clientApproved, prevMetrics?.approved, true),
-    },
-    {
-      label: 'Posted this month', value: postedThisMonth, dotColor: '#2563eb',
-      tip: "Videos that reached 'Posted in Socials' during the current calendar month.",
-      sub: monthLabel,
-      delta: kpiDelta(postedThisMonth, postedPrevMonth, true),
-    },
-  ];
+  const {
+    rows: pipelineClientRows,
+    stageTotals: pipelineStageTotals,
+    stalledTotals: pipelineStalledTotals,
+    postedTotals,
+  } = buildPipelineClientRows(allTasks, now, { today: todayStart, week: weekCutoff, month: monthStart });
+
+  const countPostedInWindow = (start: number, end: number) =>
+    allTasks.filter(t => norm(t.status) === POSTED)
+      .filter(t => { const d = parseDate(t.dateUpdated); return d >= start && d < end; })
+      .length;
+
+  const postedPrev = {
+    today: countPostedInWindow(yesterdayStart, todayStart),
+    week:  countPostedInWindow(prevWeekCutoff, weekCutoff),
+    month: countPostedInWindow(prevMonthStart, monthStart),
+  };
+
+  const pipelinePeriods: Record<PipelinePeriod, PipelinePeriodStat> = {
+    today: { label: 'Today',      posted: postedTotals.today, delta: kpiDelta(postedTotals.today, postedPrev.today, true) },
+    week:  { label: 'This week',  posted: postedTotals.week,  delta: kpiDelta(postedTotals.week,  postedPrev.week,  true) },
+    month: { label: 'This month', posted: postedTotals.month, delta: kpiDelta(postedTotals.month, postedPrev.month, true) },
+  };
 
   return (
     <main style={{ maxWidth: 1400 }}>
@@ -446,18 +349,13 @@ export default async function DashboardPage({
       )}
 
       <DashboardTabs
-        kpis={kpis}
-        approvals={approvals}
+        pipelineStageTotals={pipelineStageTotals}
+        pipelineStalledTotals={pipelineStalledTotals}
+        pipelinePeriods={pipelinePeriods}
+        pipelineClientRows={pipelineClientRows}
         portfolioKpis={portfolioKpis}
         portfolioRows={portfolioRows}
         assetRows={assetRows}
-        editors={editors}
-        allEditors={allEditors}
-        allAMs={allAMs}
-        allClients={allClients}
-        pipelineReport={buildPipelineReport(allTasks)}
-        reportAsOf={new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-        defaultTab='clients'
       />
     </main>
   );
