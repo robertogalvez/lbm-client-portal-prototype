@@ -617,6 +617,10 @@ body {
 .db-topbar { }
 @media (max-width: 860px) {
   .db-topbar { padding-left: 62px !important; }
+  /* Dashboard topbar's inline tab row/toggle don't fit alongside the title
+     once the hamburger eats into the width — drop each onto its own line. */
+  .db-dash-tabs { flex-basis: 100%; order: 3; padding-top: 4px; }
+  .db-dash-toggle { margin-left: 0 !important; order: 2; }
 }
 
 /* Page wrapper — same hamburger clearance as .db-topbar, but for pages whose
@@ -650,14 +654,3 @@ body {
   }
 }
 
-/* Tab strip — allow horizontal scroll instead of overflowing the page when
-   there isn't room for every tab on a narrow screen. */
-.db-tab-strip {
-  display: flex;
-  gap: 2px;
-  padding: 0 24px;
-  border-bottom: 1px solid #e7ebef;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-.db-tab-strip button { flex-shrink: 0; }
