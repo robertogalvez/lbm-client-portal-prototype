@@ -40,6 +40,9 @@ export interface ClickUpTask {
   tags: { name: string }[];
   date_updated: string;
   due_date: string | null;
+  // ClickUp includes this on every task by default (list and single-task
+  // fetches alike) — no extra include flag needed.
+  checklists?: { name: string; resolved: number; unresolved: number }[];
 }
 
 export interface MappedTask {
@@ -70,6 +73,10 @@ export interface MappedTask {
   // queued into VistaSocial; this date is what tells you whether it has
   // actually gone live yet (past/present) or is still scheduled (future).
   publishDate: string | null;
+  // The "Client fixes — <date>" checklist created on approve_with_fixes
+  // (see createClientFixesChecklist in lib/clickup-write.ts). Null when the
+  // task has no such checklist — most tasks never enter the held state.
+  clientFixesChecklist: { resolved: number; total: number } | null;
 }
 
 const DELIVERABLE_TYPE_MAP: Record<string, 'short_form' | 'youtube' | 'ad'> = {
@@ -168,6 +175,13 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     ? (DELIVERABLE_TYPE_MAP[deliverableTypeRaw.toLowerCase()] ?? 'short_form')
     : (isYoutube ? 'youtube' : 'short_form');
 
+  // createClientFixesChecklist names it "Client fixes — <date>"; match on the
+  // stable prefix rather than the date suffix.
+  const fixesChecklist = (task.checklists ?? []).find(c => c.name.startsWith('Client fixes'));
+  const clientFixesChecklist = fixesChecklist
+    ? { resolved: fixesChecklist.resolved, total: fixesChecklist.resolved + fixesChecklist.unresolved }
+    : null;
+
   return {
     clickupTaskId:    task.id,
     title:            task.name,
@@ -192,6 +206,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     dateUpdated:      task.date_updated,
     dueDate,
     publishDate,
+    clientFixesChecklist,
   };
 }
 

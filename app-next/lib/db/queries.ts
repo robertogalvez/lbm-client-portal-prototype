@@ -57,5 +57,8 @@ export async function getTasksFromDB(): Promise<MappedTask[]> {
     dateUpdated:      row.dateUpdated ?? String(row.lastSyncedAt?.getTime() ?? Date.now()),
     dueDate:          row.dueDate ?? null,
     publishDate:      row.vistasocialScheduledAt?.toISOString() ?? null,
+    // Not cached in video_cache — only read live in the client video-detail
+    // page, which fetches straight from ClickUp rather than this cache.
+    clientFixesChecklist: null,
   }));
 }

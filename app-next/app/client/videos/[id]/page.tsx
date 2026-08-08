@@ -9,6 +9,7 @@ import { ApprovalButtons } from '@/components/client/ApprovalButtons';
 import { VideoElement } from '@/components/client/VideoElement';
 import { CommentComposer } from '@/components/client/CommentComposer';
 import { CommentFeed } from '@/components/client/CommentFeed';
+import { MediaGate } from '@/components/client/MediaGate';
 import { VideoDecisionProvider } from '@/components/client/VideoDecisionContext';
 import { VideoPlayerProvider } from '@/components/client/VideoPlayerContext';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
@@ -88,7 +89,9 @@ export default async function VideoDetailPage({ params, searchParams }: { params
     notFound();
   }
 
-  const isReview = task.status.toLowerCase().includes('client review');
+  const normStatus = task.status.toLowerCase().replace(/\s+/g, ' ').trim();
+  const isReview = normStatus.includes('client review');
+  const isHeld = normStatus === 'approved · fixes pending';
   const embedUrl = task.frameLink ? toFrameioEmbedUrl(task.frameLink) : null;
 
   // Native player + past comments load while a decision is pending, AND for
@@ -109,12 +112,17 @@ export default async function VideoDetailPage({ params, searchParams }: { params
 
   const metaPanel = (
     <>
-      {/* Status + open link */}
+      {/* Status + open link — the status pill duplicates the mobile header
+          below 900px (see .vd-mobile-header), so only the pill is hidden
+          there via .vd-meta-hide-mobile; the Frame.io link stays visible
+          at every width. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 9, color: isReview ? '#b06f06' : '#54616f', background: isReview ? '#fbeecf' : '#eef1f4' }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: isReview ? '#b06f06' : '#54616f' }} />
-          {isReview ? 'Awaiting your review' : task.status}
-        </span>
+        <div className="vd-meta-hide-mobile">
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 9, color: isReview ? '#b06f06' : '#54616f', background: isReview ? '#fbeecf' : '#eef1f4' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: isReview ? '#b06f06' : '#54616f' }} />
+            {isReview ? 'Awaiting your review' : task.status}
+          </span>
+        </div>
         {task.frameLink && (
           <a href={task.frameLink} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: '#6c6357', textDecoration: 'none' }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:13,height:13}}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -122,8 +130,10 @@ export default async function VideoDetailPage({ params, searchParams }: { params
           </a>
         )}
       </div>
-      {/* Title */}
-      <h1 style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.2, margin: 0 }}>{task.title}</h1>
+      {/* Title — same duplicate-with-mobile-header reasoning as the pill above. */}
+      <div className="vd-meta-hide-mobile">
+        <h1 style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.2, margin: 0 }}>{task.title}</h1>
+      </div>
       {/* Meta */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#6c6357', fontWeight: 500, flexWrap: 'wrap' as const }}>
         {task.assignedAmName && (
@@ -162,19 +172,24 @@ export default async function VideoDetailPage({ params, searchParams }: { params
     </div>
   );
 
-  // Comment composer + feed render TWICE — once grouped with the video (shown
-  // only on desktop, ≥900px) and once grouped with the meta panel (shown only
-  // on mobile). Both instances read the same shared state via
-  // VideoPlayerProvider, so this is just "same content, different visual
-  // slot per breakpoint" (CSS toggles which one is visible), not duplicate
-  // state — the established pattern in this file for genuinely different
-  // per-breakpoint layouts (see .client-mobile/.client-desktop elsewhere).
-  const comments = nativeReady ? (
+  // Comment composer + feed need to render in a different DOM slot per
+  // breakpoint (desktop: grouped with the video; mobile: grouped with the
+  // meta panel), but must exist as exactly ONE mounted instance — two
+  // CSS-toggled copies were two live components (two textareas, two
+  // autofocus races). MediaGate mounts only the slot matching the current
+  // viewport, client-side, so the other is never in the tree.
+  const commentsContent = nativeReady ? (
     <>
       <CommentComposer />
       <CommentFeed />
     </>
   ) : null;
+  const desktopComments = commentsContent && (
+    <MediaGate query="(min-width: 900px)">{commentsContent}</MediaGate>
+  );
+  const mobileComments = commentsContent && (
+    <MediaGate query="(max-width: 899.98px)">{commentsContent}</MediaGate>
+  );
 
   const backHref = from === 'calendar' ? '/client?tab=calendar' : '/client';
   const backLink = (
@@ -216,40 +231,70 @@ export default async function VideoDetailPage({ params, searchParams }: { params
           <div style={{ width: 36 }} />
         </div>
         <div className="vd-player">{player}</div>
-        {comments && <div className="vd-desktop-comments">{comments}</div>}
+        {desktopComments && <div className="vd-desktop-comments">{desktopComments}</div>}
       </div>
 
       {/* Right: meta + approval, plus (mobile-only) comments grouped with meta.
           This whole column is the ONE scrollable region on mobile now. */}
       <div className="vd-right">
         <div className="vd-right-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Link href={backHref} style={{ width: 30, height: 30, borderRadius: 8, background: '#f7f2ea', border: '1px solid #ece4d8', display: 'grid', placeItems: 'center', color: '#221e18', textDecoration: 'none' }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{width:15,height:15}}><path d="m15 18-6-6 6-6"/></svg>
-            </Link>
-            <span style={{ fontSize: 12, color: '#9d9488', fontWeight: 500 }}>{from === 'calendar' ? 'Calendar' : 'Reviews'}</span>
-          </div>
+          {/* Back lives on .vd-left-header at this breakpoint (desktop) —
+              exactly one visible back affordance per breakpoint (mobile
+              header owns it below 900px). This row keeps the breadcrumb
+              text, not a second back link. */}
+          <span style={{ fontSize: 12, color: '#9d9488', fontWeight: 500 }}>{from === 'calendar' ? 'Calendar' : 'Reviews'}</span>
           <span style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>Details</span>
         </div>
 
         <div className="vd-right-scroll">
           <div className="vd-meta">{metaPanel}</div>
-          {comments && <div className="vd-mobile-comments">{comments}</div>}
+
+          {task.caption && (
+            <div style={{ padding: '0 16px 12px' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Caption</div>
+              <div style={{ background: '#f7f2ea', borderRadius: 10, padding: '10px 12px' }}>
+                <p style={{ fontSize: 13, color: '#6c6357', lineHeight: 1.5, margin: 0 }}>{task.caption}</p>
+              </div>
+            </div>
+          )}
+
+          {mobileComments && <div className="vd-mobile-comments">{mobileComments}</div>}
         </div>
 
         {isReview && (
           <div className="vd-dock">
-            {task.caption && (
-              <>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Caption</div>
-                <div style={{ background: '#f7f2ea', borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
-                  <p style={{ fontSize: 13, color: '#6c6357', lineHeight: 1.5, margin: 0 }}>{task.caption}</p>
-                </div>
-                <hr style={{ border: 'none', borderTop: '1px solid #ece4d8', margin: '12px 0' }} />
-              </>
-            )}
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Video</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Finish your review</div>
             <ApprovalButtons taskId={task.clickupTaskId} currentApproval={task.clientApproval} />
+          </div>
+        )}
+
+        {/* Held state (approved · fixes pending): the client already decided —
+            no verdict buttons, just the fix checklist's progress. Re-showing
+            Approve/Request changes here would invite a second decision on an
+            already-decided video. */}
+        {isHeld && (
+          <div className="vd-dock">
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Fixes in progress</div>
+            {task.clientFixesChecklist ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <div style={{ flex: 1, height: 6, borderRadius: 100, background: '#f0e8df', overflow: 'hidden' }}>
+                    <div style={{
+                      width: `${task.clientFixesChecklist.total > 0 ? Math.round(task.clientFixesChecklist.resolved / task.clientFixesChecklist.total * 100) : 0}%`,
+                      height: '100%', background: '#8a6200',
+                    }} />
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#8a6200', flexShrink: 0 }}>
+                    {task.clientFixesChecklist.resolved} / {task.clientFixesChecklist.total}
+                  </span>
+                </div>
+                <p style={{ fontSize: 12, color: '#9d9488', margin: 0 }}>We&apos;ll bring it back to you to confirm once these are done.</p>
+              </>
+            ) : (
+              <p style={{ fontSize: 13, color: '#6c6357', margin: 0 }}>
+                Your fixes are queued with the team. We&apos;ll bring it back to you to confirm once they&apos;re done.
+              </p>
+            )}
           </div>
         )}
       </div>
