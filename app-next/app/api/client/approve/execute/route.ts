@@ -5,7 +5,7 @@ import { db } from '@/lib/db';
 import { authUsers, pendingDecisions } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { mapTask, type ClickUpTask } from '@/lib/clickup';
-import { setTaskStatus, postComment, TASK_STATUS, createClientFixesChecklist } from '@/lib/clickup-write';
+import { setTaskStatus, postComment, TASK_STATUS, CLIENT_APPROVAL, createClientFixesChecklist } from '@/lib/clickup-write';
 import { syncFrameioComments } from '@/lib/frameio-comment-sync';
 import { notifyAmOfDecision } from '@/lib/notify-am';
 
@@ -78,14 +78,17 @@ async function handlePost(req: Request) {
         )
       : null;
 
-  // Set CLIENT APPROVAL field
+  // Set CLIENT APPROVAL field — exact option name per action, not a substring
+  // guess (both "approve" outcomes contain "approv", so that used to collide).
   const approvalField = (task.custom_fields ?? []).find((f: { name: string }) => f.name === 'CLIENT APPROVAL');
   if (!approvalField) return NextResponse.json({ error: 'CLIENT APPROVAL field not found' }, { status: 422 });
 
+  const targetApprovalName = action === 'changes' ? CLIENT_APPROVAL.changes
+    : action === 'approve_with_fixes' ? CLIENT_APPROVAL.approveWithFixes
+    : CLIENT_APPROVAL.approve;
+
   const options: { id: string; name: string }[] = approvalField.type_config?.options ?? [];
-  const optionIndex = options.findIndex((o: { name: string }) =>
-    o.name.toLowerCase().includes(action === 'changes' ? 'change' : 'approv')
-  );
+  const optionIndex = options.findIndex((o: { name: string }) => o.name.toLowerCase() === targetApprovalName.toLowerCase());
   if (optionIndex === -1) return NextResponse.json({ error: 'Approval option not found' }, { status: 422 });
 
   const updateRes = await fetch(`${BASE}/task/${taskId}/field/${approvalField.id}`, {
@@ -98,22 +101,11 @@ async function handlePost(req: Request) {
     return NextResponse.json({ error: `ClickUp field update failed: ${err}` }, { status: 502 });
   }
 
-  // Set task status
-  let targetStatus: string;
-  if (action === 'changes') {
-    targetStatus = 'in progress (corrections)';
-  } else if (action === 'approve_with_fixes') {
-    targetStatus = TASK_STATUS.approvedFixesPending;
-  } else {
-    targetStatus = TASK_STATUS.readyToBePosted;
-  }
-
-  if (action === 'approve_with_fixes') {
-    // Fatal — the hold must be applied, or the approval should not proceed
-    await setTaskStatus(taskId, targetStatus);
-  } else {
-    try { await setTaskStatus(taskId, targetStatus); } catch { /* non-fatal */ }
-  }
+  // Set task status. "Approve — apply my notes first" and "Send back for
+  // changes" both route through corrections; the CLIENT APPROVAL value set
+  // above is what tells the AM which one it was.
+  const targetStatus = action === 'approve' ? TASK_STATUS.readyToBePosted : TASK_STATUS.inProgressCorrections;
+  try { await setTaskStatus(taskId, targetStatus); } catch { /* non-fatal */ }
 
   // Create ClickUp checklist from note items for approve_with_fixes
   let checklistResult: { checklistId: string; itemIds: string[] } | null = null;
