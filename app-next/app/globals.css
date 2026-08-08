@@ -267,6 +267,12 @@ body {
 
 .vd-right-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
 .vd-meta { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+/* Title + status pill duplicate the mobile header below 900px — hidden there,
+   restored (as transparent layout, not a box) once the header disappears. */
+.vd-meta-hide-mobile { display: none; }
+@media (min-width: 900px) {
+  .vd-meta-hide-mobile { display: contents; }
+}
 .vd-dock {
   flex-shrink: 0;
   background: #fff;
@@ -275,6 +281,56 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* Approval verdicts — side by side down to 340px; below that, stack with
+   Approve on top (the reversible action never takes the bottom, accidental-
+   tap zone of a phone screen). */
+.ab-verdicts { display: flex; gap: 9px; }
+@media (max-width: 340px) {
+  .ab-verdicts { flex-direction: column; }
+  .ab-verdict-approve { order: 1; }
+  .ab-verdict-changes { order: 2; }
+}
+
+/* Outcome picker — bottom sheet below 900px, centred modal at/above it. */
+.ab-picker-scrim {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(74, 66, 56, 0.55);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.ab-picker-sheet {
+  width: 100%; max-width: 480px;
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  padding: 10px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 85vh; overflow-y: auto;
+  animation: ab-sheet-in 220ms ease-out;
+}
+.ab-picker-handle {
+  width: 36px; height: 4px; border-radius: 100px; background: #e0d8ce;
+  margin: 4px auto 8px; flex-shrink: 0;
+}
+@keyframes ab-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes ab-modal-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ab-picker-sheet { animation: none; }
+}
+@media (min-width: 900px) {
+  .ab-picker-scrim { align-items: center; }
+  .ab-picker-sheet {
+    border-radius: 20px;
+    max-width: 440px;
+    animation: ab-modal-in 160ms ease-out;
+  }
+  .ab-picker-handle { display: none; }
 }
 
 /* ============================================================
