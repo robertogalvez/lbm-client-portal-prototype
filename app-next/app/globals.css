@@ -283,16 +283,6 @@ body {
   gap: 10px;
 }
 
-/* Approval verdicts — side by side down to 340px; below that, stack with
-   Approve on top (the reversible action never takes the bottom, accidental-
-   tap zone of a phone screen). */
-.ab-verdicts { display: flex; gap: 9px; }
-@media (max-width: 340px) {
-  .ab-verdicts { flex-direction: column; }
-  .ab-verdict-approve { order: 1; }
-  .ab-verdict-changes { order: 2; }
-}
-
 /* Outcome picker — bottom sheet below 900px, centred modal at/above it. */
 .ab-picker-scrim {
   position: fixed; inset: 0; z-index: 300;

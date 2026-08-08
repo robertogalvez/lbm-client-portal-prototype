@@ -11,9 +11,8 @@ interface Props {
 }
 
 type Stage =
-  | 'idle'      // two buttons: Request changes / Approve
-  | 'picker'    // three-outcome picker (shown when notes exist and client taps Approve)
-  | 'changes'   // free-text input for requesting changes
+  | 'idle'      // one neutral button: "Finish your review"
+  | 'picker'    // the single decision surface — all three outcomes + shared textarea
   | 'loading'   // waiting for /api/client/approve
   | 'undoable'  // decision stored — 30 s undo window
   | 'done'      // executed — show permanent badge
@@ -26,7 +25,12 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
   const [result, setResult] = useState<string | null>(currentApproval);
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
-  const [selectedOption, setSelectedOption] = useState<PickerOption>('approve_with_fixes');
+  // Nothing pre-selected — Confirm stays disabled until the client actually
+  // chooses. A single entry point has no physical separation between
+  // outcomes anymore, so this is what stands between a stray tap and an
+  // approval (Amendment A §3.1).
+  const [selectedOption, setSelectedOption] = useState<PickerOption | null>(null);
+  const [sendBackWarningAck, setSendBackWarningAck] = useState(false);
   const [decisionId, setDecisionId] = useState<string | null>(null);
   const [undoAction, setUndoAction] = useState<string>('');
   const [countdown, setCountdown] = useState(30);
@@ -52,20 +56,23 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
 
   useEffect(() => () => clearTimers(), []);
 
-  // Opening the picker always starts from a clean slate — otherwise an error
-  // from a previous failed submission (or a stale selection) would still be
-  // showing the next time the client reopens it.
+  // Dismissal (scrim tap, Back, Escape) is not a decision — the selection and
+  // any typed text stay exactly as they were (Amendment A §3.3). Only the
+  // stale error from a previous failed attempt is worth clearing on reopen.
   function openPicker() {
-    setSelectedOption('approve_with_fixes');
     setError('');
     setStage('picker');
+  }
+
+  function dismissPicker() {
+    setStage('idle');
   }
 
   // Dismiss the picker sheet/modal on Escape.
   useEffect(() => {
     if (stage !== 'picker') return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setStage('idle');
+      if (e.key === 'Escape') dismissPicker();
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
@@ -223,13 +230,10 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
     );
   }
 
-  // ── Three-outcome picker — bottom sheet <900px, centred modal ≥900px ─────
-  // Select, then Confirm — a client can change their mind before anything is
-  // submitted, rather than the first tap committing the choice.
+  // ── The single decision surface — bottom sheet <900px, centred modal ≥900px ─
+  // All three outcomes, a shared optional textarea, and a Confirm button that
+  // takes the label and colour of whatever is selected (Amendment A).
   if (stage === 'picker') {
-    // Both "post the video" options highlight green when selected; "send it
-    // back" highlights red, matching that action's color everywhere else in
-    // the app (the Request changes button, the "Changes requested" badge).
     const selectedBg = (color: string) => (color === '#14805f' ? '#f2f9f6' : '#fdf4f3');
 
     const optionStyle = (selected: boolean, selectedColor: string): React.CSSProperties => ({
@@ -250,12 +254,17 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
       </span>
     );
 
+    function selectOption(value: PickerOption) {
+      setSelectedOption(value);
+      setSendBackWarningAck(false);
+    }
+
     function OptionRow({ value, titleColor, selectedColor, title, sub }: {
       value: PickerOption; titleColor: string; selectedColor: string; title: string; sub: string;
     }) {
       const selected = selectedOption === value;
       return (
-        <button type="button" onClick={() => setSelectedOption(value)} style={optionStyle(selected, selectedColor)}>
+        <button type="button" onClick={() => selectOption(value)} style={optionStyle(selected, selectedColor)}>
           {radio(selected, selectedColor)}
           <span style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <span style={{ fontWeight: 700, fontSize: 14, color: selected ? selectedColor : titleColor }}>{title}</span>
@@ -265,43 +274,91 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
       );
     }
 
+    const isEmptySendBack = selectedOption === 'changes' && !hasNotes && !feedback.trim();
+
     function handleConfirm() {
-      if (selectedOption === 'changes') { setStage('changes'); return; }
-      submitDecision(selectedOption, selectedOption === 'approve_with_fixes' ? { noteItems } : {});
+      if (!selectedOption) return;
+      // An unexplained return costs a full edit cycle and the editor has to
+      // chase the AM — warn once, but let the client proceed anyway
+      // (re-shooting something entirely is a legitimate instruction).
+      if (isEmptySendBack && !sendBackWarningAck) {
+        setSendBackWarningAck(true);
+        return;
+      }
+      const extra = {
+        feedbackText: feedback.trim() || undefined,
+        noteItems: selectedOption === 'approve_with_fixes' ? noteItems : undefined,
+      };
+      submitDecision(selectedOption, extra);
     }
 
+    const confirmMeta = !selectedOption
+      ? { label: 'Confirm', bg: '#f1ebe1', border: '1.5px solid transparent', color: '#bdb3a5', disabled: true }
+      : selectedOption === 'changes'
+        ? { label: 'Send back for changes', bg: '#fbe7e2', border: '1.5px solid #cf3f36', color: '#a8302a', disabled: false }
+        : { label: selectedOption === 'approve_with_fixes' ? 'Approve & apply notes' : 'Approve & post', bg: '#14805f', border: '1.5px solid #14805f', color: '#fff', disabled: false };
+
+    const textareaPlaceholder = selectedOption === 'changes'
+      ? "What needs to change? (optional — your timestamped notes are already included)"
+      : "Anything the team should know — your timestamped notes are already included";
+
     const sheet = (
-      <div className="ab-picker-scrim" onClick={() => setStage('idle')}>
+      <div className="ab-picker-scrim" onClick={dismissPicker}>
         <div className="ab-picker-sheet" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
           <div className="ab-picker-handle" aria-hidden="true" />
           {error && <div style={{ fontSize: 12, color: '#cf3f36' }}>{error}</div>}
-          <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#221e18' }}>
-            You have {comments.length} note{comments.length !== 1 ? 's' : ''}. What should happen to them?
-          </p>
-          <p style={{ margin: '0 0 4px', fontSize: 13, color: '#9d9488' }}>
-            Approving normally sends this straight to the posting queue.
-          </p>
+          <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#221e18' }}>Finish your review</p>
+          {hasNotes && (
+            <p style={{ margin: '0 0 4px', fontSize: 12, color: '#6c6357' }}>
+              Your {comments.length} timestamped note{comments.length !== 1 ? 's' : ''} {comments.length !== 1 ? 'are' : 'is'} included with every option below.
+            </p>
+          )}
 
           <OptionRow
             value="approve_with_fixes" titleColor="#221e18" selectedColor="#14805f"
-            title="Apply my notes, then post"
-            sub="Held until the fixes are done, then it comes back to you to confirm."
+            title="Approve — apply my notes first"
+            sub="Held until the fixes are done, then back to you to confirm."
           />
           <OptionRow
             value="approve" titleColor="#221e18" selectedColor="#14805f"
-            title="Post as is — my notes are just FYI"
-            sub="Team sees your notes as context for future videos. This one goes live now."
+            title="Approve — post as is"
+            sub="Goes to the posting queue now. Notes are context for future videos."
           />
           <OptionRow
             value="changes" titleColor="#a8302a" selectedColor="#cf3f36"
-            title="Send it back for changes"
-            sub="A new editing round starts. You'll review again when it's ready."
+            title="Send back for changes"
+            sub="Returns to editing, then comes back to you."
           />
+
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginTop: 4, marginBottom: 6 }}>
+              Anything to add? <span style={{ fontWeight: 400, textTransform: 'none' as const, letterSpacing: 'normal' }}>optional</span>
+            </div>
+            <textarea
+              placeholder={textareaPlaceholder}
+              value={feedback}
+              onChange={e => setFeedback(e.target.value)}
+              rows={3}
+              style={{
+                width: '100%', boxSizing: 'border-box' as const,
+                padding: '10px 12px', borderRadius: 10,
+                border: '1px solid #e0d8ce', background: '#faf6f0',
+                fontSize: 14, color: '#221e18', lineHeight: 1.5,
+                fontFamily: 'inherit', resize: 'vertical' as const, outline: 'none',
+              }}
+            />
+          </div>
+
+          {isEmptySendBack && sendBackWarningAck && (
+            <div style={{ fontSize: 12, color: '#a8302a', background: '#fdf4f3', border: '1px solid #f5d0c8', borderRadius: 10, padding: '8px 10px' }}>
+              Let the team know what to change, or tap Confirm again to send it back with no note.
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: 9, marginTop: 2 }}>
             <button
               type="button"
-              onClick={() => setStage('idle')}
+              onClick={dismissPicker}
               style={{
                 flex: 1, minHeight: 48, padding: '11px 14px', borderRadius: 13,
                 border: '1px solid #ece4d8', background: '#fff',
@@ -314,13 +371,15 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
             <button
               type="button"
               onClick={handleConfirm}
+              disabled={confirmMeta.disabled}
               style={{
-                flex: 2, minHeight: 48, padding: '11px 14px', borderRadius: 13, border: '1.5px solid #14805f',
-                background: '#14805f', color: '#fff',
-                fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit',
+                flex: 2, minHeight: 48, padding: '11px 14px', borderRadius: 13, border: confirmMeta.border,
+                background: confirmMeta.bg, color: confirmMeta.color,
+                fontWeight: 700, fontSize: 14, fontFamily: 'inherit',
+                cursor: confirmMeta.disabled ? 'not-allowed' : 'pointer',
               }}
             >
-              Confirm
+              {confirmMeta.label}
             </button>
           </div>
         </div>
@@ -329,101 +388,33 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
     return typeof document !== 'undefined' ? createPortal(sheet, document.body) : null;
   }
 
-  // ── Changes request: optional free text ──────────────────────────────────
-  if (stage === 'changes') {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {error && <div style={{ fontSize: 12, color: '#cf3f36' }}>{error}</div>}
-        <textarea
-          autoFocus
-          placeholder="What needs to change? (optional — your timestamped notes are already included)"
-          value={feedback}
-          onChange={e => setFeedback(e.target.value)}
-          rows={3}
-          style={{
-            width: '100%', boxSizing: 'border-box' as const,
-            padding: '10px 12px', borderRadius: 10,
-            border: '1px solid #e0d8ce', background: '#faf6f0',
-            fontSize: 14, color: '#221e18', lineHeight: 1.5,
-            fontFamily: 'inherit', resize: 'vertical' as const, outline: 'none',
-          }}
-        />
-        <div style={{ display: 'flex', gap: 9 }}>
-          <button
-            type="button"
-            onClick={() => { setStage(hasNotes ? 'picker' : 'idle'); setFeedback(''); setError(''); }}
-            style={{
-              flex: 1, padding: '11px 14px', borderRadius: 13,
-              border: '1px solid #ece4d8', background: '#fff',
-              color: '#6c6357', fontWeight: 600, fontSize: 13,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >
-            Back
-          </button>
-          <button
-            type="button"
-            onClick={() => submitDecision('changes', { feedbackText: feedback.trim() || undefined })}
-            style={{
-              flex: 2, padding: '11px 14px', borderRadius: 13, border: '1.5px solid #cf3f36',
-              background: '#fbe7e2', color: '#a8302a',
-              fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >
-            Request changes
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Default: two action buttons ───────────────────────────────────────────
+  // ── Default: one neutral button that opens the decision surface ──────────
+  // Not green, not red, not orange — it isn't a verdict, it opens the place
+  // where verdicts are made. Colouring it would recreate the original bug
+  // with one button instead of two (Amendment A §1).
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {error && <div style={{ fontSize: 12, color: '#cf3f36' }}>{error}</div>}
-
-      <p style={{ margin: 0, textAlign: 'center', fontSize: 12, color: '#9d9488', fontWeight: 600 }}>
-        Your team is notified either way
-      </p>
-
-      <div className="ab-verdicts">
-        <button
-          type="button"
-          onClick={() => setStage('changes')}
-          className="ab-verdict-changes"
-          style={{
-            flex: 1, minHeight: 48, padding: '12px 14px', borderRadius: 13,
-            border: '1.5px solid #cf3f36', background: '#fbe7e2',
-            color: '#a8302a', fontWeight: 700, fontSize: 14,
-            cursor: 'pointer',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-            fontFamily: 'inherit',
-          }}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
-            <path d="M18 6 6 18" /><path d="M6 6l12 12" />
-          </svg>
-          Request changes
-        </button>
-
-        <button
-          type="button"
-          onClick={() => hasNotes ? openPicker() : submitDecision('approve', {})}
-          className="ab-verdict-approve"
-          style={{
-            flex: 1, minHeight: 48, padding: '12px 14px', borderRadius: 13,
-            border: '1.5px solid #14805f', background: '#14805f',
-            color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-            fontFamily: 'inherit',
-          }}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
-          Approve
-        </button>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+      {error && <div style={{ fontSize: 12, color: '#cf3f36', marginBottom: 8 }}>{error}</div>}
+      <button
+        type="button"
+        onClick={openPicker}
+        style={{
+          width: '100%', minHeight: 52, padding: 14, borderRadius: 13,
+          border: '1.5px solid #221e18', background: '#221e18', color: '#fff',
+          fontWeight: 700, fontSize: 14.5, cursor: 'pointer', fontFamily: 'inherit',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}
+      >
+        Finish your review
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
+          <path d="m9 18 6-6-6-6" />
+        </svg>
+      </button>
+      {hasNotes && (
+        <p style={{ margin: '8px 0 0', textAlign: 'center', fontSize: 11, color: '#9d9488', fontWeight: 600 }}>
+          {comments.length} {comments.length === 1 ? 'note' : 'notes'} will be sent with your decision
+        </p>
+      )}
     </div>
   );
 }
