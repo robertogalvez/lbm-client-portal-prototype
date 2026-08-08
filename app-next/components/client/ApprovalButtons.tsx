@@ -240,7 +240,7 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
       minHeight: 48, padding: '12px 16px', borderRadius: 13,
       border: selected ? `1.5px solid ${selectedColor}` : '1px solid #ddd3c6',
       background: selected ? selectedBg(selectedColor) : '#fff',
-      cursor: 'pointer', fontFamily: 'inherit', width: '100%',
+      cursor: 'pointer', fontFamily: 'inherit', width: '100%', textAlign: 'left' as const,
       display: 'flex', flexDirection: 'row' as const, alignItems: 'flex-start', gap: 10,
     });
 
@@ -266,7 +266,7 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
       return (
         <button type="button" onClick={() => selectOption(value)} style={optionStyle(selected, selectedColor)}>
           {radio(selected, selectedColor)}
-          <span style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 3, textAlign: 'left' }}>
             <span style={{ fontWeight: 700, fontSize: 14, color: selected ? selectedColor : titleColor }}>{title}</span>
             <span style={{ fontWeight: 400, fontSize: 12, color: '#9d9488' }}>{sub}</span>
           </span>
