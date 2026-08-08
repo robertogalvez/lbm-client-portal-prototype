@@ -138,9 +138,20 @@ export const PUBLISHING_STATUS = {
 export const TASK_STATUS = {
   readyToBePosted:      'ready to be posted',
   postedInSocials:      'posted in socials',
-  // Approved but held for fix checklist items — sits between "for client review"
-  // and "ready to be posted". Must exist in every pipeline list before this ships.
-  approvedFixesPending: 'approved · fixes pending',
+  // Where "approve — apply my notes first" and "send back for changes" both
+  // land — the CLIENT APPROVAL field (APPROVED WITH COMMENTS vs REQUESTED
+  // CHANGES) is what distinguishes them, not status. There is no separate
+  // "held" status: LBM confirmed any non-clean approval routes back through
+  // corrections, same as a rejection.
+  inProgressCorrections: 'in progress (corrections)',
+} as const;
+
+// Exact CLIENT APPROVAL dropdown option names (verified live against the LBM
+// workspace, task 86aj464t5 — "0. Videographer's Backlog" list).
+export const CLIENT_APPROVAL = {
+  approve:            'APPROVED',
+  approveWithFixes:   'APPROVED WITH COMMENTS',
+  changes:            'REQUESTED CHANGES',
 } as const;
 
 // Values of the "Posted Status" custom field. This field is FEEDBACK, written by

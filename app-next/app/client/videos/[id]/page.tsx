@@ -91,7 +91,10 @@ export default async function VideoDetailPage({ params, searchParams }: { params
 
   const normStatus = task.status.toLowerCase().replace(/\s+/g, ' ').trim();
   const isReview = normStatus.includes('client review');
-  const isHeld = normStatus === 'approved · fixes pending';
+  // "Approve — apply my notes first" and "Send back for changes" share the
+  // same ClickUp status (in progress · corrections) — CLIENT APPROVAL is what
+  // tells them apart, so the held/fix-checklist view keys off that instead.
+  const isHeld = (task.clientApproval ?? '').toLowerCase().trim() === 'approved with comments';
   const embedUrl = task.frameLink ? toFrameioEmbedUrl(task.frameLink) : null;
 
   // Native player + past comments load while a decision is pending, AND for
@@ -267,7 +270,7 @@ export default async function VideoDetailPage({ params, searchParams }: { params
           </div>
         )}
 
-        {/* Held state (approved · fixes pending): the client already decided —
+        {/* Held state (approved with comments): the client already decided —
             no verdict buttons, just the fix checklist's progress. Re-showing
             Approve/Request changes here would invite a second decision on an
             already-decided video. */}
