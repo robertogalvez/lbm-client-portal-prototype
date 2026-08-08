@@ -19,11 +19,14 @@ type Stage =
   | 'done'      // executed — show permanent badge
   | 'error';
 
+type PickerOption = 'approve_with_fixes' | 'approve' | 'changes';
+
 export function ApprovalButtons({ taskId, currentApproval }: Props) {
   const [stage, setStage] = useState<Stage>('idle');
   const [result, setResult] = useState<string | null>(currentApproval);
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
+  const [selectedOption, setSelectedOption] = useState<PickerOption>('approve_with_fixes');
   const [decisionId, setDecisionId] = useState<string | null>(null);
   const [undoAction, setUndoAction] = useState<string>('');
   const [countdown, setCountdown] = useState(30);
@@ -49,6 +52,15 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
 
   useEffect(() => () => clearTimers(), []);
 
+  // Opening the picker always starts from a clean slate — otherwise an error
+  // from a previous failed submission (or a stale selection) would still be
+  // showing the next time the client reopens it.
+  function openPicker() {
+    setSelectedOption('approve_with_fixes');
+    setError('');
+    setStage('picker');
+  }
+
   // Dismiss the picker sheet/modal on Escape.
   useEffect(() => {
     if (stage !== 'picker') return;
@@ -70,10 +82,18 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId, action, ...extra }),
       });
-      const data = await res.json() as { decisionId?: string; error?: string; message?: string };
-      if (!res.ok) throw new Error(data.error ?? data.message ?? 'Request failed');
+      // The server always intends to return JSON, but a crashed/timed-out
+      // function can send back an empty or truncated body — res.json()
+      // throws "Unexpected end of JSON input" on that, which is not a
+      // message a client should ever see. Parse defensively and fall back
+      // to a status-based message instead.
+      const raw = await res.text();
+      let data: { decisionId?: string; error?: string; message?: string } = {};
+      if (raw) { try { data = JSON.parse(raw); } catch { /* non-JSON body — fall through */ } }
+      if (!res.ok) throw new Error(data.error ?? data.message ?? `Something went wrong (${res.status}). Please try again.`);
+      if (!data.decisionId) throw new Error('Something went wrong. Please try again.');
 
-      const did = data.decisionId!;
+      const did = data.decisionId;
       setDecisionId(did);
       setUndoAction(action);
 
@@ -204,59 +224,105 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
   }
 
   // ── Three-outcome picker — bottom sheet <900px, centred modal ≥900px ─────
+  // Select, then Confirm — a client can change their mind before anything is
+  // submitted, rather than the first tap committing the choice.
   if (stage === 'picker') {
-    const optionStyle = (selected: boolean): React.CSSProperties => ({
+    // Both "post the video" options highlight green when selected; "send it
+    // back" highlights red, matching that action's color everywhere else in
+    // the app (the Request changes button, the "Changes requested" badge).
+    const selectedBg = (color: string) => (color === '#14805f' ? '#f2f9f6' : '#fdf4f3');
+
+    const optionStyle = (selected: boolean, selectedColor: string): React.CSSProperties => ({
       minHeight: 48, padding: '12px 16px', borderRadius: 13,
-      border: selected ? '1.5px solid #14805f' : '1px solid #ddd3c6',
-      background: selected ? '#f2f9f6' : '#fff',
-      color: selected ? '#14805f' : '#221e18',
-      fontWeight: 700, fontSize: 14, textAlign: 'left' as const,
+      border: selected ? `1.5px solid ${selectedColor}` : '1px solid #ddd3c6',
+      background: selected ? selectedBg(selectedColor) : '#fff',
       cursor: 'pointer', fontFamily: 'inherit', width: '100%',
-      display: 'flex', flexDirection: 'column' as const, gap: 3,
+      display: 'flex', flexDirection: 'row' as const, alignItems: 'flex-start', gap: 10,
     });
+
+    const radio = (selected: boolean, color: string) => (
+      <span style={{
+        width: 20, height: 20, borderRadius: '50%', flexShrink: 0, marginTop: 1,
+        border: `2px solid ${selected ? color : '#ddd3c6'}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {selected && <span style={{ width: 10, height: 10, borderRadius: '50%', background: color }} />}
+      </span>
+    );
+
+    function OptionRow({ value, titleColor, selectedColor, title, sub }: {
+      value: PickerOption; titleColor: string; selectedColor: string; title: string; sub: string;
+    }) {
+      const selected = selectedOption === value;
+      return (
+        <button type="button" onClick={() => setSelectedOption(value)} style={optionStyle(selected, selectedColor)}>
+          {radio(selected, selectedColor)}
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: selected ? selectedColor : titleColor }}>{title}</span>
+            <span style={{ fontWeight: 400, fontSize: 12, color: '#9d9488' }}>{sub}</span>
+          </span>
+        </button>
+      );
+    }
+
+    function handleConfirm() {
+      if (selectedOption === 'changes') { setStage('changes'); return; }
+      submitDecision(selectedOption, selectedOption === 'approve_with_fixes' ? { noteItems } : {});
+    }
 
     const sheet = (
       <div className="ab-picker-scrim" onClick={() => setStage('idle')}>
         <div className="ab-picker-sheet" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
           <div className="ab-picker-handle" aria-hidden="true" />
           {error && <div style={{ fontSize: 12, color: '#cf3f36' }}>{error}</div>}
-          <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: '#221e18' }}>
+          <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#221e18' }}>
             You have {comments.length} note{comments.length !== 1 ? 's' : ''}. What should happen to them?
           </p>
+          <p style={{ margin: '0 0 4px', fontSize: 13, color: '#9d9488' }}>
+            Approving normally sends this straight to the posting queue.
+          </p>
 
-          <button type="button" onClick={() => submitDecision('approve_with_fixes', { noteItems })} style={optionStyle(true)}>
-            <span>Apply my notes, then post</span>
-            <span style={{ fontWeight: 400, fontSize: 12, color: '#9d9488' }}>
-              Held until the fixes are done, then it comes back to you to confirm.
-            </span>
-          </button>
+          <OptionRow
+            value="approve_with_fixes" titleColor="#221e18" selectedColor="#14805f"
+            title="Apply my notes, then post"
+            sub="Held until the fixes are done, then it comes back to you to confirm."
+          />
+          <OptionRow
+            value="approve" titleColor="#221e18" selectedColor="#14805f"
+            title="Post as is — my notes are just FYI"
+            sub="Team sees your notes as context for future videos. This one goes live now."
+          />
+          <OptionRow
+            value="changes" titleColor="#a8302a" selectedColor="#cf3f36"
+            title="Send it back for changes"
+            sub="A new editing round starts. You'll review again when it's ready."
+          />
 
-          <button type="button" onClick={() => submitDecision('approve', {})} style={optionStyle(false)}>
-            <span>Post as is — my notes are just FYI</span>
-            <span style={{ fontWeight: 400, fontSize: 12, color: '#9d9488' }}>
-              Team sees your notes as context for future videos. This one goes live now.
-            </span>
-          </button>
-
-          <button type="button" onClick={() => setStage('changes')} style={optionStyle(false)}>
-            <span>Actually, send it back for changes</span>
-            <span style={{ fontWeight: 400, fontSize: 12, color: '#9d9488' }}>
-              A new editing round starts. You&apos;ll review again when it&apos;s ready.
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setStage('idle')}
-            style={{
-              minHeight: 44, padding: '11px 14px', borderRadius: 13,
-              border: '1px solid #ece4d8', background: '#fff',
-              color: '#6c6357', fontWeight: 600, fontSize: 13,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >
-            Back
-          </button>
+          <div style={{ display: 'flex', gap: 9, marginTop: 2 }}>
+            <button
+              type="button"
+              onClick={() => setStage('idle')}
+              style={{
+                flex: 1, minHeight: 48, padding: '11px 14px', borderRadius: 13,
+                border: '1px solid #ece4d8', background: '#fff',
+                color: '#6c6357', fontWeight: 600, fontSize: 14,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              style={{
+                flex: 2, minHeight: 48, padding: '11px 14px', borderRadius: 13, border: '1.5px solid #14805f',
+                background: '#14805f', color: '#fff',
+                fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              Confirm
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -342,7 +408,7 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
 
         <button
           type="button"
-          onClick={() => hasNotes ? setStage('picker') : submitDecision('approve', {})}
+          onClick={() => hasNotes ? openPicker() : submitDecision('approve', {})}
           className="ab-verdict-approve"
           style={{
             flex: 1, minHeight: 48, padding: '12px 14px', borderRadius: 13,

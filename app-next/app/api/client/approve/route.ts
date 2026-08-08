@@ -27,6 +27,20 @@ type ApproveAction = 'approve' | 'approve_with_fixes' | 'changes';
 // POST /api/client/approve/execute after the countdown, or
 // DELETE /api/client/approve/undo to cancel.
 export async function POST(req: Request) {
+  try {
+    return await handlePost(req);
+  } catch (e) {
+    // Never let an uncaught throw (a malformed ClickUp response, a DB blip,
+    // anything) fall through to whatever generic error response the runtime
+    // produces — that can come back empty/non-JSON, and the client's
+    // res.json() turns that into a cryptic "Unexpected end of JSON input"
+    // instead of a message anyone can act on.
+    console.error('[approve] unhandled error', e);
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
+  }
+}
+
+async function handlePost(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 

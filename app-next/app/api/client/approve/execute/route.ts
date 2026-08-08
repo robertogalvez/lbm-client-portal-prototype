@@ -23,6 +23,17 @@ function clickupHeaders() {
 // Called by the client countdown timer after 30 s; also callable by the sync
 // job for decisions where the client closed the tab before the window expired.
 export async function POST(req: Request) {
+  try {
+    return await handlePost(req);
+  } catch (e) {
+    // Same reasoning as app/api/client/approve/route.ts — an uncaught throw
+    // here must not surface as an empty/non-JSON response.
+    console.error('[approve/execute] unhandled error', e);
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
+  }
+}
+
+async function handlePost(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
