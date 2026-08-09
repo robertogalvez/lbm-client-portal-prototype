@@ -719,12 +719,7 @@ function DesktopStatusRow({ t, showViewLink }: { t: MappedTask; showViewLink?: b
       <span style={{background:bg, color, fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>{t.status}</span>
       {t.instagramUrl && <InstagramLink url={t.instagramUrl} label="Instagram" compact />}
       {showViewLink && (
-        <Link href={`/client/videos/${t.clickupTaskId}`} style={{
-          display: 'inline-flex', alignItems: 'center', gap: 5,
-          fontSize: 12, fontWeight: 700, color: '#c2410c',
-          background: '#fff1e8', border: '1px solid #ffd9bd', borderRadius: 9,
-          padding: '5px 10px', textDecoration: 'none',
-        }}>
+        <Link href={`/client/videos/${t.clickupTaskId}`} className="video-action-btn video-action-watch" style={{ fontSize: 12, padding: '6px 12px' }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:12,height:12}}>
             <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/>
           </svg>
@@ -735,12 +730,7 @@ function DesktopStatusRow({ t, showViewLink }: { t: MappedTask; showViewLink?: b
         <a
           href={t.rawDriveLink} target="_blank" rel="noopener noreferrer"
           title="The original unedited file this video was made from"
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-            fontSize: 12, fontWeight: 700, color: '#6c6357',
-            background: '#f7f2ea', border: '1px solid #e0d8ce', borderRadius: 9,
-            padding: '5px 10px', textDecoration: 'none',
-          }}
+          className="video-action-btn video-action-raw" style={{ fontSize: 12, padding: '6px 12px' }}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:12,height:12}}>
             <path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/>
@@ -804,12 +794,7 @@ function VideoRow({ task, color, colorBg, label, showViewLink }: { task: MappedT
           </span>
           {task.instagramUrl && <InstagramLink url={task.instagramUrl} label="Instagram" compact />}
           {showViewLink && (
-            <Link href={`/client/videos/${task.clickupTaskId}`} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              fontSize: 11.5, fontWeight: 700, color: '#c2410c',
-              background: '#fff1e8', border: '1px solid #ffd9bd', borderRadius: 9,
-              padding: '5px 10px', textDecoration: 'none',
-            }}>
+            <Link href={`/client/videos/${task.clickupTaskId}`} className="video-action-btn video-action-watch" style={{ fontSize: 11.5, padding: '6px 11px' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:12,height:12}}>
                 <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/>
               </svg>
@@ -820,12 +805,7 @@ function VideoRow({ task, color, colorBg, label, showViewLink }: { task: MappedT
             <a
               href={task.rawDriveLink} target="_blank" rel="noopener noreferrer"
               title="The original unedited file this video was made from"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                fontSize: 11.5, fontWeight: 700, color: '#6c6357',
-                background: '#f7f2ea', border: '1px solid #e0d8ce', borderRadius: 9,
-                padding: '5px 10px', textDecoration: 'none',
-              }}
+              className="video-action-btn video-action-raw" style={{ fontSize: 11.5, padding: '6px 11px' }}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:12,height:12}}>
                 <path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/>

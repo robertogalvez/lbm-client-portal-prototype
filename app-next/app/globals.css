@@ -224,6 +224,27 @@ body {
   }
 }
 
+/* Video-row action buttons (Watch video / Original footage) — equal-weight
+   bordered buttons, distinct from the flat status pill next to them via a
+   real border + shadow that strengthens on hover, with no implied priority
+   between the two actions. */
+.video-action-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-weight: 700;
+  background: #fff; border: 1.5px solid #ece4d8; border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(34,30,24,.10);
+  text-decoration: none; cursor: pointer;
+  transition: border-color .12s ease, background .12s ease, transform .12s ease, box-shadow .12s ease;
+}
+.video-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(34,30,24,.18);
+}
+.video-action-watch { color: #c2410c; }
+.video-action-watch:hover { border-color: #FF6000; background: #fff1e8; }
+.video-action-raw { color: #6c6357; }
+.video-action-raw:hover { border-color: #9d9488; background: #f7f2ea; }
+
 /* Video detail — mobile app shell: the whole screen is locked to viewport
    height (no page scroll). Header and video are fixed-size chrome; only
    .vd-right-scroll (meta + comments) scrolls, with the approve/reject dock
