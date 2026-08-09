@@ -32,10 +32,6 @@ function daysWaiting(dateUpdated: string) {
   return d === 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d}d ago`;
 }
 
-function initials(name: string) {
-  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-}
-
 // Convert a Frame.io share URL to an embeddable URL
 function toFrameioEmbedUrl(url: string): string {
   // Handles: https://f.io/xxxxx or https://app.frame.io/reviews/xxxxx or https://on.frame.io/...
@@ -139,13 +135,6 @@ export default async function VideoDetailPage({ params, searchParams }: { params
       </div>
       {/* Meta */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#6c6357', fontWeight: 500, flexWrap: 'wrap' as const }}>
-        {task.assignedAmName && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#5e6b7a', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 9, fontWeight: 700 }}>{initials(task.assignedAmName)}</span>
-            <span>Account Manager · {task.assignedAmName}</span>
-          </span>
-        )}
-        <span style={{ width: 3, height: 3, borderRadius: '50%', background: '#9d9488' }} />
         <span>{daysWaiting(task.dateUpdated)}</span>
         {task.dueDate && (<><span style={{ width: 3, height: 3, borderRadius: '50%', background: '#9d9488' }} /><span>Due {fmtDate(task.dueDate)}</span></>)}
       </div>
