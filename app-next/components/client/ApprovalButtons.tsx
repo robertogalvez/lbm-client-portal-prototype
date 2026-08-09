@@ -139,9 +139,21 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
       if (res.ok) {
         setStage('done');
         markDecided();
+        return;
       }
-      // If execute fails, the pending_decisions row stays for the sync job to pick up
-    } catch { /* sync will handle it */ }
+      const raw = await res.text();
+      let data: { error?: string } = {};
+      if (raw) { try { data = JSON.parse(raw); } catch { /* non-JSON body */ } }
+      throw new Error(data.error ?? `Something went wrong (${res.status}). Please try again.`);
+    } catch (e) {
+      // The pending_decisions row is still there (unexecuted) for a retry —
+      // reset to idle so the client can reopen the picker and try again
+      // instead of staring at a frozen countdown forever.
+      inFlight.current = false;
+      setResult(null);
+      setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
+      setStage('idle');
+    }
   }
 
   async function handleUndo() {
