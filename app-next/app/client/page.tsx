@@ -173,8 +173,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
         <div style={{padding:16}}>
           <div style={{fontWeight:700, fontSize:15, marginBottom:12, lineHeight:1.3}}>{t.clientFacingTitle || t.title}</div>
           <div style={{background:'#fef3c7', color:'#92400e', textAlign:'center', padding:'6px', borderRadius:8, fontSize:12, fontWeight:600, marginBottom:12}}>⏳ Awaiting your review</div>
-          <a href={`/client/videos/${t.clickupTaskId}`} style={{display:'block', textAlign:'center', padding:'10px', background:'#f97316', color:'#fff', borderRadius:10, fontWeight:600, fontSize:14, textDecoration:'none', marginBottom:10}}>Watch &amp; review</a>
-          <ApprovalButtons taskId={t.clickupTaskId} currentApproval={t.clientApproval} />
+          <a href={`/client/videos/${t.clickupTaskId}`} style={{display:'block', textAlign:'center', padding:'10px', background:'#f97316', color:'#fff', borderRadius:10, fontWeight:600, fontSize:14, textDecoration:'none'}}>Watch &amp; review</a>
         </div>
       </div>
     );
