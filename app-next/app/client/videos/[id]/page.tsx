@@ -183,7 +183,7 @@ export default async function VideoDetailPage({ params, searchParams }: { params
   // viewport, client-side, so the other is never in the tree.
   const commentsContent = nativeReady ? (
     <>
-      <CommentComposer />
+      {isReview && <CommentComposer />}
       <CommentFeed />
     </>
   ) : null;
