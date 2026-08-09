@@ -754,7 +754,7 @@ function VideoRow({ task, color, colorBg, label, showViewLink }: { task: MappedT
   const bg = colorBg ?? derived.bg;
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 12,
+      display: 'flex', alignItems: 'flex-start', gap: 12,
       background: '#fff', border: '1px solid #ece4d8',
       borderRadius: 16, padding: '10px 12px',
     }}>
@@ -767,34 +767,34 @@ function VideoRow({ task, color, colorBg, label, showViewLink }: { task: MappedT
           <path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/>
         </svg>
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }} title={task.clientFacingTitle || task.title}>
-          {displayTitle(task.clientFacingTitle, task.title)}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {/* Full title on its own line — nothing else competes with it for
+            width, so long titles wrap instead of getting cut off. */}
+        <div style={{ fontSize: 13.5, fontWeight: 700, lineHeight: 1.3 }}>
+          {task.clientFacingTitle || task.title}
         </div>
-        {task.instagramUrl && (
-          <div style={{ fontSize: 11.5, color: '#9d9488', fontWeight: 500, marginTop: 3 }}>
-            <InstagramLink url={task.instagramUrl} label="Instagram" compact />
-          </div>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            fontSize: 12, fontWeight: 700, padding: '5px 9px', borderRadius: 9,
+            color: fg, background: bg, whiteSpace: 'nowrap' as const,
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: fg }} />
+            {label ?? task.status}
+          </span>
+          {task.instagramUrl && <InstagramLink url={task.instagramUrl} label="Instagram" compact />}
+          {showViewLink && (
+            <Link href={`/client/videos/${task.clickupTaskId}`} style={{fontSize:11, color:'#FF6000', textDecoration:'none', fontWeight:600}}>
+              View →
+            </Link>
+          )}
+          {task.rawDriveLink && (
+            <a href={task.rawDriveLink} target="_blank" rel="noopener noreferrer" style={{fontSize:11, color:'#FF6000', textDecoration:'none', fontWeight:600}}>
+              Raw →
+            </a>
+          )}
+        </div>
       </div>
-      <span style={{
-        display: 'inline-flex', alignItems: 'center', gap: 5,
-        fontSize: 12, fontWeight: 700, padding: '5px 9px', borderRadius: 9,
-        color: fg, background: bg, whiteSpace: 'nowrap' as const, flexShrink: 0,
-      }}>
-        <span style={{ width: 6, height: 6, borderRadius: '50%', background: fg }} />
-        {label ?? task.status}
-      </span>
-      {showViewLink && (
-        <Link href={`/client/videos/${task.clickupTaskId}`} style={{fontSize:11, color:'#FF6000', textDecoration:'none', padding:'4px 8px', flexShrink:0, fontWeight:600}}>
-          View →
-        </Link>
-      )}
-      {task.rawDriveLink && (
-        <a href={task.rawDriveLink} target="_blank" rel="noopener noreferrer" style={{fontSize:11, color:'#FF6000', textDecoration:'none', padding:'4px 8px', flexShrink:0, fontWeight:600}}>
-          Raw →
-        </a>
-      )}
     </div>
   );
 }
