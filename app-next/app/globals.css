@@ -186,8 +186,10 @@ body {
 }
 .cp-tab-bar-desktop { display: none; }
 
-/* Desktop: centred phone-frame */
-@media (min-width: 768px) {
+/* Desktop: centred phone-frame. Gated on pointer:fine (not just width) so a
+   phone rotated to landscape — often wider than 768px — keeps the full-bleed
+   mobile layout instead of getting crammed into the tiny desktop mockup. */
+@media (min-width: 768px) and (pointer: fine) {
   .cp-shell {
     background: #ede8df;
     align-items: center;
@@ -270,7 +272,7 @@ body {
 /* Title + status pill duplicate the mobile header below 900px — hidden there,
    restored (as transparent layout, not a box) once the header disappears. */
 .vd-meta-hide-mobile { display: none; }
-@media (min-width: 900px) {
+@media (min-width: 900px) and (pointer: fine) {
   .vd-meta-hide-mobile { display: contents; }
 }
 .vd-dock {
@@ -337,7 +339,10 @@ body {
   color: #221e18;
   -webkit-font-smoothing: antialiased;
 }
-@media (min-width: 900px) {
+/* pointer:fine — a landscape phone can easily exceed 900px wide too, and
+   width alone would wrongly swap it to the desktop top-nav layout instead
+   of just widening the mobile one. */
+@media (min-width: 900px) and (pointer: fine) {
   .client-mobile { display: none !important; }
   .client-desktop { display: block; }
 }
@@ -453,7 +458,7 @@ body {
 
 /* Mobile/desktop layout switching */
 .client-desktop { display: none; background: #f5f0e8; min-height: 100vh; font-family: "Plus Jakarta Sans", system-ui, sans-serif; color: #221e18; -webkit-font-smoothing: antialiased; }
-@media (min-width: 900px) {
+@media (min-width: 900px) and (pointer: fine) {
   .client-mobile { display: none !important; }
   .client-desktop { display: block; }
 }
@@ -467,8 +472,8 @@ body {
   .cal-sidebar { display: block; width: 280px; flex-shrink: 0; }
 }
 
-/* Video detail — desktop two-column (aligned with .client-desktop's 900px switch) */
-@media (min-width: 900px) {
+/* Video detail — desktop two-column (aligned with .client-desktop's 900px + pointer:fine switch) */
+@media (min-width: 900px) and (pointer: fine) {
   .vd-shell {
     flex-direction: row;
     height: 100vh;
