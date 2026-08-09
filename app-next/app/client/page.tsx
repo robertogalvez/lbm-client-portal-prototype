@@ -8,7 +8,6 @@ import { getTasksFromList, getClientQuotas } from '@/lib/clickup';
 import { getThumbnailUrl } from '@/lib/frameio';
 import { statusColors } from '@/components/ui/StatusBadge';
 import type { MappedTask, ClientQuota } from '@/lib/clickup';
-import { ApprovalButtons } from '@/components/client/ApprovalButtons';
 import { NotificationBell } from '@/components/client/NotificationBell';
 import { LogoutButton } from '@/components/client/LogoutButton';
 import { CalendarView } from '@/components/client/CalendarView';
@@ -282,7 +281,15 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               </div>
             )}
             {(() => {
+              // Exclude tasks already shown above — clientApproval stays set to the
+              // client's last decision no matter what status the task moves to next,
+              // so a task currently in corrections/production/on its way would
+              // otherwise show up a second time here with the same title.
+              const shownElsewhere = new Set([
+                ...correctionsTasks, ...inProgress, ...onItsWayTasks,
+              ].map(t => t.clickupTaskId));
               const reviewed = clientTasks
+                .filter(t => !shownElsewhere.has(t.clickupTaskId))
                 .filter(t => t.clientApproval === 'approved' || t.clientApproval === 'changes_requested')
                 .sort((a, b) => (Number(b.dateUpdated) || 0) - (Number(a.dateUpdated) || 0))
                 .slice(0, 8);
@@ -693,8 +700,6 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
           </svg>
           Watch &amp; review
         </Link>
-
-        <ApprovalButtons taskId={task.clickupTaskId} currentApproval={task.clientApproval} />
       </div>
     </div>
   );
@@ -766,10 +771,11 @@ function VideoRow({ task, color, colorBg, label, showViewLink }: { task: MappedT
         <div style={{ fontSize: 13.5, fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }} title={task.clientFacingTitle || task.title}>
           {displayTitle(task.clientFacingTitle, task.title)}
         </div>
-        <div style={{ fontSize: 11.5, color: '#9d9488', fontWeight: 500, marginTop: 3, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
-          <span>{task.status}</span>
-          {task.instagramUrl && <InstagramLink url={task.instagramUrl} label="Instagram" compact />}
-        </div>
+        {task.instagramUrl && (
+          <div style={{ fontSize: 11.5, color: '#9d9488', fontWeight: 500, marginTop: 3 }}>
+            <InstagramLink url={task.instagramUrl} label="Instagram" compact />
+          </div>
+        )}
       </div>
       <span style={{
         display: 'inline-flex', alignItems: 'center', gap: 5,
