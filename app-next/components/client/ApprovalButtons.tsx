@@ -13,8 +13,8 @@ interface Props {
 type Stage =
   | 'idle'      // one neutral button: "Finish your review"
   | 'picker'    // the single decision surface — all three outcomes + shared textarea
+  | 'confirm'   // "Are you sure? This can't be undone." — Yes/No
   | 'loading'   // waiting for /api/client/approve
-  | 'undoable'  // decision stored — 30 s undo window
   | 'done'      // executed — show permanent badge
   | 'error';
 
@@ -31,12 +31,7 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
   // approval (Amendment A §3.1).
   const [selectedOption, setSelectedOption] = useState<PickerOption | null>(null);
   const [sendBackWarningAck, setSendBackWarningAck] = useState(false);
-  const [decisionId, setDecisionId] = useState<string | null>(null);
-  const [undoAction, setUndoAction] = useState<string>('');
-  const [countdown, setCountdown] = useState(30);
   const inFlight = useRef(false);
-  const executeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { markDecided } = useVideoDecision();
   const player = useVideoPlayerOptional();
   const comments = player?.comments ?? [];
@@ -48,13 +43,6 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
     const prefix = c.timestampLabel ? `${c.timestampLabel} — ` : '';
     return `${prefix}${c.text}`;
   });
-
-  function clearTimers() {
-    if (executeTimerRef.current) { clearTimeout(executeTimerRef.current); executeTimerRef.current = null; }
-    if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
-  }
-
-  useEffect(() => () => clearTimers(), []);
 
   // Dismissal (scrim tap, Back, Escape) is not a decision — the selection and
   // any typed text stay exactly as they were (Amendment A §3.3). Only the
@@ -95,82 +83,21 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
       // message a client should ever see. Parse defensively and fall back
       // to a status-based message instead.
       const raw = await res.text();
-      let data: { decisionId?: string; error?: string; message?: string } = {};
+      let data: { error?: string; message?: string } = {};
       if (raw) { try { data = JSON.parse(raw); } catch { /* non-JSON body — fall through */ } }
       if (!res.ok) throw new Error(data.error ?? data.message ?? `Something went wrong (${res.status}). Please try again.`);
-      if (!data.decisionId) throw new Error('Something went wrong. Please try again.');
-
-      const did = data.decisionId;
-      setDecisionId(did);
-      setUndoAction(action);
 
       const actionLabel = action === 'approve' ? 'Approved · posting as is'
         : action === 'approve_with_fixes' ? 'Approved · fixes queued'
         : 'Changes requested';
       setResult(actionLabel);
-      setStage('undoable');
-      setCountdown(30);
-
-      countdownRef.current = setInterval(() => {
-        setCountdown(n => {
-          if (n <= 1) { clearInterval(countdownRef.current!); countdownRef.current = null; }
-          return n - 1;
-        });
-      }, 1000);
-
-      executeTimerRef.current = setTimeout(async () => {
-        await runExecute(did);
-      }, 30_000);
-
+      setStage('done');
+      markDecided();
     } catch (e) {
       inFlight.current = false;
       setError(e instanceof Error ? e.message : 'Something went wrong');
       setStage('idle');
     }
-  }
-
-  async function runExecute(did: string) {
-    try {
-      const res = await fetch('/api/client/approve/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decisionId: did }),
-      });
-      if (res.ok) {
-        setStage('done');
-        markDecided();
-        return;
-      }
-      const raw = await res.text();
-      let data: { error?: string } = {};
-      if (raw) { try { data = JSON.parse(raw); } catch { /* non-JSON body */ } }
-      throw new Error(data.error ?? `Something went wrong (${res.status}). Please try again.`);
-    } catch (e) {
-      // The pending_decisions row is still there (unexecuted) for a retry —
-      // reset to idle so the client can reopen the picker and try again
-      // instead of staring at a frozen countdown forever.
-      inFlight.current = false;
-      setResult(null);
-      setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
-      setStage('idle');
-    }
-  }
-
-  async function handleUndo() {
-    clearTimers();
-    try {
-      await fetch('/api/client/approve/undo', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decisionId }),
-      });
-    } catch { /* best-effort */ }
-    inFlight.current = false;
-    setDecisionId(null);
-    setResult(null);
-    setStage('idle');
-    setCountdown(30);
-    setError('');
   }
 
   // ── Already decided: permanent badge ─────────────────────────────────────
@@ -197,37 +124,58 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
     );
   }
 
-  // ── 30-second undo window — one bar: message left, Undo right ────────────
-  if (stage === 'undoable') {
-    const isApprove = undoAction === 'approve';
-    const isWithFixes = undoAction === 'approve_with_fixes';
-    const bg = isApprove ? '#e4f3ec' : isWithFixes ? '#fff8e6' : '#fbe7e2';
-    const ink = isApprove ? '#14805f' : isWithFixes ? '#8a6200' : '#cf3f36';
-    const primary = isApprove ? 'Approved — sending to the team'
-      : isWithFixes ? 'Approved · fixes queued for team'
-      : 'Changes requested — sending to the team';
-    return (
-      <div style={{ padding: '12px 14px', borderRadius: 13, background: bg, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke={ink} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ width: 17, height: 17, flexShrink: 0 }}>
-          <path d="M20 6 9 17l-5-5" />
-        </svg>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: ink }}>{primary}</div>
-          <div style={{ fontSize: 11, color: ink, opacity: 0.75 }}>in {countdown}s</div>
+  // ── Last confirmation — no undo after this, so make the ask explicit ─────
+  if (stage === 'confirm' && selectedOption) {
+    const isChanges = selectedOption === 'changes';
+    const ink = isChanges ? '#cf3f36' : '#14805f';
+    const question = selectedOption === 'approve' ? 'Approve and post as is?'
+      : selectedOption === 'approve_with_fixes' ? 'Approve with your notes applied first?'
+      : 'Send this back for changes?';
+
+    function handleConfirmYes() {
+      if (!selectedOption) return;
+      const extra = {
+        feedbackText: feedback.trim() || undefined,
+        noteItems: selectedOption === 'approve_with_fixes' ? noteItems : undefined,
+      };
+      submitDecision(selectedOption, extra);
+    }
+
+    const sheet = (
+      <div className="ab-picker-scrim" onClick={() => setStage('picker')}>
+        <div className="ab-picker-sheet" onClick={e => e.stopPropagation()} role="alertdialog" aria-modal="true">
+          <div className="ab-picker-handle" aria-hidden="true" />
+          <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#221e18' }}>{question}</p>
+          <p style={{ margin: 0, fontSize: 13, color: '#6c6357' }}>This action can&apos;t be undone.</p>
+          <div style={{ display: 'flex', gap: 9, marginTop: 2 }}>
+            <button
+              type="button"
+              onClick={() => setStage('picker')}
+              style={{
+                flex: 1, minHeight: 48, padding: '11px 14px', borderRadius: 13,
+                border: '1px solid #ece4d8', background: '#fff',
+                color: '#6c6357', fontWeight: 600, fontSize: 14,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              No, go back
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmYes}
+              style={{
+                flex: 2, minHeight: 48, padding: '11px 14px', borderRadius: 13,
+                border: `1.5px solid ${ink}`, background: ink, color: '#fff',
+                fontWeight: 700, fontSize: 14, fontFamily: 'inherit', cursor: 'pointer',
+              }}
+            >
+              Yes, I&apos;m sure
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={handleUndo}
-          style={{
-            flexShrink: 0, minHeight: 44, padding: '10px 14px', borderRadius: 9,
-            border: `1.5px solid ${ink}`, background: 'transparent', color: ink,
-            fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
-          }}
-        >
-          Undo
-        </button>
       </div>
     );
+    return typeof document !== 'undefined' ? createPortal(sheet, document.body) : null;
   }
 
   // ── Loading ───────────────────────────────────────────────────────────────
@@ -297,11 +245,7 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
         setSendBackWarningAck(true);
         return;
       }
-      const extra = {
-        feedbackText: feedback.trim() || undefined,
-        noteItems: selectedOption === 'approve_with_fixes' ? noteItems : undefined,
-      };
-      submitDecision(selectedOption, extra);
+      setStage('confirm');
     }
 
     const confirmMeta = !selectedOption

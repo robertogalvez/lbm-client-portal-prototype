@@ -199,9 +199,8 @@ export const oauthTokens = pgTable('oauth_tokens', {
   updatedAt:       timestamp('updated_at').defaultNow(),
 });
 
-// Server-side deferred approvals — a row persists for 30 s while the client
-// may undo, then an execute call applies the ClickUp writes. Rows are deleted
-// on undo or marked executed after the window closes.
+// Audit log of client approval decisions — ClickUp writes happen synchronously
+// in the same request that inserts this row (see app/api/client/approve).
 export const pendingDecisions = pgTable('pending_decisions', {
   id:           uuid('id').defaultRandom().primaryKey(),
   taskId:       varchar('task_id', { length: 100 }).notNull(),

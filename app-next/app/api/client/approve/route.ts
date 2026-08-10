@@ -5,10 +5,12 @@ import { db } from '@/lib/db';
 import { authUsers, pendingDecisions, frameioSyncedComments } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getViewAsClient } from '@/lib/view-as';
-import { resolveTaskClientName, type ClickUpTask } from '@/lib/clickup';
+import { resolveTaskClientName, mapTask, type ClickUpTask } from '@/lib/clickup';
+import { setTaskStatus, postComment, TASK_STATUS, CLIENT_APPROVAL, createClientFixesChecklist } from '@/lib/clickup-write';
+import { syncFrameioComments } from '@/lib/frameio-comment-sync';
+import { notifyAmOfDecision } from '@/lib/notify-am';
 
 const BASE = 'https://api.clickup.com/api/v2';
-const UNDO_WINDOW_MS = 30_000;
 
 function clickupHeaders() {
   return {
@@ -22,10 +24,9 @@ type ApproveAction = 'approve' | 'approve_with_fixes' | 'changes';
 // POST /api/client/approve
 // Body: { taskId, action, feedbackText?, noteItems? }
 //
-// Stores the decision for 30s while the client may undo, then returns
-// { pending: true, decisionId, executeAfter } — the client calls
-// POST /api/client/approve/execute after the countdown, or
-// DELETE /api/client/approve/undo to cancel.
+// The client has already shown its own "are you sure — this can't be
+// undone" confirmation before calling this, so the ClickUp writes happen
+// synchronously in this one request. No deferred/undoable window.
 export async function POST(req: Request) {
   try {
     return await handlePost(req);
@@ -81,52 +82,49 @@ async function handlePost(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const frameField = (task.custom_fields ?? []).find((f: { name: string }) => f.name === 'Updated Frame Link (Editor)');
+  const frameLink = typeof frameField?.value === 'string' ? frameField.value : null;
+
   // 409 guard: "post as is" is only valid when there are no unmirrored Frame.io
   // comments — otherwise the client must explicitly choose what to do with their notes.
-  if (action === 'approve') {
-    const frameField = (task.custom_fields ?? []).find((f: { name: string }) => f.name === 'Updated Frame Link (Editor)');
-    const frameLink = typeof frameField?.value === 'string' ? frameField.value : null;
-    if (frameLink) {
-      const assetId = extractAssetId(frameLink);
-      if (assetId) {
-        const frameioRes = await fetch(
-          `https://api.frame.io/v4/assets/${assetId}/comments`,
-          { headers: { Authorization: `Bearer ${process.env.FRAMEIO_ACCESS_TOKEN ?? ''}` }, cache: 'no-store' }
-        ).catch(() => null);
-        if (frameioRes?.ok) {
-          const frameioData = await frameioRes.json().catch(() => ({ data: [] })) as { data?: { id: string }[] };
-          const allComments = frameioData?.data ?? [];
-          const syncedRows = await db
-            .select({ frameioCommentId: frameioSyncedComments.frameioCommentId })
-            .from(frameioSyncedComments)
-            .where(eq(frameioSyncedComments.clickupTaskId, taskId));
-          const syncedSet = new Set(syncedRows.map(r => r.frameioCommentId));
-          const unmirrored = allComments.filter(c => !syncedSet.has(c.id));
-          if (unmirrored.length > 0) {
-            return NextResponse.json({
-              error: 'approve_blocked_by_unmirrored_notes',
-              unmirroredCount: unmirrored.length,
-              message: 'This video has notes not yet sent to the team. Choose what to do with them first.',
-            }, { status: 409 });
-          }
+  if (action === 'approve' && frameLink) {
+    const assetId = extractAssetId(frameLink);
+    if (assetId) {
+      const frameioRes = await fetch(
+        `https://api.frame.io/v4/assets/${assetId}/comments`,
+        { headers: { Authorization: `Bearer ${process.env.FRAMEIO_ACCESS_TOKEN ?? ''}` }, cache: 'no-store' }
+      ).catch(() => null);
+      if (frameioRes?.ok) {
+        const frameioData = await frameioRes.json().catch(() => ({ data: [] })) as { data?: { id: string }[] };
+        const allComments = frameioData?.data ?? [];
+        const syncedRows = await db
+          .select({ frameioCommentId: frameioSyncedComments.frameioCommentId })
+          .from(frameioSyncedComments)
+          .where(eq(frameioSyncedComments.clickupTaskId, taskId));
+        const syncedSet = new Set(syncedRows.map(r => r.frameioCommentId));
+        const unmirrored = allComments.filter(c => !syncedSet.has(c.id));
+        if (unmirrored.length > 0) {
+          return NextResponse.json({
+            error: 'approve_blocked_by_unmirrored_notes',
+            unmirroredCount: unmirrored.length,
+            message: 'This video has notes not yet sent to the team. Choose what to do with them first.',
+          }, { status: 409 });
         }
       }
     }
   }
 
-  // Store the pending decision — client has 30 s to undo
-  const executeAfter = new Date(Date.now() + UNDO_WINDOW_MS);
+  // Audit record of the decision, executed in this same request.
   const [decision] = await db.insert(pendingDecisions).values({
     taskId,
     action,
     payload: { taskId, action, feedbackText, noteItems, userName: userRow.name } as Record<string, unknown>,
-    executeAfter,
+    executeAfter: new Date(),
     userId: session.user.id,
     clientName: effectiveClientName,
   }).returning({ id: pendingDecisions.id });
 
-  // Log all outcome choices (especially "post as is" — brief §2.2)
-  console.log('[approve] decision queued', {
+  console.log('[approve] decision recorded', {
     decisionId: decision.id,
     userId: session.user.id,
     clientName: effectiveClientName,
@@ -135,7 +133,68 @@ async function handlePost(req: Request) {
     at: new Date().toISOString(),
   });
 
-  return NextResponse.json({ pending: true, decisionId: decision.id, executeAfter: executeAfter.toISOString() });
+  // Mirror Frame.io comments + optional extra note into ClickUp
+  const authorName = userRow.name || effectiveClientName;
+  const extraNote = feedbackText?.trim() ? { authorName, text: feedbackText.trim() } : undefined;
+
+  const commentSync = frameLink
+    ? await syncFrameioComments(taskId, frameLink, extraNote).catch(() => null)
+    : extraNote
+      ? await postComment(taskId, `🎬 Client feedback:\n${authorName}: ${extraNote.text}`, false).then(
+          () => ({ ok: true, posted: 1, alreadySynced: 0 }),
+          () => ({ ok: false, posted: 0, alreadySynced: 0 }),
+        )
+      : null;
+
+  // Set CLIENT APPROVAL field — exact option name per action, not a substring
+  // guess (both "approve" outcomes contain "approv", so that used to collide).
+  const approvalField = (task.custom_fields ?? []).find((f: { name: string }) => f.name === 'CLIENT APPROVAL');
+  if (!approvalField) return NextResponse.json({ error: 'CLIENT APPROVAL field not found' }, { status: 422 });
+
+  const targetApprovalName = action === 'changes' ? CLIENT_APPROVAL.changes
+    : action === 'approve_with_fixes' ? CLIENT_APPROVAL.approveWithFixes
+    : CLIENT_APPROVAL.approve;
+
+  const options: { id: string; name: string }[] = approvalField.type_config?.options ?? [];
+  const optionIndex = options.findIndex((o: { name: string }) => o.name.toLowerCase() === targetApprovalName.toLowerCase());
+  if (optionIndex === -1) return NextResponse.json({ error: 'Approval option not found' }, { status: 422 });
+
+  const updateRes = await fetch(`${BASE}/task/${taskId}/field/${approvalField.id}`, {
+    method: 'POST',
+    headers: clickupHeaders(),
+    body: JSON.stringify({ value: optionIndex }),
+  });
+  if (!updateRes.ok) {
+    const err = await updateRes.text();
+    return NextResponse.json({ error: `ClickUp field update failed: ${err}` }, { status: 502 });
+  }
+
+  // Set task status. "Approve — apply my notes first" and "Send back for
+  // changes" both route through corrections; the CLIENT APPROVAL value set
+  // above is what tells the AM which one it was.
+  const targetStatus = action === 'approve' ? TASK_STATUS.readyToBePosted : TASK_STATUS.inProgressCorrections;
+  try { await setTaskStatus(taskId, targetStatus); } catch { /* non-fatal */ }
+
+  // Create ClickUp checklist from note items for approve_with_fixes
+  let checklistResult: { checklistId: string; itemIds: string[] } | null = null;
+  if (action === 'approve_with_fixes' && noteItems && noteItems.length > 0) {
+    const dateLabel = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    checklistResult = await createClientFixesChecklist(taskId, noteItems, dateLabel);
+  }
+
+  await db.update(pendingDecisions).set({ executed: true }).where(eq(pendingDecisions.id, decision.id));
+
+  // Notify AM
+  const mapped = mapTask(task);
+  await notifyAmOfDecision({
+    assignedAmName: mapped.assignedAmName,
+    taskId,
+    videoTitle: mapped.clientFacingTitle || mapped.title,
+    action: action === 'approve_with_fixes' ? 'approve' : (action as 'approve' | 'changes'),
+    clientName: effectiveClientName,
+  }).catch(() => {});
+
+  return NextResponse.json({ ok: true, decisionId: decision.id, action, optionName: options[optionIndex]?.name, commentSync, checklistResult });
 }
 
 function extractAssetId(frameLink: string): string {
