@@ -18,7 +18,7 @@ type Stage =
   | 'done'      // executed — show permanent badge
   | 'error';
 
-type PickerOption = 'approve_with_fixes' | 'approve' | 'changes';
+type PickerOption = 'approve' | 'changes';
 
 export function ApprovalButtons({ taskId, currentApproval }: Props) {
   const [stage, setStage] = useState<Stage>('idle');
@@ -37,12 +37,6 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
   const comments = player?.comments ?? [];
 
   const hasNotes = comments.length > 0;
-
-  // Build checklist items from VideoPlayerContext comments
-  const noteItems = comments.map(c => {
-    const prefix = c.timestampLabel ? `${c.timestampLabel} — ` : '';
-    return `${prefix}${c.text}`;
-  });
 
   // Dismissal (scrim tap, Back, Escape) is not a decision — the selection and
   // any typed text stay exactly as they were (Amendment A §3.3). Only the
@@ -129,16 +123,11 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
     const isChanges = selectedOption === 'changes';
     const ink = isChanges ? '#cf3f36' : '#14805f';
     const question = selectedOption === 'approve' ? 'Approve and post as is?'
-      : selectedOption === 'approve_with_fixes' ? 'Approve with your notes applied first?'
       : 'Send this back for changes?';
 
     function handleConfirmYes() {
       if (!selectedOption) return;
-      const extra = {
-        feedbackText: feedback.trim() || undefined,
-        noteItems: selectedOption === 'approve_with_fixes' ? noteItems : undefined,
-      };
-      submitDecision(selectedOption, extra);
+      submitDecision(selectedOption, { feedbackText: feedback.trim() || undefined });
     }
 
     const sheet = (
@@ -252,7 +241,7 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
       ? { label: 'Confirm', bg: '#f1ebe1', border: '1.5px solid transparent', color: '#bdb3a5', disabled: true }
       : selectedOption === 'changes'
         ? { label: 'Send back for changes', bg: '#fbe7e2', border: '1.5px solid #cf3f36', color: '#a8302a', disabled: false }
-        : { label: selectedOption === 'approve_with_fixes' ? 'Approve & apply notes' : 'Approve & post', bg: '#14805f', border: '1.5px solid #14805f', color: '#fff', disabled: false };
+        : { label: 'Approve & post', bg: '#14805f', border: '1.5px solid #14805f', color: '#fff', disabled: false };
 
     const textareaPlaceholder = selectedOption === 'changes'
       ? "What needs to change? (optional — your timestamped notes are already included)"
@@ -270,11 +259,6 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
             </p>
           )}
 
-          <OptionRow
-            value="approve_with_fixes" titleColor="#221e18" selectedColor="#14805f"
-            title="Approve — apply my notes first"
-            sub="Held until the fixes are done, then back to you to confirm."
-          />
           <OptionRow
             value="approve" titleColor="#221e18" selectedColor="#14805f"
             title="Approve — post as is"

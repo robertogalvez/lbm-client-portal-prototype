@@ -186,13 +186,17 @@ async function handlePost(req: Request) {
 
   // Notify AM
   const mapped = mapTask(task);
+  const videoTitle = mapped.clientFacingTitle || mapped.title;
   await notifyAmOfDecision({
     assignedAmName: mapped.assignedAmName,
     taskId,
-    videoTitle: mapped.clientFacingTitle || mapped.title,
+    videoTitle,
     action: action === 'approve_with_fixes' ? 'approve' : (action as 'approve' | 'changes'),
     clientName: effectiveClientName,
   }).catch(() => {});
+
+  // Post to Client Approvals chat channel
+  postToClientApprovalsChat(action, effectiveClientName, videoTitle).catch(() => {});
 
   return NextResponse.json({ ok: true, decisionId: decision.id, action, optionName: options[optionIndex]?.name, commentSync, checklistResult });
 }
@@ -200,4 +204,20 @@ async function handlePost(req: Request) {
 function extractAssetId(frameLink: string): string {
   const match = frameLink.match(/\/(?:reviews|presentations|assets)\/([a-f0-9-]{36})/i);
   return match?.[1] ?? '';
+}
+
+async function postToClientApprovalsChat(action: string, clientName: string, videoTitle: string) {
+  const emoji = action === 'changes' ? '⚠️' : '✅';
+  const verb = action === 'changes' ? 'requested changes on' : 'approved';
+  await fetch('https://api.clickup.com/api/v3/workspaces/90131939077/chat/channels/2ky4gfr5-81233/messages', {
+    method: 'POST',
+    headers: {
+      Authorization: process.env.CLICKUP_API_TOKEN ?? '',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      content: `${emoji} **${clientName}** ${verb} **${videoTitle}**`,
+      content_format: 'text/md',
+    }),
+  });
 }
