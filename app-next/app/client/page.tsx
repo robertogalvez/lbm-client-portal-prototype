@@ -117,14 +117,45 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
 
   const clientTasks = allTasks.filter(t => t.clientName === clientName);
   const reviewTasks = clientTasks.filter(t => norm(t.status) === 'for client review');
-  const correctionsTasks = clientTasks.filter(t => norm(t.status) === 'in progress (corrections)');
-  // "On its way" combines ready-to-post and already-posted into one section —
-  // each row's own status badge (via statusColors) distinguishes which.
-  const onItsWayTasks = clientTasks.filter(t => ['ready to be posted', 'posted in socials'].includes(norm(t.status)));
+  // Keep postedTasks for the stats banner (monthly delivery counts)
   const postedTasks = clientTasks.filter(t => norm(t.status) === 'posted in socials');
-  const inProgress  = clientTasks.filter(t =>
-    !['for client review', 'in progress (corrections)', 'ready to be posted', 'posted in socials'].includes(norm(t.status))
+
+  // ── Display groups (mutually exclusive, priority-ordered) ─────────────────
+  // 1. Posted + Archived — sorted newest first
+  const postedAndArchivedTasks = clientTasks
+    .filter(t => ['posted in socials', 'archived'].includes(norm(t.status)))
+    .sort((a, b) => {
+      const dateA = a.publishDate ? new Date(a.publishDate).getTime() : (Number(a.dateUpdated) || 0);
+      const dateB = b.publishDate ? new Date(b.publishDate).getTime() : (Number(b.dateUpdated) || 0);
+      return dateB - dateA;
+    });
+
+  // 2. Scheduled — non-review, non-posted tasks that have a publish date set
+  const scheduledTasks = clientTasks
+    .filter(t => {
+      const s = norm(t.status);
+      return t.publishDate !== null && s !== 'for client review' && !['posted in socials', 'archived'].includes(s);
+    })
+    .sort((a, b) => new Date(a.publishDate!).getTime() - new Date(b.publishDate!).getTime());
+  const scheduledIds = new Set(scheduledTasks.map(t => t.clickupTaskId));
+
+  // 3. In Progress - Edition: all active production statuses (excluding scheduled)
+  const IN_PROD_STATUSES = new Set([
+    'in progress (editor)', 'in progress (corrections)', 'in tc/qc (somu)',
+    'on its way', 'ready to be posted', 'approved · fixes pending',
+  ]);
+  const inEditionTasks = clientTasks.filter(t =>
+    IN_PROD_STATUSES.has(norm(t.status)) && !scheduledIds.has(t.clickupTaskId)
   );
+
+  // 4. Not Ready / Backlog: everything else
+  const backlogTasks = clientTasks.filter(t => {
+    const s = norm(t.status);
+    return s !== 'for client review'
+      && !IN_PROD_STATUSES.has(s)
+      && !['posted in socials', 'archived'].includes(s)
+      && !scheduledIds.has(t.clickupTaskId);
+  });
   const monthStart  = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
   const deliveredReels = postedTasks.filter(t => {
     const ts = Number(t.dateUpdated);
@@ -241,6 +272,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
 
           {/* ── Reviews tab ── */}
           {effectiveTab === 'reviews' && <>
+            {/* Needs review — prominent, no accordion */}
             {reviewTasks.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>
@@ -253,63 +285,49 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                 ))}
               </div>
             )}
-            {correctionsTasks.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>🛠️ In corrections</div>
-                <p style={{ fontSize: 12, color: '#6b6455', margin: '0 0 4px', fontStyle: 'italic' }}>Back with the editor for the changes you requested</p>
-                {correctionsTasks.map(t => (
-                  <VideoRow key={t.clickupTaskId} task={t} />
-                ))}
-              </div>
+
+            {inEditionTasks.length > 0 && (
+              <MobileAccordion label="📹 In Progress — Edition" count={inEditionTasks.length}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
+                  {inEditionTasks.map(t => <VideoRow key={t.clickupTaskId} task={t} />)}
+                </div>
+              </MobileAccordion>
             )}
-            {inProgress.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>📹 In production</div>
-                <p style={{ fontSize: 12, color: '#6b6455', margin: '0 0 4px', fontStyle: 'italic' }}>Videos currently being edited and prepared for your review</p>
-                {inProgress.map(t => (
-                  <VideoRow key={t.clickupTaskId} task={t} />
-                ))}
-              </div>
-            )}
-            {onItsWayTasks.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0' }}>🚀 On its way</div>
-                <p style={{ fontSize: 12, color: '#6b6455', margin: '0 0 4px', fontStyle: 'italic' }}>Approved videos queued to post or already live</p>
-                {onItsWayTasks.map(t => (
-                  <VideoRow key={t.clickupTaskId} task={t} showViewLink />
-                ))}
-              </div>
-            )}
-            {(() => {
-              // Exclude tasks already shown above — clientApproval stays set to the
-              // client's last decision no matter what status the task moves to next,
-              // so a task currently in corrections/production/on its way would
-              // otherwise show up a second time here with the same title.
-              const shownElsewhere = new Set([
-                ...correctionsTasks, ...inProgress, ...onItsWayTasks,
-              ].map(t => t.clickupTaskId));
-              const reviewed = clientTasks
-                .filter(t => !shownElsewhere.has(t.clickupTaskId))
-                .filter(t => t.clientApproval === 'approved' || t.clientApproval === 'changes_requested')
-                .sort((a, b) => (Number(b.dateUpdated) || 0) - (Number(a.dateUpdated) || 0))
-                .slice(0, 8);
-              return reviewed.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', padding: '2px 2px 0', marginTop: 4 }}>✅ Recently reviewed</div>
-                  <p style={{ fontSize: 12, color: '#6b6455', margin: '0 0 4px', fontStyle: 'italic' }}>Your recent approve / request-changes decisions</p>
-                  {reviewed.map(t => (
-                    <VideoRow
-                      key={t.clickupTaskId}
-                      task={t}
-                      color={t.clientApproval === 'approved' ? '#14805f' : '#cf3f36'}
-                      colorBg={t.clientApproval === 'approved' ? '#e4f3ec' : '#fbe4e2'}
-                      label={t.clientApproval === 'approved' ? 'Approved' : 'Changes requested'}
-                      showViewLink
+
+            {scheduledTasks.length > 0 && (
+              <MobileAccordion label="📅 Scheduled to Be Posted" count={scheduledTasks.length}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
+                  {scheduledTasks.map(t => (
+                    <VideoRow key={t.clickupTaskId} task={t} showViewLink
+                      label={t.publishDate ? `Posts ${fmtDate(t.publishDate)}` : t.status}
+                      color="#7c66c4" colorBg="#efeafa"
                     />
                   ))}
                 </div>
-              ) : null;
-            })()}
+              </MobileAccordion>
+            )}
+
+            {backlogTasks.length > 0 && (
+              <MobileAccordion label="⏸ Not Ready / Backlog" count={backlogTasks.length}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
+                  {backlogTasks.map(t => <VideoRow key={t.clickupTaskId} task={t} />)}
+                </div>
+              </MobileAccordion>
+            )}
+
+            {postedAndArchivedTasks.length > 0 && (
+              <MobileAccordion label="✅ Posted on Socials" count={postedAndArchivedTasks.length}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
+                  {postedAndArchivedTasks.map(t => (
+                    <VideoRow key={t.clickupTaskId} task={t} showViewLink
+                      label={t.publishDate ? `Posted ${fmtDate(t.publishDate)}` : 'Posted'}
+                      color="#14805f" colorBg="#e4f3ec"
+                    />
+                  ))}
+                </div>
+              </MobileAccordion>
+            )}
+
             {clientTasks.length === 0 && !fetchError && (
               <div style={{ textAlign: 'center', padding: '64px 24px', color: '#9d9488' }}>
                 <div style={{ fontSize: 36, marginBottom: 12 }}>🎬</div>
@@ -521,65 +539,50 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               </section>
             )}
 
-            {/* In corrections */}
-            {correctionsTasks.length > 0 && (
-              <section style={{marginBottom:36}}>
-                <h2 style={{fontSize:18, fontWeight:700, marginBottom:8}}>🛠️ In corrections</h2>
-                <p style={{fontSize:13, color:'#6b6455', margin:'0 0 12px', fontStyle:'italic'}}>Back with the editor for the changes you requested</p>
-                {correctionsTasks.map(t => <DesktopStatusRow key={t.clickupTaskId} t={t} />)}
-              </section>
+            {inEditionTasks.length > 0 && (
+              <DesktopAccordion label="📹 In Progress — Edition" count={inEditionTasks.length} style={{marginBottom:16}}>
+                {inEditionTasks.map(t => <DesktopStatusRow key={t.clickupTaskId} t={t} />)}
+              </DesktopAccordion>
             )}
 
-            {/* In production */}
-            {inProgress.length > 0 && (
-              <section style={{marginBottom:36}}>
-                <h2 style={{fontSize:18, fontWeight:700, marginBottom:8}}>📹 In production</h2>
-                <p style={{fontSize:13, color:'#6b6455', margin:'0 0 12px', fontStyle:'italic'}}>Videos currently being edited and prepared for your review</p>
-                {inProgress.map(t => <DesktopStatusRow key={t.clickupTaskId} t={t} />)}
-              </section>
-            )}
-
-            {/* On its way */}
-            {onItsWayTasks.length > 0 && (
-              <section style={{marginBottom:36}}>
-                <h2 style={{fontSize:18, fontWeight:700, marginBottom:8}}>🚀 On its way</h2>
-                <p style={{fontSize:13, color:'#6b6455', margin:'0 0 12px', fontStyle:'italic'}}>Approved videos queued to post or already live</p>
-                {onItsWayTasks.map(t => <DesktopStatusRow key={t.clickupTaskId} t={t} showViewLink />)}
-              </section>
-            )}
-
-            {/* Recently reviewed */}
-            {(() => {
-              const reviewed = clientTasks
-                .filter(t => t.clientApproval === 'approved' || t.clientApproval === 'changes_requested')
-                .sort((a,b) => (Number(b.dateUpdated)||0) - (Number(a.dateUpdated)||0))
-                .slice(0, 6);
-              const approved = reviewed.filter(t => t.clientApproval === 'approved').length;
-              const changesRequested = reviewed.filter(t => t.clientApproval === 'changes_requested').length;
-              return reviewed.length > 0 ? (
-                <section>
-                  <h2 style={{fontSize:18, fontWeight:700, marginBottom:8}}>✅ Recently reviewed</h2>
-                  <p style={{fontSize:13, color:'#6b6455', margin:'0 0 12px', fontStyle:'italic'}}>
-                    Summary: <strong style={{color:'#1a6b35'}}>{approved} approved</strong> {changesRequested > 0 && <>, <strong style={{color:'#c2410c'}}>{changesRequested} changes requested</strong></>}
-                  </p>
-                  {reviewed.map(t => (
-                    <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
-                      <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
-                      <div style={{flex:1}}>
-                        <div style={{fontWeight:600, fontSize:14}} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
-                      </div>
-                      <span style={{
-                        background: t.clientApproval === 'approved' ? '#d4edda' : '#fde8d0',
-                        color: t.clientApproval === 'approved' ? '#1a6b35' : '#c2410c',
-                        fontSize:12, padding:'4px 12px', borderRadius:12, fontWeight:600, display:'inline-flex', alignItems:'center', gap:4
-                      }}>{t.clientApproval === 'approved' ? '✅ Approved' : '⚠️ Changes requested'}</span>
-                      {t.instagramUrl && <InstagramLink url={t.instagramUrl} label="Instagram" compact />}
-                      <a href={`/client/videos/${t.clickupTaskId}`} style={{fontSize:13, color:'#f97316', fontWeight:600}}>View →</a>
+            {scheduledTasks.length > 0 && (
+              <DesktopAccordion label="📅 Scheduled to Be Posted" count={scheduledTasks.length} style={{marginBottom:16}}>
+                {scheduledTasks.map(t => (
+                  <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
+                    <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:600, fontSize:14}} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
                     </div>
-                  ))}
-                </section>
-              ) : null;
-            })()}
+                    {t.publishDate && <span style={{background:'#efeafa', color:'#7c66c4', fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>Posts {fmtDate(t.publishDate)}</span>}
+                    <Link href={`/client/videos/${t.clickupTaskId}`} style={{fontSize:12, color:'#FF6000', textDecoration:'none', fontWeight:600}}>View →</Link>
+                  </div>
+                ))}
+              </DesktopAccordion>
+            )}
+
+            {backlogTasks.length > 0 && (
+              <DesktopAccordion label="⏸ Not Ready / Backlog" count={backlogTasks.length} style={{marginBottom:16}}>
+                {backlogTasks.map(t => <DesktopStatusRow key={t.clickupTaskId} t={t} />)}
+              </DesktopAccordion>
+            )}
+
+            {postedAndArchivedTasks.length > 0 && (
+              <DesktopAccordion label="✅ Posted on Socials" count={postedAndArchivedTasks.length} style={{marginBottom:16}}>
+                {postedAndArchivedTasks.map(t => (
+                  <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
+                    <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:600, fontSize:14}} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
+                    </div>
+                    <span style={{background:'#e4f3ec', color:'#14805f', fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>
+                      {t.publishDate ? `Posted ${fmtDate(t.publishDate)}` : 'Posted'}
+                    </span>
+                    {t.instagramUrl && <InstagramLink url={t.instagramUrl} label="Instagram" compact />}
+                    <Link href={`/client/videos/${t.clickupTaskId}`} style={{fontSize:12, color:'#FF6000', textDecoration:'none', fontWeight:600}}>View →</Link>
+                  </div>
+                ))}
+              </DesktopAccordion>
+            )}
           </div>
         )}
 
@@ -637,6 +640,48 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
       </div>
     </div>
     </>
+  );
+}
+
+function MobileAccordion({ label, count, children }: { label: string; count: number; children: React.ReactNode }) {
+  return (
+    <details style={{ border: '1px solid #ece4d8', borderRadius: 16, background: '#fff', overflow: 'hidden' }}>
+      <summary style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '13px 15px', cursor: 'pointer', listStyle: 'none',
+        fontSize: 14, fontWeight: 800, letterSpacing: '-0.01em', userSelect: 'none',
+      }}>
+        <span>{label}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#9d9488', background: '#f5f2ef', padding: '2px 8px', borderRadius: 100 }}>{count}</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: 14, height: 14, color: '#9d9488' }}>
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </span>
+      </summary>
+      <div style={{ padding: '0 15px 12px' }}>{children}</div>
+    </details>
+  );
+}
+
+function DesktopAccordion({ label, count, children, style }: { label: string; count: number; children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <details style={{ border: '1px solid #e8e0d0', borderRadius: 14, background: '#fff', overflow: 'hidden', ...style }}>
+      <summary style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '16px 20px', cursor: 'pointer', listStyle: 'none',
+        fontSize: 17, fontWeight: 700, userSelect: 'none',
+      }}>
+        <span>{label}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#9d9488', background: '#f5f2ef', padding: '3px 10px', borderRadius: 100 }}>{count}</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: 16, height: 16, color: '#9d9488' }}>
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </span>
+      </summary>
+      <div style={{ padding: '0 20px 16px' }}>{children}</div>
+    </details>
   );
 }
 
