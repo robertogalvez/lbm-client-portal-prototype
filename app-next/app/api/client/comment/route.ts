@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { authUsers } from '@/lib/db/schema';
+import { authUsers, frameioCommentAuthors } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { resolveTaskClientName, type ClickUpTask } from '@/lib/clickup';
 import { createComment as createFrameioComment } from '@/lib/frameio';
@@ -61,6 +61,14 @@ export async function POST(req: Request) {
   // "who are you" identity flow.
   try {
     const comment = await createFrameioComment(fileId, text, timestampSeconds);
+    // Frame.io attributes the write to the service account, and its `owner`
+    // field on API-created comments comes back empty — record the real
+    // client name now, while we still have it, so the ClickUp mirror (and
+    // anything else reading this comment later) can attribute it correctly
+    // instead of falling back to a generic "Client".
+    await db.insert(frameioCommentAuthors)
+      .values({ frameioCommentId: comment.id, authorName: effectiveClientName })
+      .onConflictDoNothing();
     return NextResponse.json({ ok: true, frameioCommentId: comment.id });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed to save comment to Frame.io' }, { status: 502 });

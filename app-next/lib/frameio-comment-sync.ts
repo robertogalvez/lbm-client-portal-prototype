@@ -18,7 +18,7 @@
 // Never throws: comment capture must not break the approval write.
 
 import { db } from '@/lib/db';
-import { frameioSyncedComments } from '@/lib/db/schema';
+import { frameioSyncedComments, frameioCommentAuthors } from '@/lib/db/schema';
 import { inArray } from 'drizzle-orm';
 import { resolveFileId, listComments, isConfigured, type FrameioComment } from '@/lib/frameio';
 import { postComment } from '@/lib/clickup-write';
@@ -39,11 +39,20 @@ export interface ExtraNote {
   text: string;
 }
 
-function formatBatchForClickUp(comments: FrameioComment[], extraNote?: ExtraNote): string {
+function formatBatchForClickUp(
+  comments: FrameioComment[],
+  extraNote: ExtraNote | undefined,
+  realAuthorNames: Map<string, string>,
+): string {
   const lines = comments.map(c => {
     const at = c.timestampLabel ? `[at ${c.timestampLabel}] ` : '';
     const text = c.text.trim() || '(annotation without text)';
-    return `${at}${c.authorName ?? 'Client'}: ${text}`;
+    // Frame.io's own `owner` on API-created comments is empty (every write
+    // is attributed to the service account, not the client), so prefer the
+    // real client name we recorded at post time; only fall back to
+    // Frame.io's field (or "Client") for comments predating that ledger.
+    const authorName = realAuthorNames.get(c.id) ?? c.authorName ?? 'Client';
+    return `${at}${authorName}: ${text}`;
   });
   if (extraNote?.text.trim()) {
     lines.push(`${extraNote.authorName}: ${extraNote.text.trim()}`);
@@ -59,7 +68,7 @@ export async function syncFrameioComments(taskId: string, frameLink: string, ext
   try {
     if (!isConfigured()) {
       if (hasExtraNote) {
-        await postComment(taskId, formatBatchForClickUp([], extraNote), false);
+        await postComment(taskId, formatBatchForClickUp([], extraNote, new Map()), false);
         return { ok: true, posted: 1, alreadySynced: 0 };
       }
       return { ok: false, posted: 0, alreadySynced: 0, error: 'Frame.io is not configured' };
@@ -102,8 +111,16 @@ export async function syncFrameioComments(taskId: string, frameLink: string, ext
       return { ok: true, posted: 0, alreadySynced: seen.size };
     }
 
+    const authorRows = claimed.length > 0
+      ? await db
+          .select({ id: frameioCommentAuthors.frameioCommentId, name: frameioCommentAuthors.authorName })
+          .from(frameioCommentAuthors)
+          .where(inArray(frameioCommentAuthors.frameioCommentId, claimed.map(c => c.id)))
+      : [];
+    const realAuthorNames = new Map(authorRows.map(r => [r.id, r.name]));
+
     try {
-      await postComment(taskId, formatBatchForClickUp(claimed, extraNote), false);
+      await postComment(taskId, formatBatchForClickUp(claimed, extraNote, realAuthorNames), false);
     } catch (e) {
       // Release the whole batch's claims so a future run retries instead of
       // losing them forever (the ledger would otherwise say "synced" for

@@ -188,6 +188,18 @@ export const frameioSyncedComments = pgTable('frameio_synced_comments', {
   syncedAt:         timestamp('synced_at').defaultNow(),
 });
 
+// The real client name behind each Frame.io comment we post. Frame.io v4
+// attributes every write to whichever account owns the OAuth token (a single
+// LBM service account, not the client), and its `owner` field on
+// API-created comments comes back empty — so downstream code has no way to
+// recover who actually said it. Recorded at creation time in
+// /api/client/comment, when the session still knows the real client name.
+export const frameioCommentAuthors = pgTable('frameio_comment_authors', {
+  frameioCommentId: varchar('frameio_comment_id', { length: 100 }).primaryKey(),
+  authorName:       text('author_name').notNull(),
+  createdAt:        timestamp('created_at').defaultNow(),
+});
+
 // OAuth token store (currently: Frame.io v4 OAuth 2.0 refresh/access tokens).
 export const oauthTokens = pgTable('oauth_tokens', {
   provider:        varchar('provider', { length: 50 }).primaryKey(),
