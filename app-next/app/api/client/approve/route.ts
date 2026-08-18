@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
+import { revalidateTag } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { authUsers, pendingDecisions, frameioSyncedComments } from '@/lib/db/schema';
@@ -9,8 +10,15 @@ import { resolveTaskClientName, mapTask, type ClickUpTask } from '@/lib/clickup'
 import { setTaskStatus, postComment, TASK_STATUS, CLIENT_APPROVAL, createClientFixesChecklist } from '@/lib/clickup-write';
 import { syncFrameioComments } from '@/lib/frameio-comment-sync';
 import { notifyAmOfDecision } from '@/lib/notify-am';
+import { sendSms, isSmsConfigured } from '@/lib/sms';
 
 const BASE = 'https://api.clickup.com/api/v2';
+
+// Michel gets a direct heads-up (Google Voice number) any time a client
+// approves a video, on top of the Client Approvals chat post. Env var first
+// so it can change without a redeploy; the literal is just the fallback
+// captured from the requirements meeting.
+const MICHEL_SMS_NUMBER = process.env.MICHEL_SMS_NUMBER || '+12017548711';
 
 function clickupHeaders() {
   return {
@@ -137,15 +145,6 @@ async function handlePost(req: Request) {
   const authorName = userRow.name || effectiveClientName;
   const extraNote = feedbackText?.trim() ? { authorName, text: feedbackText.trim() } : undefined;
 
-  const commentSync = frameLink
-    ? await syncFrameioComments(taskId, frameLink, extraNote).catch(() => null)
-    : extraNote
-      ? await postComment(taskId, `🎬 Client feedback:\n${authorName}: ${extraNote.text}`, false).then(
-          () => ({ ok: true, posted: 1, alreadySynced: 0 }),
-          () => ({ ok: false, posted: 0, alreadySynced: 0 }),
-        )
-      : null;
-
   // Set CLIENT APPROVAL field — exact option name per action, not a substring
   // guess (both "approve" outcomes contain "approv", so that used to collide).
   const approvalField = (task.custom_fields ?? []).find((f: { name: string }) => f.name === 'CLIENT APPROVAL');
@@ -159,11 +158,24 @@ async function handlePost(req: Request) {
   const optionIndex = options.findIndex((o: { name: string }) => o.name.toLowerCase() === targetApprovalName.toLowerCase());
   if (optionIndex === -1) return NextResponse.json({ error: 'Approval option not found' }, { status: 422 });
 
-  const updateRes = await fetch(`${BASE}/task/${taskId}/field/${approvalField.id}`, {
-    method: 'POST',
-    headers: clickupHeaders(),
-    body: JSON.stringify({ value: optionIndex }),
-  });
+  // These three writes/reads don't depend on each other's results, so they
+  // run concurrently instead of one-after-another — this was the main source
+  // of the multi-second "Saving…" delay clients reported.
+  const [commentSync, updateRes] = await Promise.all([
+    frameLink
+      ? syncFrameioComments(taskId, frameLink, extraNote).catch(() => null)
+      : extraNote
+        ? postComment(taskId, `🎬 Client feedback:\n${authorName}: ${extraNote.text}`, false).then(
+            () => ({ ok: true, posted: 1, alreadySynced: 0 }),
+            () => ({ ok: false, posted: 0, alreadySynced: 0 }),
+          )
+        : Promise.resolve(null),
+    fetch(`${BASE}/task/${taskId}/field/${approvalField.id}`, {
+      method: 'POST',
+      headers: clickupHeaders(),
+      body: JSON.stringify({ value: optionIndex }),
+    }),
+  ]);
   if (!updateRes.ok) {
     const err = await updateRes.text();
     return NextResponse.json({ error: `ClickUp field update failed: ${err}` }, { status: 502 });
@@ -171,23 +183,32 @@ async function handlePost(req: Request) {
 
   // Set task status. "Approve — apply my notes first" and "Send back for
   // changes" both route through corrections; the CLIENT APPROVAL value set
-  // above is what tells the AM which one it was.
+  // above is what tells the AM which one it was. Runs alongside the fixes
+  // checklist creation (independent ClickUp calls).
   const targetStatus = action === 'approve' ? TASK_STATUS.readyToBePosted : TASK_STATUS.inProgressCorrections;
-  try { await setTaskStatus(taskId, targetStatus); } catch { /* non-fatal */ }
+  const [, checklistResult] = await Promise.all([
+    setTaskStatus(taskId, targetStatus).catch(() => { /* non-fatal */ }),
+    action === 'approve_with_fixes' && noteItems && noteItems.length > 0
+      ? createClientFixesChecklist(taskId, noteItems, new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }))
+      : Promise.resolve(null as { checklistId: string; itemIds: string[] } | null),
+  ]);
 
-  // Create ClickUp checklist from note items for approve_with_fixes
-  let checklistResult: { checklistId: string; itemIds: string[] } | null = null;
-  if (action === 'approve_with_fixes' && noteItems && noteItems.length > 0) {
-    const dateLabel = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-    checklistResult = await createClientFixesChecklist(taskId, noteItems, dateLabel);
-  }
+  // Bust the 60s ClickUp task-list cache now that the writes above have
+  // landed, so the client's own dashboard reflects this decision immediately
+  // instead of possibly showing the pre-decision status for up to a minute.
+  // { expire: 0 } forces an immediate blocking miss on the next fetch — the
+  // recommended profile="max" (stale-while-revalidate) would still be able
+  // to serve one more stale read before refreshing in the background, which
+  // is exactly the staleness this fix needs to eliminate.
+  revalidateTag('clickup-tasks', { expire: 0 });
 
   await db.update(pendingDecisions).set({ executed: true }).where(eq(pendingDecisions.id, decision.id));
 
-  // Notify AM
+  // Notify AM, post to the Client Approvals chat channel, and text Michel —
+  // none of these block the response the client is waiting on.
   const mapped = mapTask(task);
   const videoTitle = mapped.clientFacingTitle || mapped.title;
-  await notifyAmOfDecision({
+  notifyAmOfDecision({
     assignedAmName: mapped.assignedAmName,
     taskId,
     videoTitle,
@@ -195,10 +216,21 @@ async function handlePost(req: Request) {
     clientName: effectiveClientName,
   }).catch(() => {});
 
-  // Post to Client Approvals chat channel
   postToClientApprovalsChat(action, effectiveClientName, videoTitle).catch(() => {});
 
+  if (action === 'approve' || action === 'approve_with_fixes') {
+    notifyMichelOfApproval(effectiveClientName, videoTitle).catch(() => {});
+  }
+
   return NextResponse.json({ ok: true, decisionId: decision.id, action, optionName: options[optionIndex]?.name, commentSync, checklistResult });
+}
+
+async function notifyMichelOfApproval(clientName: string, videoTitle: string) {
+  if (!isSmsConfigured()) return;
+  await sendSms({
+    to: MICHEL_SMS_NUMBER,
+    body: `${clientName} approved "${videoTitle}".`,
+  });
 }
 
 function extractAssetId(frameLink: string): string {

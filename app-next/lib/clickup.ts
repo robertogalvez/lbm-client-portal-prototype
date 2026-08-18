@@ -7,8 +7,12 @@ function headers() {
   };
 }
 
+// Tagged so a client decision (approve/changes) can bust this cache on write
+// via revalidateTag('clickup-tasks') — see app/api/client/approve/route.ts.
+// Without that, a task the client just decided on could keep reading back
+// its pre-decision status for up to the full revalidate window.
 async function get(path: string) {
-  const res = await fetch(`${BASE}${path}`, { headers: headers(), next: { revalidate: 60 } });
+  const res = await fetch(`${BASE}${path}`, { headers: headers(), next: { revalidate: 60, tags: ['clickup-tasks'] } });
   if (!res.ok) throw new Error(`ClickUp ${res.status}: ${path}`);
   return res.json();
 }

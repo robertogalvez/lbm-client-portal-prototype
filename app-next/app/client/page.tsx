@@ -4,10 +4,10 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { authUsers, clients, contractPeriods, contractMonths } from '@/lib/db/schema';
 import { eq, inArray } from 'drizzle-orm';
-import { getTasksFromList, getClientQuotas } from '@/lib/clickup';
+import { getTasksFromList } from '@/lib/clickup';
 import { getThumbnailUrl } from '@/lib/frameio';
 import { statusColors } from '@/components/ui/StatusBadge';
-import type { MappedTask, ClientQuota } from '@/lib/clickup';
+import type { MappedTask } from '@/lib/clickup';
 import { NotificationBell } from '@/components/client/NotificationBell';
 import { LogoutButton } from '@/components/client/LogoutButton';
 import { CalendarView } from '@/components/client/CalendarView';
@@ -15,6 +15,7 @@ import { InvoicesView } from '@/components/client/InvoicesView';
 import { MonthlyReport } from '@/components/client/MonthlyReport';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { BannerStats } from '@/components/client/BannerStats';
+import { SeeMoreList } from '@/components/client/SeeMoreList';
 import { getViewAsClient } from '@/lib/view-as';
 import { getInvoicesForClient, isQuickBooksConfigured } from '@/lib/quickbooks';
 import { InstagramLink } from '@/components/InstagramLink';
@@ -38,6 +39,34 @@ function fmtDate(iso: string | null) {
 
 function initials(name: string) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+// The client-facing name is what the client actually recognizes; the task
+// name is LBM's internal label for the same video. Show both — friendly
+// name first, internal name underneath — so the client can match what we
+// call it against what they asked for. Falls back to the internal name
+// alone when no client-facing name has been set, rather than duplicating it.
+function VideoTitle({ clientFacingTitle, title }: { clientFacingTitle: string | null; title: string }) {
+  if (!clientFacingTitle) return <>{title}</>;
+  return (
+    <span style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <span>{clientFacingTitle}</span>
+      <span style={{ fontSize: '0.78em', fontWeight: 500, color: '#9d9488' }}>{title}</span>
+    </span>
+  );
+}
+
+function AdBadge({ deliverableType }: { deliverableType: MappedTask['deliverableType'] }) {
+  if (deliverableType !== 'ad') return null;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 7,
+      color: '#7c3aed', background: '#f1e9fe', whiteSpace: 'nowrap' as const,
+    }}>
+      Ad
+    </span>
+  );
 }
 
 
@@ -74,20 +103,15 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     );
   }
 
-  const [tasksResult, quotasResult, [clientRecord]] = await Promise.all([
+  const [tasksResult, [clientRecord]] = await Promise.all([
     getTasksFromList(process.env.CLICKUP_LIST_ID!, false).then(
       value => ({ value, error: null as string | null }),
       (e: unknown) => ({ value: [] as MappedTask[], error: e instanceof Error ? e.message : 'Unknown error' }),
     ),
-    getClientQuotas().then(
-      value => ({ value, error: null as string | null }),
-      (e: unknown) => ({ value: [] as ClientQuota[], error: e instanceof Error ? e.message : 'Unknown error' }),
-    ),
     db.select({ id: clients.id, showCalendar: clients.showCalendar, showInvoices: clients.showInvoices, showReport: clients.showReport }).from(clients).where(eq(clients.name, clientName)).limit(1),
   ]);
   const allTasks = tasksResult.value;
-  const clientQuotas = quotasResult.value;
-  const fetchError = tasksResult.error ?? quotasResult.error;
+  const fetchError = tasksResult.error;
   const showCalendar = clientRecord?.showCalendar ?? false;
 
   // Report contract data (§5.6/§7.1) — every period on file for this client
@@ -106,9 +130,6 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   const showInvoices = (clientRecord?.showInvoices ?? false) && quickbooksConnected;
   const showReport = clientRecord?.showReport ?? false;
 
-  const clientQuota = clientQuotas.find(q => q.name === clientName);
-  const agreedReels = clientQuota?.reelsPerMonth ?? 0;
-  const agreedYoutube = clientQuota?.ytPerMonth ?? 0;
   const clientInvoices = showInvoices ? await getInvoicesForClient(clientName) : [];
   const effectiveTab =
     (tab === 'invoices' && !showInvoices) || (tab === 'calendar' && !showCalendar) || (tab === 'report' && !showReport)
@@ -156,17 +177,6 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
       && !['posted in socials', 'archived'].includes(s)
       && !scheduledIds.has(t.clickupTaskId);
   });
-  const monthStart  = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-  const deliveredReels = postedTasks.filter(t => {
-    const ts = Number(t.dateUpdated);
-    const date = isNaN(ts) ? new Date(t.dateUpdated) : new Date(ts);
-    return date.getTime() >= monthStart && !t.isYoutube;
-  }).length;
-  const deliveredYoutube = postedTasks.filter(t => {
-    const ts = Number(t.dateUpdated);
-    const date = isNaN(ts) ? new Date(t.dateUpdated) : new Date(ts);
-    return date.getTime() >= monthStart && t.isYoutube;
-  }).length;
   const displayName = (name ?? clientName).split(' ')[0];
   const pct = clientTasks.length > 0 ? Math.round((postedTasks.length / clientTasks.length) * 100) : 0;
 
@@ -179,6 +189,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
 
   const tabItems = [
     { label: 'Reviews', href: '/client?tab=reviews', badge: reviewTasks.length, active: effectiveTab === 'reviews', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg> },
+    { label: 'Not Ready', href: '/client?tab=not-ready', badge: backlogTasks.length, active: effectiveTab === 'not-ready', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> },
     ...(showCalendar ? [{ label: 'Calendar', href: '/client?tab=calendar', badge: 0, active: effectiveTab === 'calendar', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> }] : []),
     ...(showInvoices ? [{ label: 'Invoices', href: '/client?tab=invoices', badge: 0, active: effectiveTab === 'invoices', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6M9 9h1"/></svg> }] : []),
     ...(showReport ? [{ label: 'Report', href: '/client?tab=report', badge: 0, active: effectiveTab === 'report', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/></svg> }] : []),
@@ -201,7 +212,10 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
           )}
         </div>
         <div style={{padding:16}}>
-          <div style={{fontWeight:700, fontSize:15, marginBottom:12, lineHeight:1.3}}>{t.clientFacingTitle || t.title}</div>
+          <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8, marginBottom:12}}>
+            <div style={{fontWeight:700, fontSize:15, lineHeight:1.3}}><VideoTitle clientFacingTitle={t.clientFacingTitle} title={t.title} /></div>
+            <AdBadge deliverableType={t.deliverableType} />
+          </div>
           <div style={{background:'#fef3c7', color:'#92400e', textAlign:'center', padding:'6px', borderRadius:8, fontSize:12, fontWeight:600, marginBottom:12}}>⏳ Awaiting your review</div>
           <a href={`/client/videos/${t.clickupTaskId}`} style={{display:'block', textAlign:'center', padding:'10px', background:'#f97316', color:'#fff', borderRadius:10, fontWeight:600, fontSize:14, textDecoration:'none'}}>Watch &amp; review</a>
         </div>
@@ -230,7 +244,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                 Dashboard
               </Link>
             )}
-            <NotificationBell tasks={reviewTasks.map(t => ({ clickupTaskId: t.clickupTaskId, title: t.title, dateUpdated: t.dateUpdated }))} />
+            <NotificationBell tasks={reviewTasks.map(t => ({ clickupTaskId: t.clickupTaskId, title: t.title, clientFacingTitle: t.clientFacingTitle, dateUpdated: t.dateUpdated }))} />
           </div>
         </div>
 
@@ -256,11 +270,6 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                   <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#221e18', display: 'grid', placeItems: 'center', fontSize: 9, fontWeight: 800, color: '#fff' }}>{postedTasks.length}/{clientTasks.length}</div>
                 </div>
               </div>
-            </div>
-            {/* Agreed vs Delivered (this month) */}
-            <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'rgba(255,255,255,.8)', flexWrap: 'wrap' }}>
-              <div>Reels - Agreed: <span style={{ fontWeight: 700 }}>{agreedReels}</span> | Delivered: <span style={{ fontWeight: 700 }}>{deliveredReels}</span></div>
-              <div>YT - Agreed: <span style={{ fontWeight: 700 }}>{agreedYoutube}</span> | Delivered: <span style={{ fontWeight: 700 }}>{deliveredYoutube}</span></div>
             </div>
           </div>
 
@@ -307,14 +316,6 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               </MobileAccordion>
             )}
 
-            {backlogTasks.length > 0 && (
-              <MobileAccordion label="⏸ Not Ready / Backlog" count={backlogTasks.length}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
-                  {backlogTasks.map(t => <VideoRow key={t.clickupTaskId} task={t} />)}
-                </div>
-              </MobileAccordion>
-            )}
-
             {postedAndArchivedTasks.length > 0 && (
               <MobileAccordion label="✅ Posted on Socials" count={postedAndArchivedTasks.length}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
@@ -335,6 +336,18 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               </div>
             )}
           </>}
+
+          {/* ── Not Ready tab ── */}
+          {effectiveTab === 'not-ready' && (
+            backlogTasks.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '64px 24px', color: '#9d9488' }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>⏸</div>
+                <p style={{ fontSize: 14, margin: 0, fontWeight: 500 }}>No videos waiting to start yet.</p>
+              </div>
+            ) : (
+              <SeeMoreList items={backlogTasks.map(t => <VideoRow key={t.clickupTaskId} task={t} />)} />
+            )
+          )}
 
           {/* ── Calendar tab ── */}
           {showCalendar && effectiveTab === 'calendar' && (
@@ -431,6 +444,9 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
             <Link href="/client?tab=reviews" className={`cd-tab${effectiveTab === 'reviews' ? ' cd-active' : ''}`}>
               Reviews {reviewTasks.length > 0 && <span className="cd-tab-badge">{reviewTasks.length}</span>}
             </Link>
+            <Link href="/client?tab=not-ready" className={`cd-tab${effectiveTab === 'not-ready' ? ' cd-active' : ''}`}>
+              Not Ready {backlogTasks.length > 0 && <span className="cd-tab-badge">{backlogTasks.length}</span>}
+            </Link>
             {showCalendar && (
               <Link href="/client?tab=calendar" className={`cd-tab${effectiveTab === 'calendar' ? ' cd-active' : ''}`}>Calendar</Link>
             )}
@@ -449,7 +465,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                 Dashboard
               </Link>
             )}
-            <NotificationBell tasks={reviewTasks.map(t => ({ clickupTaskId: t.clickupTaskId, title: t.title, dateUpdated: t.dateUpdated }))} />
+            <NotificationBell tasks={reviewTasks.map(t => ({ clickupTaskId: t.clickupTaskId, title: t.title, clientFacingTitle: t.clientFacingTitle, dateUpdated: t.dateUpdated }))} />
             <span className="cd-client-name">{clientName} / Client workspace</span>
             <div className="cd-avatar">{initials(name ?? clientName ?? 'C')}</div>
           </div>
@@ -507,18 +523,13 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               },
               {
                 label:'In production',
-                count: inProgress.length,
-                reelCount: inProgress.filter(t => !t.isYoutube).length,
-                youtubeCount: inProgress.filter(t => t.isYoutube).length,
+                count: inEditionTasks.length,
+                reelCount: inEditionTasks.filter(t => !t.isYoutube).length,
+                youtubeCount: inEditionTasks.filter(t => t.isYoutube).length,
                 color:'#60a5fa',
-                tasks: inProgress,
+                tasks: inEditionTasks,
               },
             ]} />
-          </div>
-          {/* Agreed vs Delivered (this month) — same monthly quota pacing shown on mobile */}
-          <div style={{display:'flex', gap:24, fontSize:13, color:'rgba(255,255,255,.7)', flexWrap:'wrap', borderTop:'1px solid rgba(255,255,255,.1)', paddingTop:14}}>
-            <div>Reels - Agreed: <span style={{fontWeight:700, color:'#fff'}}>{agreedReels}</span> | Delivered: <span style={{fontWeight:700, color:'#fff'}}>{deliveredReels}</span></div>
-            <div>YT - Agreed: <span style={{fontWeight:700, color:'#fff'}}>{agreedYoutube}</span> | Delivered: <span style={{fontWeight:700, color:'#fff'}}>{deliveredYoutube}</span></div>
           </div>
         </div>
 
@@ -560,12 +571,6 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               </DesktopAccordion>
             )}
 
-            {backlogTasks.length > 0 && (
-              <DesktopAccordion label="⏸ Not Ready / Backlog" count={backlogTasks.length} style={{marginBottom:16}}>
-                {backlogTasks.map(t => <DesktopStatusRow key={t.clickupTaskId} t={t} />)}
-              </DesktopAccordion>
-            )}
-
             {postedAndArchivedTasks.length > 0 && (
               <DesktopAccordion label="✅ Posted on Socials" count={postedAndArchivedTasks.length} style={{marginBottom:16}}>
                 {postedAndArchivedTasks.map(t => (
@@ -582,6 +587,19 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                   </div>
                 ))}
               </DesktopAccordion>
+            )}
+          </div>
+        )}
+
+        {effectiveTab === 'not-ready' && (
+          <div style={{ maxWidth: 720 }}>
+            {backlogTasks.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '64px 24px', color: '#9d9488' }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>⏸</div>
+                <p style={{ fontSize: 14, margin: 0, fontWeight: 500 }}>No videos waiting to start yet.</p>
+              </div>
+            ) : (
+              <SeeMoreList items={backlogTasks.map(t => <DesktopStatusRow key={t.clickupTaskId} t={t} />)} />
             )}
           </div>
         )}
@@ -703,8 +721,11 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
 
       {/* Body */}
       <div style={{ padding: '13px 15px 15px', display: 'flex', flexDirection: 'column', gap: 11 }}>
-        <div style={{ fontSize: 15.5, fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.25 }}>
-          {task.clientFacingTitle || task.title}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ fontSize: 15.5, fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.25 }}>
+            <VideoTitle clientFacingTitle={task.clientFacingTitle} title={task.title} />
+          </div>
+          <AdBadge deliverableType={task.deliverableType} />
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const, fontSize: 12, color: '#9d9488', fontWeight: 500 }}>
@@ -759,8 +780,9 @@ function DesktopStatusRow({ t, showViewLink }: { t: MappedTask; showViewLink?: b
     <div style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
       <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
       <div style={{flex:1}}>
-        <div style={{fontWeight:600, fontSize:14}} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
+        <div style={{fontWeight:600, fontSize:14}}><VideoTitle clientFacingTitle={t.clientFacingTitle} title={t.title} /></div>
       </div>
+      <AdBadge deliverableType={t.deliverableType} />
       <span style={{background:bg, color, fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>{t.status}</span>
       {t.instagramUrl && <InstagramLink url={t.instagramUrl} label="Instagram" compact />}
       {showViewLink && (
@@ -826,9 +848,10 @@ function VideoRow({ task, color, colorBg, label, showViewLink }: { task: MappedT
         {/* Full title on its own line — nothing else competes with it for
             width, so long titles wrap instead of getting cut off. */}
         <div style={{ fontSize: 13.5, fontWeight: 700, lineHeight: 1.3 }}>
-          {task.clientFacingTitle || task.title}
+          <VideoTitle clientFacingTitle={task.clientFacingTitle} title={task.title} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
+          <AdBadge deliverableType={task.deliverableType} />
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 5,
             fontSize: 12, fontWeight: 700, padding: '5px 9px', borderRadius: 9,

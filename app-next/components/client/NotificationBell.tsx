@@ -5,6 +5,7 @@ import { useState } from 'react';
 interface ReviewTask {
   clickupTaskId: string;
   title: string;
+  clientFacingTitle?: string | null;
   dateUpdated: string;
 }
 
@@ -105,7 +106,7 @@ export function NotificationBell({ tasks }: { tasks: ReviewTask[] }) {
                 }}>
                   <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#FF6000', flexShrink: 0, marginTop: 4 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#221e18', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#221e18', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.clientFacingTitle || t.title}</div>
                     <div style={{ fontSize: 11, color: '#9d9488', marginTop: 2 }}>Awaiting review · {timeAgo(t.dateUpdated)}</div>
                   </div>
                 </a>
