@@ -100,6 +100,10 @@ export const clients = pgTable('clients', {
   // 'website'), each an optional { handle, url } pair. Not ClickUp-owned;
   // AMs enter this directly, same as brandingConfig.
   socialLinks:       jsonb('social_links'),
+  // 'YYYY-MM' of the last month this client was SMS'd that their monthly
+  // report is ready — guards the scheduled reminder (see
+  // app/api/reminders/new-report) to fire at most once per month per client.
+  lastReportNotifiedMonth: varchar('last_report_notified_month', { length: 7 }),
 });
 
 export const videoCache = pgTable('video_cache', {

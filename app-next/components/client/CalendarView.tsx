@@ -60,7 +60,18 @@ function toKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-export function CalendarView({ tasks }: { tasks: CalTask[] }) {
+// The calendar is a publishing schedule, not a production tracker — only
+// videos that are actually locked in to post (or already posted) belong on
+// it. Videos still in editing have due dates too, but showing those made the
+// calendar read as "everything with a date" instead of "what's going live
+// and when."
+function isCalendarEligible(t: CalTask): boolean {
+  const s = norm(t.status);
+  return s === 'ready to be posted' || s === 'posted in socials';
+}
+
+export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
+  const tasks = allTasks.filter(isCalendarEligible);
   const now = new Date();
   const [view, setView] = useState<'month' | 'list'>('month');
   const [current, setCurrent] = useState({ year: now.getFullYear(), month: now.getMonth() });
