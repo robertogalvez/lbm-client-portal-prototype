@@ -15,7 +15,6 @@ import { InvoicesView } from '@/components/client/InvoicesView';
 import { MonthlyReport } from '@/components/client/MonthlyReport';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { BannerStats } from '@/components/client/BannerStats';
-import { SeeMoreList } from '@/components/client/SeeMoreList';
 import { getViewAsClient } from '@/lib/view-as';
 import { getInvoicesForClient, isQuickBooksConfigured } from '@/lib/quickbooks';
 import { InstagramLink } from '@/components/InstagramLink';
@@ -169,14 +168,6 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     IN_PROD_STATUSES.has(norm(t.status)) && !scheduledIds.has(t.clickupTaskId)
   );
 
-  // 4. Not Ready / Backlog: everything else
-  const backlogTasks = clientTasks.filter(t => {
-    const s = norm(t.status);
-    return s !== 'for client review'
-      && !IN_PROD_STATUSES.has(s)
-      && !['posted in socials', 'archived'].includes(s)
-      && !scheduledIds.has(t.clickupTaskId);
-  });
   const displayName = (name ?? clientName).split(' ')[0];
   const pct = clientTasks.length > 0 ? Math.round((postedTasks.length / clientTasks.length) * 100) : 0;
 
@@ -189,7 +180,6 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
 
   const tabItems = [
     { label: 'Reviews', href: '/client?tab=reviews', badge: reviewTasks.length, active: effectiveTab === 'reviews', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg> },
-    { label: 'Not Ready', href: '/client?tab=not-ready', badge: backlogTasks.length, active: effectiveTab === 'not-ready', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> },
     ...(showCalendar ? [{ label: 'Calendar', href: '/client?tab=calendar', badge: 0, active: effectiveTab === 'calendar', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> }] : []),
     ...(showInvoices ? [{ label: 'Invoices', href: '/client?tab=invoices', badge: 0, active: effectiveTab === 'invoices', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6M9 9h1"/></svg> }] : []),
     ...(showReport ? [{ label: 'Report', href: '/client?tab=report', badge: 0, active: effectiveTab === 'report', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/></svg> }] : []),
@@ -337,18 +327,6 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
             )}
           </>}
 
-          {/* ── Not Ready tab ── */}
-          {effectiveTab === 'not-ready' && (
-            backlogTasks.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '64px 24px', color: '#9d9488' }}>
-                <div style={{ fontSize: 36, marginBottom: 12 }}>⏸</div>
-                <p style={{ fontSize: 14, margin: 0, fontWeight: 500 }}>No videos waiting to start yet.</p>
-              </div>
-            ) : (
-              <SeeMoreList items={backlogTasks.map(t => <VideoRow key={t.clickupTaskId} task={t} />)} />
-            )
-          )}
-
           {/* ── Calendar tab ── */}
           {showCalendar && effectiveTab === 'calendar' && (
             <CalendarView tasks={clientTasks.map(t => ({
@@ -443,9 +421,6 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
           <div className="cd-tabs">
             <Link href="/client?tab=reviews" className={`cd-tab${effectiveTab === 'reviews' ? ' cd-active' : ''}`}>
               Reviews {reviewTasks.length > 0 && <span className="cd-tab-badge">{reviewTasks.length}</span>}
-            </Link>
-            <Link href="/client?tab=not-ready" className={`cd-tab${effectiveTab === 'not-ready' ? ' cd-active' : ''}`}>
-              Not Ready {backlogTasks.length > 0 && <span className="cd-tab-badge">{backlogTasks.length}</span>}
             </Link>
             {showCalendar && (
               <Link href="/client?tab=calendar" className={`cd-tab${effectiveTab === 'calendar' ? ' cd-active' : ''}`}>Calendar</Link>
@@ -587,19 +562,6 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                   </div>
                 ))}
               </DesktopAccordion>
-            )}
-          </div>
-        )}
-
-        {effectiveTab === 'not-ready' && (
-          <div style={{ maxWidth: 720 }}>
-            {backlogTasks.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '64px 24px', color: '#9d9488' }}>
-                <div style={{ fontSize: 36, marginBottom: 12 }}>⏸</div>
-                <p style={{ fontSize: 14, margin: 0, fontWeight: 500 }}>No videos waiting to start yet.</p>
-              </div>
-            ) : (
-              <SeeMoreList items={backlogTasks.map(t => <DesktopStatusRow key={t.clickupTaskId} t={t} />)} />
             )}
           </div>
         )}
