@@ -152,6 +152,11 @@ export async function POST(req: Request) {
         "rank"            integer NOT NULL,
         "updated_at"      timestamp DEFAULT now() NOT NULL
       )`,
+      sql`CREATE TABLE IF NOT EXISTS "frameio_comment_authors" (
+        "frameio_comment_id" varchar(100) PRIMARY KEY NOT NULL,
+        "author_name"        text NOT NULL,
+        "created_at"         timestamp DEFAULT now()
+      )`,
       sql`CREATE TABLE IF NOT EXISTS "contract_periods" (
         "id"                uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
         "client_id"         uuid NOT NULL REFERENCES "clients"("id") ON DELETE CASCADE,

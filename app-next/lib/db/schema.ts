@@ -192,6 +192,19 @@ export const frameioSyncedComments = pgTable('frameio_synced_comments', {
   syncedAt:         timestamp('synced_at').defaultNow(),
 });
 
+// Real per-comment attribution — every comment the portal posts to Frame.io
+// goes through LBM's own server-side OAuth connection, never the individual
+// client contact's identity, so Frame.io's own "owner"/"author" on every
+// comment is the same shared service account regardless of who actually
+// typed it. This is the only place the real portal user who wrote a given
+// comment is recorded; read it back and prefer it over whatever Frame.io
+// itself reports (see lib/comment-authors.ts).
+export const frameioCommentAuthors = pgTable('frameio_comment_authors', {
+  frameioCommentId: varchar('frameio_comment_id', { length: 100 }).primaryKey(),
+  authorName:       text('author_name').notNull(),
+  createdAt:        timestamp('created_at').defaultNow(),
+});
+
 // OAuth token store (currently: Frame.io v4 OAuth 2.0 refresh/access tokens).
 export const oauthTokens = pgTable('oauth_tokens', {
   provider:        varchar('provider', { length: 50 }).primaryKey(),
@@ -239,3 +252,4 @@ export type ContractPeriod  = typeof contractPeriods.$inferSelect;
 export type ContractMonth   = typeof contractMonths.$inferSelect;
 export type PendingDecision = typeof pendingDecisions.$inferSelect;
 export type VideoPriority   = typeof videoPriorities.$inferSelect;
+export type FrameioCommentAuthor = typeof frameioCommentAuthors.$inferSelect;

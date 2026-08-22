@@ -21,6 +21,7 @@ import { db } from '@/lib/db';
 import { frameioSyncedComments } from '@/lib/db/schema';
 import { inArray } from 'drizzle-orm';
 import { resolveFileId, listComments, isConfigured, type FrameioComment } from '@/lib/frameio';
+import { withRealAuthors } from '@/lib/comment-authors';
 import { postComment } from '@/lib/clickup-write';
 
 export interface CommentSyncResult {
@@ -66,7 +67,7 @@ export async function syncFrameioComments(taskId: string, frameLink: string, ext
     }
 
     const fileId = await resolveFileId(frameLink);
-    const comments = await listComments(fileId);
+    const comments = await withRealAuthors(await listComments(fileId));
 
     const existing = comments.length > 0
       ? await db

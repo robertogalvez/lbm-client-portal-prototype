@@ -6,6 +6,7 @@ import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { resolveTaskClientName, type ClickUpTask } from '@/lib/clickup';
 import { createComment as createFrameioComment } from '@/lib/frameio';
+import { recordCommentAuthor } from '@/lib/comment-authors';
 import { getViewAsClient } from '@/lib/view-as';
 
 // POST /api/client/comment
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const [user] = await db
-    .select({ role: authUsers.role, clientName: authUsers.clientName })
+    .select({ role: authUsers.role, clientName: authUsers.clientName, name: authUsers.name })
     .from(authUsers)
     .where(eq(authUsers.id, session.user.id))
     .limit(1);
@@ -61,7 +62,8 @@ export async function POST(req: Request) {
   // "who are you" identity flow.
   try {
     const comment = await createFrameioComment(fileId, text, timestampSeconds);
-    return NextResponse.json({ ok: true, frameioCommentId: comment.id });
+    await recordCommentAuthor(comment.id, user.name || effectiveClientName);
+    return NextResponse.json({ ok: true, frameioCommentId: comment.id, authorName: user.name || effectiveClientName });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed to save comment to Frame.io' }, { status: 502 });
   }

@@ -101,7 +101,10 @@ export function VideoPlayerProvider({
         {
           id: typeof data.frameioCommentId === 'string' ? data.frameioCommentId : `local-${Date.now()}`,
           text: text.trim(),
-          authorName: 'You',
+          // Same name that got recorded server-side (lib/comment-authors.ts) —
+          // matches what a page refresh will show, instead of a generic "You"
+          // that would flip to a real name only after reloading.
+          authorName: typeof data.authorName === 'string' ? data.authorName : 'You',
           timestampLabel: fmtTime(pendingSeconds),
           createdAt: new Date().toISOString(),
         },
