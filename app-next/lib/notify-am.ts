@@ -118,6 +118,54 @@ export async function notifyAmOfIdleReview(notice: IdleReviewNotice): Promise<vo
   }
 }
 
+// A video the client just moved to the #1 spot in their production priority
+// order (→ ClickUp Priority "Urgent", see lib/priority.ts). Fired only when
+// the top-priority video actually changes, not on every reorder — otherwise
+// a client fine-tuning the order of their lower-priority videos would spam
+// the AM. See app/api/client/priority.
+export interface PriorityChangeNotice {
+  assignedAmName: string | null;
+  taskId: string;
+  videoTitle: string;
+  clientName: string | null;
+}
+
+export async function notifyAmOfPriorityChange(notice: PriorityChangeNotice): Promise<void> {
+  if (!notice.assignedAmName) return;
+  try {
+    const am = await getAmContact(notice.assignedAmName);
+    if (!am || am.notifyMethod === 'none') return;
+
+    const taskUrl = `https://app.clickup.com/t/${notice.taskId}`;
+    const who = notice.clientName ?? 'A client';
+
+    if (am.notifyMethod === 'email') {
+      if (!am.email) return;
+      await sendEmail({
+        to: am.email,
+        subject: `Top priority: "${notice.videoTitle}"`,
+        htmlBody: `
+          <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
+            <p style="font-size: 16px; color: #111c28; margin: 0 0 16px;">${who} just marked <strong>${notice.videoTitle}</strong> as their top priority.</p>
+            <a href="${taskUrl}" style="display: inline-block; background: #FF6000; color: #fff; font-weight: 600; font-size: 14px; padding: 12px 24px; border-radius: 8px; text-decoration: none;">
+              Open the task in ClickUp
+            </a>
+          </div>
+        `,
+      });
+    } else if (am.notifyMethod === 'sms') {
+      if (!am.phone) return;
+      if (!isSmsConfigured()) {
+        console.warn('[notifyAmOfPriorityChange] notifyMethod is "sms" but Twilio is not configured yet — skipping');
+        return;
+      }
+      await sendSms({ to: am.phone, body: `LBM Portal: ${who} marked "${notice.videoTitle}" as top priority. ${taskUrl}` });
+    }
+  } catch (e) {
+    console.error('[notifyAmOfPriorityChange] failed:', e);
+  }
+}
+
 // The publish pipeline's success/failure was previously silent outside a
 // ClickUp task comment on failure only (see lib/publish/posting-failed.ts) —
 // nothing told the AM a video actually went live, and even the failure

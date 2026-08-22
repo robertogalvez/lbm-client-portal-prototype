@@ -146,6 +146,12 @@ export async function POST(req: Request) {
       sql`UPDATE video_cache SET deliverable_type = 'youtube' WHERE is_youtube = true AND deliverable_type = 'short_form'`,
       sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS social_links jsonb`,
       sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS last_report_notified_month varchar(7)`,
+      sql`CREATE TABLE IF NOT EXISTS "video_priorities" (
+        "clickup_task_id" varchar(50) PRIMARY KEY NOT NULL,
+        "client_name"     varchar(255) NOT NULL,
+        "rank"            integer NOT NULL,
+        "updated_at"      timestamp DEFAULT now() NOT NULL
+      )`,
       sql`CREATE TABLE IF NOT EXISTS "contract_periods" (
         "id"                uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
         "client_id"         uuid NOT NULL REFERENCES "clients"("id") ON DELETE CASCADE,
