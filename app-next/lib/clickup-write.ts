@@ -85,6 +85,15 @@ export async function setUrlField(task: ClickUpTaskLite, ref: FieldRef, value: s
   return true;
 }
 
+// Set a checkbox (boolean) field. No-ops (returns false) if the field isn't
+// on the task.
+export async function setCheckboxField(task: ClickUpTaskLite, ref: FieldRef, value: boolean): Promise<boolean> {
+  const field = findFieldRef(task, ref);
+  if (!field) return false;
+  await cuRequest(`/task/${task.id}/field/${field.id}`, { method: 'POST', body: JSON.stringify({ value }) });
+  return true;
+}
+
 // Set a drop-down field to the option matching `optionName` (case-insensitive),
 // using the option UUID as the value. No-ops (returns false) if the field or
 // option is absent.
