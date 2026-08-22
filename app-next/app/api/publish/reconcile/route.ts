@@ -5,7 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { getPublishableTaskIds } from '@/lib/clickup';
-import { publishVideo } from '@/lib/publish/publish-video';
+import { publishVideo, autoPublishEnabled } from '@/lib/publish/publish-video';
 
 const MAX_PER_RUN = 10;
 
@@ -13,6 +13,12 @@ export async function POST(req: Request) {
   const secret = req.headers.get('x-cron-secret');
   if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  // Ready to be Posted -> Posted in Socials is a manual, human-driven step
+  // right now (Vista Social account restrictions) — skip the scan entirely
+  // rather than touching tasks nobody asked this to touch.
+  if (!autoPublishEnabled()) {
+    return NextResponse.json({ ok: true, skipped: true, reason: 'auto-publish disabled (AUTO_PUBLISH_ENABLED != true)' });
   }
   const listId = process.env.CLICKUP_LIST_ID;
   if (!listId) return NextResponse.json({ error: 'CLICKUP_LIST_ID not set' }, { status: 503 });

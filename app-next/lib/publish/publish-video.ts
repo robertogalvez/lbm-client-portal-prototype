@@ -76,6 +76,22 @@ export function publishConfigured(): boolean {
   return vista.isConfigured() && frameio.isConfigured();
 }
 
+// Kill-switch for the *passive* publish automation (the ClickUp webhook
+// fast-path and the 15-minute reconcile cron) — separate from
+// publishConfigured() above, which is about credentials. Right now Vista
+// Social's API has account-level restrictions, so Ready to be Posted →
+// Posted in Socials is deliberately a manual, human-driven step; this stops
+// the automation from repeatedly attempting (and commenting on failure)
+// videos nobody asked it to touch. Does NOT gate the explicit "Publish now"
+// action (app/api/admin/publish) — an AM deliberately clicking that button
+// is not the automation this flag is about.
+//
+// Default OFF (disabled) — flip AUTO_PUBLISH_ENABLED=true in the environment
+// once Vista Social's restrictions lift and auto-publish should resume.
+export function autoPublishEnabled(): boolean {
+  return process.env.AUTO_PUBLISH_ENABLED === 'true';
+}
+
 export async function publishVideo(
   clickupTaskId: string,
   opts: { publishNow?: boolean } = {},
