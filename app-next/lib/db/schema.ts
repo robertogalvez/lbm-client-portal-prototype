@@ -1,4 +1,4 @@
-import { pgTable, varchar, text, timestamp, boolean, uuid, integer, jsonb, date } from 'drizzle-orm/pg-core';
+import { pgTable, varchar, text, timestamp, boolean, uuid, integer, jsonb, date, unique, type AnyPgColumn } from 'drizzle-orm/pg-core';
 
 // ── BetterAuth tables ────────────────────────────────────────────────────────
 
@@ -104,6 +104,12 @@ export const clients = pgTable('clients', {
   // report is ready — guards the scheduled reminder (see
   // app/api/reminders/new-report) to fire at most once per month per client.
   lastReportNotifiedMonth: varchar('last_report_notified_month', { length: 7 }),
+  // The option-id of this client's entry in ClickUp's "Client Name (AM)"
+  // dropdown field — the same id MappedTask.clientOptionId already carries.
+  // Lets task↔client matching join on a stable ID instead of normalized
+  // name text. Backfilled by the existing client sync; null until then, in
+  // which case matching falls back to name (never "show nothing").
+  clickupClientOptionId: varchar('clickup_client_option_id', { length: 100 }).unique(),
 });
 
 export const videoCache = pgTable('video_cache', {
@@ -168,11 +174,50 @@ export const contractPeriods = pgTable('contract_periods', {
   carriedIn:        integer('carried_in').default(0),
   notes:            text('notes'),
   createdAt:        timestamp('created_at').defaultNow(),
+  // Points at the contract this one renews. unique() because a contract
+  // renews exactly once in this schema — a second renewal attempt is a
+  // manual DB intervention, not a supported case.
+  renewedFromPeriodId: uuid('renewed_from_period_id').unique()
+    .references((): AnyPgColumn => contractPeriods.id),
+  // Structured flag (not free text) for the seeded-data migration cases
+  // already known to be problematic (e.g. Adam's ledger dates running past
+  // contract end, Volvi's unreconciled total, Saeed's conflicting source
+  // sheets) — surfaced to admins rather than silently carried forward.
+  dataQualityFlag:  text('data_quality_flag'),
 });
 
+// Many-to-many period↔client join — almost always exactly one row per
+// period (the normal case), more than one for joint contracts (e.g.
+// "Jay & Kristina Rodriguez").
+export const contractPeriodClients = pgTable('contract_period_clients', {
+  id:        uuid('id').defaultRandom().primaryKey(),
+  periodId:  uuid('period_id').notNull().references(() => contractPeriods.id, { onDelete: 'cascade' }),
+  clientId:  uuid('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  unique().on(t.periodId, t.clientId),
+]);
+
+// One row per contracted deliverable type (e.g. 48 short-form + 6 youtube +
+// 8 ads for the same contract) — deliverableType is free text, not
+// restricted to the live pipeline's enum, since a contract can scope types
+// (e.g. "website") that the pipeline never counts.
+export const contractLineItems = pgTable('contract_line_items', {
+  id:              uuid('id').defaultRandom().primaryKey(),
+  periodId:        uuid('period_id').notNull().references(() => contractPeriods.id, { onDelete: 'cascade' }),
+  deliverableType: varchar('deliverable_type', { length: 40 }).notNull(),
+  contractedTotal: integer('contracted_total').notNull(),
+  monthlyQuota:    integer('monthly_quota'),
+  carriedIn:       integer('carried_in').default(0),
+  createdAt:       timestamp('created_at').defaultNow(),
+}, (t) => [
+  unique().on(t.periodId, t.deliverableType),
+]);
+
 // Deviation-only: a row exists only when a month departs from the
-// standing agreement (contractPeriods.monthlyQuota). No row means the
-// standard agreement ran that month.
+// standing agreement (contractPeriods.monthlyQuota, or a line item's
+// monthlyQuota when lineItemId is set). No row means the standard
+// agreement ran that month.
 export const contractMonths = pgTable('contract_months', {
   id:             uuid('id').defaultRandom().primaryKey(),
   periodId:       uuid('period_id').notNull().references(() => contractPeriods.id, { onDelete: 'cascade' }),
@@ -182,7 +227,16 @@ export const contractMonths = pgTable('contract_months', {
   scopeNote:      varchar('scope_note', { length: 160 }),
   amended:        boolean('amended').notNull().default(false),
   note:           text('note'),
-});
+  // null = the aggregate deviation (as before). Set = a deviation scoped to
+  // one contracted deliverable type. The (periodId, lineItemId, month)
+  // uniqueness below can't express "at most one aggregate row per
+  // (periodId, month)" since NULL never conflicts with NULL in a unique
+  // constraint — that half is enforced separately via a partial index
+  // added through raw SQL in the migrate route.
+  lineItemId:     uuid('line_item_id').references(() => contractLineItems.id, { onDelete: 'cascade' }),
+}, (t) => [
+  unique().on(t.periodId, t.lineItemId, t.month),
+]);
 
 // Frame.io comments already mirrored into ClickUp (idempotency ledger for the
 // comment sync — a Frame.io comment id lands in ClickUp exactly once).
@@ -249,6 +303,8 @@ export type Client          = typeof clients.$inferSelect;
 export type VideoCache      = typeof videoCache.$inferSelect;
 export type OAuthToken      = typeof oauthTokens.$inferSelect;
 export type ContractPeriod  = typeof contractPeriods.$inferSelect;
+export type ContractPeriodClient = typeof contractPeriodClients.$inferSelect;
+export type ContractLineItem = typeof contractLineItems.$inferSelect;
 export type ContractMonth   = typeof contractMonths.$inferSelect;
 export type PendingDecision = typeof pendingDecisions.$inferSelect;
 export type VideoPriority   = typeof videoPriorities.$inferSelect;
