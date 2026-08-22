@@ -17,6 +17,12 @@ export async function markPostingFailed(task: clickup.ClickUpTaskLite, comment: 
   await clickup.postComment(task.id, comment);
   // No-ops if the "Posting Failed" option isn't on the field yet.
   await clickup.setDropdownByName(task, clickup.FIELD.postedStatus, clickup.POSTED_STATUS.failed);
+  // Un-checking this is what actually stops the reconcile cron (every 15
+  // minutes) from re-attempting — and re-posting this same failure comment —
+  // on every run until someone fixes the task. The comment tells the AM to
+  // "uncheck and re-check 'Ready to Publish?' to retry"; this is that
+  // uncheck, done automatically so a still-broken task doesn't spam forever.
+  await clickup.setCheckboxField(task, clickup.FIELD.readyToPublish, false);
   await notifyAmOfPublishResult({
     assignedAmName: amNameFromTask(task),
     taskId: task.id,
