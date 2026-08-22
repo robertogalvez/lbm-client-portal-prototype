@@ -3,7 +3,14 @@
 // ("one quantity, one source") and §7.5a ("no number typed into prose").
 // Never reimplement any of this inline in a component.
 
-import type { ContractPeriod, ContractMonth } from './db/schema';
+import type { ContractPeriod, ContractMonth, ContractLineItem } from './db/schema';
+
+// Deliverable types the live pipeline actually counts (video_cache.deliverableType).
+// A contract_line_items row can use any free-text type (e.g. 'website') to
+// scope an agreement, but only these ever get a real "delivered" count —
+// anything else is scope-only: shown, never given a progress bar.
+export const PIPELINE_DELIVERABLE_TYPES = ['short_form', 'youtube', 'ad'] as const;
+export type PipelineDeliverableType = typeof PIPELINE_DELIVERABLE_TYPES[number];
 
 // ── Month agreement resolution (§7.3) ───────────────────────────────────────
 //
@@ -73,6 +80,43 @@ export function resolveMonthAgreement(
   return { kind: 'part', quota: prorated, daysUnderContract: daysUnder, daysInMonth: totalDays, amended: monthRow?.amended ?? false, scopeNote: monthRow?.scopeNote ?? null };
 }
 
+/**
+ * Same resolution as resolveMonthAgreement, but scoped to one contract line
+ * item's own monthlyQuota instead of the period's aggregate one — used once
+ * a contract has been broken out by deliverable type. The period still owns
+ * the dates (a line item never has its own startsOn/endsOn), so proration
+ * is identical; only the quota source and the "no denominator" fallback
+ * (a line item with no monthlyQuota, e.g. a package-style scoped type) differ.
+ */
+export function resolveMonthAgreementForLineItem(
+  period: Pick<ContractPeriod, 'startsOn' | 'endsOn'>,
+  lineItem: Pick<ContractLineItem, 'monthlyQuota'>,
+  monthRow: Pick<ContractMonth, 'active' | 'quotaOverride' | 'scopeNote' | 'amended'> | null,
+  month: string,
+): MonthAgreement {
+  if (monthRow && !monthRow.active) return { kind: 'none' };
+
+  const daysUnder = daysUnderContractInMonth(period, month);
+  if (daysUnder === 0) return { kind: 'none' };
+
+  const totalDays = daysInMonth(month);
+  const isFullMonth = daysUnder === totalDays;
+
+  if (monthRow?.quotaOverride != null) {
+    return isFullMonth
+      ? { kind: 'full', quota: monthRow.quotaOverride, amended: monthRow.amended, scopeNote: monthRow.scopeNote ?? null }
+      : { kind: 'part', quota: monthRow.quotaOverride, daysUnderContract: daysUnder, daysInMonth: totalDays, amended: monthRow.amended, scopeNote: monthRow.scopeNote ?? null };
+  }
+
+  if (lineItem.monthlyQuota == null) return { kind: 'none' };
+
+  if (isFullMonth) {
+    return { kind: 'full', quota: lineItem.monthlyQuota, amended: monthRow?.amended ?? false, scopeNote: monthRow?.scopeNote ?? null };
+  }
+  const prorated = Math.round((lineItem.monthlyQuota * daysUnder) / totalDays);
+  return { kind: 'part', quota: prorated, daysUnderContract: daysUnder, daysInMonth: totalDays, amended: monthRow?.amended ?? false, scopeNote: monthRow?.scopeNote ?? null };
+}
+
 // ── Single-source figures (§7.5, §7.5a) ─────────────────────────────────────
 
 /** delivered/contracted, or null when there's no meaningful denominator — never synthesize one. */
@@ -89,6 +133,24 @@ export function fulfilment(delivered: number, contracted: number): number | null
  */
 export function beyondContract(published: number, contracted: number): number {
   return published - contracted;
+}
+
+/**
+ * Per-deliverable-type fulfilment, one call covering every line item —
+ * mirrors fulfilment() but keyed by deliverableType so a contract with
+ * separate short_form/youtube/ad quotas gets one ratio per type instead of
+ * a single blended number that would hide an under-delivered type behind
+ * an over-delivered one.
+ */
+export function fulfilmentByType(
+  delivered: Record<string, number>,
+  lineItems: Pick<ContractLineItem, 'deliverableType' | 'contractedTotal'>[],
+): Record<string, number | null> {
+  const result: Record<string, number | null> = {};
+  for (const item of lineItems) {
+    result[item.deliverableType] = fulfilment(delivered[item.deliverableType] ?? 0, item.contractedTotal);
+  }
+  return result;
 }
 
 /** Compares actual publish cadence against the contracted cadence_per_week. Null when there's no cadence to compare against (packages). */
@@ -138,6 +200,55 @@ export function healthTier(input: { contractState: ContractPeriod['state']; fulf
   if (input.fulfilment < 0.4) return 'critical';
   if (input.fulfilment < 0.75) return 'watch';
   return 'on-track';
+}
+
+// ── Current-period resolution ────────────────────────────────────────────────
+// The single canonical rule for "which contract is vigente right now" —
+// replaces three ad hoc rules that had drifted apart across the dashboard
+// (state === 'active' only), the report (also treated 'extended' as
+// current), and client-detail. 'extended' counts as current everywhere now.
+
+const CURRENT_STATES: ReadonlyArray<ContractPeriod['state']> = ['active', 'extended'];
+
+/**
+ * Picks the one period that represents "now" for a client with possibly
+ * several rows (past renewals, a paused one, etc). Prefers a period whose
+ * date range actually covers `now`; if more than one does (shouldn't happen
+ * under the app's own overlap validation, but data can predate it), the one
+ * with the latest startsOn wins. Falls back to the most recently started
+ * active/extended period with no end date. Returns null when the client has
+ * no current-state period at all (e.g. only 'completed' rows).
+ */
+export function resolveCurrentPeriod<T extends Pick<ContractPeriod, 'startsOn' | 'endsOn' | 'state'>>(
+  periods: T[],
+  now: Date,
+): T | null {
+  const eligible = periods.filter(p => CURRENT_STATES.includes(p.state));
+  if (eligible.length === 0) return null;
+
+  const covering = eligible.filter(p => {
+    const starts = new Date(p.startsOn);
+    const ends = p.endsOn ? new Date(p.endsOn) : null;
+    return starts <= now && (!ends || ends >= now);
+  });
+  const pool = covering.length > 0 ? covering : eligible;
+
+  return pool.reduce((latest, p) => (new Date(p.startsOn) > new Date(latest.startsOn) ? p : latest));
+}
+
+/** Every period (any state) whose [startsOn, endsOn] range includes `month` (YYYY-MM) — unifies logic that used to be duplicated per view. */
+export function findPeriodCoveringMonth<T extends Pick<ContractPeriod, 'startsOn' | 'endsOn'>>(
+  periods: T[],
+  month: string,
+): T[] {
+  return periods.filter(p => daysUnderContractInMonth(p, month) > 0);
+}
+
+// ── Renewal carry-in ─────────────────────────────────────────────────────────
+
+/** Shortfall from a completed period's contracted total — what a renewal starts already owing. Never negative: over-delivery doesn't carry in as a debt the other way. */
+export function computeCarriedIn(contractedTotal: number, delivered: number): number {
+  return Math.max(0, contractedTotal - delivered);
 }
 
 // ── Expiry / date labels (§7.2) ─────────────────────────────────────────────

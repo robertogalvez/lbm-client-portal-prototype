@@ -195,6 +195,47 @@ export async function POST(req: Request) {
         "created_at"     timestamp DEFAULT now(),
         "executed"       boolean NOT NULL DEFAULT false
       )`,
+      // Contract redesign PR 1 — additive only, contractPeriods.clientId stays.
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS clickup_client_option_id varchar(100) UNIQUE`,
+      sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS renewed_from_period_id uuid UNIQUE REFERENCES "contract_periods"("id")`,
+      sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS data_quality_flag text`,
+      sql`CREATE TABLE IF NOT EXISTS "contract_period_clients" (
+        "id"          uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "period_id"   uuid NOT NULL REFERENCES "contract_periods"("id") ON DELETE CASCADE,
+        "client_id"   uuid NOT NULL REFERENCES "clients"("id") ON DELETE CASCADE,
+        "created_at"  timestamp DEFAULT now(),
+        UNIQUE ("period_id", "client_id")
+      )`,
+      sql`CREATE INDEX IF NOT EXISTS "contract_period_clients_client_idx" ON "contract_period_clients" ("client_id")`,
+      sql`CREATE TABLE IF NOT EXISTS "contract_line_items" (
+        "id"                uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "period_id"         uuid NOT NULL REFERENCES "contract_periods"("id") ON DELETE CASCADE,
+        "deliverable_type"  varchar(40) NOT NULL,
+        "contracted_total"  integer NOT NULL,
+        "monthly_quota"     integer,
+        "carried_in"        integer DEFAULT 0,
+        "created_at"        timestamp DEFAULT now(),
+        UNIQUE ("period_id", "deliverable_type")
+      )`,
+      sql`ALTER TABLE contract_months ADD COLUMN IF NOT EXISTS line_item_id uuid REFERENCES "contract_line_items"("id") ON DELETE CASCADE`,
+      // Old (period_id, month) uniqueness no longer fits now that a period
+      // can have multiple deviation rows per month (one aggregate + one per
+      // line item) — replaced by (period_id, line_item_id, month) below, plus
+      // a partial index for the aggregate case since NULL never conflicts
+      // with NULL in a plain unique constraint.
+      sql`ALTER TABLE contract_months DROP CONSTRAINT IF EXISTS contract_months_period_id_month_key`,
+      sql`DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint WHERE conname = 'contract_months_period_id_line_item_id_month_unique'
+          ) THEN
+            ALTER TABLE contract_months
+              ADD CONSTRAINT contract_months_period_id_line_item_id_month_unique
+              UNIQUE ("period_id", "line_item_id", "month");
+          END IF;
+        END $$`,
+      sql`CREATE UNIQUE INDEX IF NOT EXISTS "contract_months_aggregate_unique_idx"
+        ON "contract_months" ("period_id", "month") WHERE "line_item_id" IS NULL`,
     ]);
 
     const rows = await sql`
