@@ -34,6 +34,7 @@
 import { db } from '@/lib/db';
 import { oauthTokens } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { withRealAuthors } from '@/lib/comment-authors';
 
 const BASE = 'https://api.frame.io/v4';
 const AUTH_URL = process.env.FRAMEIO_OAUTH_AUTH_URL || 'https://ims-na1.adobelogin.com/ims/authorize';
@@ -594,6 +595,7 @@ export interface ReviewData {
 // file URL and the existing comment thread, sharing a single fileId lookup.
 export async function getReviewData(frameLink: string): Promise<ReviewData> {
   const fileId = await resolveFileId(frameLink);
-  const [media, comments] = await Promise.all([getFileMedia(fileId), listComments(fileId)]);
+  const [media, rawComments] = await Promise.all([getFileMedia(fileId), listComments(fileId)]);
+  const comments = await withRealAuthors(rawComments);
   return { fileId, ...media, comments };
 }
