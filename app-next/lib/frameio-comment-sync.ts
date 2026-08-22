@@ -40,19 +40,26 @@ export interface ExtraNote {
   text: string;
 }
 
+// ClickUp's task comment field (comment_text) is plain text — no markdown
+// rendering, so "bolding" a name means giving it its own line + uppercase
+// instead of **name**, which would just show literal asterisks. The comment
+// itself is always posted under the shared CLICKUP_API_TOKEN account (there's
+// no per-portal-user ClickUp auth, and client contacts are Guests with no API
+// access of their own) — this is the only place the real commenter's name is
+// visible in ClickUp, so it needs to stand out, not just be a text prefix.
 function formatBatchForClickUp(comments: FrameioComment[], extraNote?: ExtraNote): string {
-  const lines = comments.map(c => {
-    const at = c.timestampLabel ? `[at ${c.timestampLabel}] ` : '';
+  const blocks = comments.map(c => {
+    const at = c.timestampLabel ? ` — [at ${c.timestampLabel}]` : '';
     const text = c.text.trim() || '(annotation without text)';
-    return `${at}${c.authorName ?? 'Client'}: ${text}`;
+    return `👤 ${(c.authorName ?? 'Client').toUpperCase()}${at}\n${text}`;
   });
   if (extraNote?.text.trim()) {
-    lines.push(`${extraNote.authorName}: ${extraNote.text.trim()}`);
+    blocks.push(`👤 ${extraNote.authorName.toUpperCase()}\n${extraNote.text.trim()}`);
   }
-  const header = lines.length === 1
+  const header = blocks.length === 1
     ? '🎬 Client feedback:'
-    : `🎬 Client feedback (${lines.length} comments):`;
-  return [header, ...lines].join('\n');
+    : `🎬 Client feedback (${blocks.length} comments):`;
+  return [header, ...blocks].join('\n\n');
 }
 
 export async function syncFrameioComments(taskId: string, frameLink: string, extraNote?: ExtraNote): Promise<CommentSyncResult> {
