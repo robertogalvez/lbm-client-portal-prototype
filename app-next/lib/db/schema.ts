@@ -217,6 +217,20 @@ export const pendingDecisions = pgTable('pending_decisions', {
   executed:     boolean('executed').notNull().default(false),
 });
 
+// Client-set ordering of their in-production videos ("this one before that
+// one") — a separate small table rather than a video_cache column, since the
+// client portal reads tasks live from ClickUp (getTasksFromList), not from
+// video_cache, and this needs to be joined in there by clickupTaskId. Rank 1
+// is highest priority; rank translates to the ClickUp native Priority field
+// (Urgent/High/Normal/Low) via lib/priority.ts — never write rank itself to
+// ClickUp, it has no numeric-priority concept.
+export const videoPriorities = pgTable('video_priorities', {
+  clickupTaskId: varchar('clickup_task_id', { length: 50 }).primaryKey(),
+  clientName:    varchar('client_name', { length: 255 }).notNull(),
+  rank:          integer('rank').notNull(),
+  updatedAt:     timestamp('updated_at').defaultNow().notNull(),
+});
+
 export type AuthUser        = typeof authUsers.$inferSelect;
 export type Client          = typeof clients.$inferSelect;
 export type VideoCache      = typeof videoCache.$inferSelect;
@@ -224,3 +238,4 @@ export type OAuthToken      = typeof oauthTokens.$inferSelect;
 export type ContractPeriod  = typeof contractPeriods.$inferSelect;
 export type ContractMonth   = typeof contractMonths.$inferSelect;
 export type PendingDecision = typeof pendingDecisions.$inferSelect;
+export type VideoPriority   = typeof videoPriorities.$inferSelect;

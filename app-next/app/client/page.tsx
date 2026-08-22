@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { authUsers, clients, contractPeriods, contractMonths } from '@/lib/db/schema';
+import { authUsers, clients, contractPeriods, contractMonths, videoPriorities } from '@/lib/db/schema';
 import { eq, inArray } from 'drizzle-orm';
 import { getTasksFromList } from '@/lib/clickup';
 import { getThumbnailUrl } from '@/lib/frameio';
@@ -15,6 +15,7 @@ import { InvoicesView } from '@/components/client/InvoicesView';
 import { MonthlyReport } from '@/components/client/MonthlyReport';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { BannerStats } from '@/components/client/BannerStats';
+import { PriorityReorderList } from '@/components/client/PriorityReorderList';
 import { getViewAsClient } from '@/lib/view-as';
 import { getInvoicesForClient, isQuickBooksConfigured } from '@/lib/quickbooks';
 import { InstagramLink } from '@/components/InstagramLink';
@@ -102,16 +103,18 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     );
   }
 
-  const [tasksResult, [clientRecord]] = await Promise.all([
+  const [tasksResult, [clientRecord], priorityRows] = await Promise.all([
     getTasksFromList(process.env.CLICKUP_LIST_ID!, false).then(
       value => ({ value, error: null as string | null }),
       (e: unknown) => ({ value: [] as MappedTask[], error: e instanceof Error ? e.message : 'Unknown error' }),
     ),
     db.select({ id: clients.id, showCalendar: clients.showCalendar, showInvoices: clients.showInvoices, showReport: clients.showReport }).from(clients).where(eq(clients.name, clientName)).limit(1),
+    db.select({ clickupTaskId: videoPriorities.clickupTaskId, rank: videoPriorities.rank }).from(videoPriorities).where(eq(videoPriorities.clientName, clientName)),
   ]);
   const allTasks = tasksResult.value;
   const fetchError = tasksResult.error;
   const showCalendar = clientRecord?.showCalendar ?? false;
+  const priorityRank = new Map(priorityRows.map(r => [r.clickupTaskId, r.rank]));
 
   // Report contract data (§5.6/§7.1) — every period on file for this client
   // plus their deviation-only contract_months rows, so the report's month
@@ -164,9 +167,12 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     'in progress (editor)', 'in progress (corrections)', 'in tc/qc (somu)',
     'on its way', 'ready to be posted', 'approved · fixes pending',
   ]);
-  const inEditionTasks = clientTasks.filter(t =>
-    IN_PROD_STATUSES.has(norm(t.status)) && !scheduledIds.has(t.clickupTaskId)
-  );
+  const inEditionTasks = clientTasks
+    .filter(t => IN_PROD_STATUSES.has(norm(t.status)) && !scheduledIds.has(t.clickupTaskId))
+    // Unranked videos (no explicit client priority yet) sort after ranked
+    // ones and keep their relative order (stable sort) — nothing jumps
+    // around just because one video got a rank.
+    .sort((a, b) => (priorityRank.get(a.clickupTaskId) ?? Infinity) - (priorityRank.get(b.clickupTaskId) ?? Infinity));
 
   const displayName = (name ?? clientName).split(' ')[0];
   const pct = clientTasks.length > 0 ? Math.round((postedTasks.length / clientTasks.length) * 100) : 0;
@@ -287,8 +293,8 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
 
             {inEditionTasks.length > 0 && (
               <MobileAccordion label="📹 In Progress — Edition" count={inEditionTasks.length}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
-                  {inEditionTasks.map(t => <VideoRow key={t.clickupTaskId} task={t} />)}
+                <div style={{ padding: '12px 0 4px' }}>
+                  <PriorityReorderList items={inEditionTasks.map(t => ({ id: t.clickupTaskId, node: <VideoRow task={t} /> }))} />
                 </div>
               </MobileAccordion>
             )}
@@ -527,7 +533,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
 
             {inEditionTasks.length > 0 && (
               <DesktopAccordion label="📹 In Progress — Edition" count={inEditionTasks.length} style={{marginBottom:16}}>
-                {inEditionTasks.map(t => <DesktopStatusRow key={t.clickupTaskId} t={t} />)}
+                <PriorityReorderList items={inEditionTasks.map(t => ({ id: t.clickupTaskId, node: <DesktopStatusRow t={t} /> }))} />
               </DesktopAccordion>
             )}
 

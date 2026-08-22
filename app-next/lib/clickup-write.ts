@@ -105,6 +105,16 @@ export async function setTaskStatus(taskId: string, status: string): Promise<voi
   await cuRequest(`/task/${taskId}`, { method: 'PUT', body: JSON.stringify({ status }) });
 }
 
+// ClickUp's native Priority is a task attribute (not a custom field) set via
+// a small integer, not the string name: 1=Urgent, 2=High, 3=Normal, 4=Low.
+const PRIORITY_VALUE: Record<'urgent' | 'high' | 'normal' | 'low', number> = {
+  urgent: 1, high: 2, normal: 3, low: 4,
+};
+
+export async function setTaskPriority(taskId: string, priority: 'urgent' | 'high' | 'normal' | 'low'): Promise<void> {
+  await cuRequest(`/task/${taskId}`, { method: 'PUT', body: JSON.stringify({ priority: PRIORITY_VALUE[priority] }) });
+}
+
 // Field references (UUID + current name) verified against the live LBM workspace
 // (task 86aj464t5, list "0. Videographer's Backlog"). UUIDs are the source of
 // truth; names are the human-readable fallback.
