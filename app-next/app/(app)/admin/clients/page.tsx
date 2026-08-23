@@ -2,9 +2,8 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { authUsers, clients, contractPeriods, contractMonths } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
-import { getClientQuotas } from '@/lib/clickup';
+import { authUsers, clients, contractPeriods, contractPeriodClients, contractLineItems, contractMonths } from '@/lib/db/schema';
+import { eq, inArray } from 'drizzle-orm';
 import { ClientsPageClient } from './ClientsPageClient';
 
 export const revalidate = 60;
@@ -16,30 +15,46 @@ export default async function AdminClientsPage() {
   const [caller] = await db.select({ role: authUsers.role }).from(authUsers).where(eq(authUsers.id, session.user.id)).limit(1);
   if (!caller || caller.role === 'client') redirect('/client');
 
-  // Independent of each other, so one round-trip of wall time instead of three.
+  // Independent of each other, so one round-trip of wall time instead of several.
   // The role check above stays sequential — it gates whether we query at all.
-  const [allClients, quotas, portalUsers, allPeriods, allMonths] = await Promise.all([
+  const [allClients, portalUsers, allPeriodClients, allPeriods] = await Promise.all([
     db.select().from(clients).orderBy(clients.createdAt),
-    getClientQuotas(),
     db
       .select({ id: authUsers.id, name: authUsers.name, email: authUsers.email, clientName: authUsers.clientName, emailVerified: authUsers.emailVerified })
       .from(authUsers)
       .where(eq(authUsers.role, 'client')),
+    db.select().from(contractPeriodClients),
     db.select().from(contractPeriods),
-    db.select().from(contractMonths),
   ]);
 
+  const periodIds = allPeriods.map(p => p.id);
+  const [allMonths, allLineItems] = periodIds.length > 0
+    ? await Promise.all([
+        db.select().from(contractMonths).where(inArray(contractMonths.periodId, periodIds)),
+        db.select().from(contractLineItems).where(inArray(contractLineItems.periodId, periodIds)),
+      ])
+    : [[], []];
+
   const clientsWithUsers = allClients.map(c => {
-    const quota = quotas.find(q => q.name === c.name);
+    // A period belongs to this client if the join table says so, falling
+    // back to the old direct clientId column for any period PR 1's backfill
+    // hasn't reached yet (shouldn't happen post-backfill).
+    const periodIdsForClient = new Set([
+      ...allPeriodClients.filter(pc => pc.clientId === c.id).map(pc => pc.periodId),
+      ...allPeriods.filter(p => p.clientId === c.id).map(p => p.id),
+    ]);
     const periods = allPeriods
-      .filter(p => p.clientId === c.id)
-      .map(p => ({ ...p, months: allMonths.filter(m => m.periodId === p.id) }));
+      .filter(p => periodIdsForClient.has(p.id))
+      .map(p => ({
+        ...p,
+        months: allMonths.filter(m => m.periodId === p.id),
+        lineItems: allLineItems.filter(li => li.periodId === p.id),
+        clientIds: allPeriodClients.filter(pc => pc.periodId === p.id).map(pc => pc.clientId),
+      }));
     return {
       ...c,
       brandingConfig: c.brandingConfig as Record<string, unknown> | null,
       socialLinks: c.socialLinks as Record<string, { handle?: string; url?: string }> | null,
-      monthlyReels: quota?.reelsPerMonth ?? 0,
-      monthlyYoutube: quota?.ytPerMonth ?? 0,
       portalUsers: portalUsers.filter(u => u.clientName === c.name),
       periods,
     };

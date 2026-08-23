@@ -1,79 +1,63 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { PLATFORMS } from '@/components/dashboard/AssetInventory';
+import { inp, label, fieldCap, smallBtn, smallSaveBtn, linkBtn } from './contractFormStyles';
+import { ContractPeriodCard, type ContractPeriodRecord, type ContractMonthRecord, type ContractLineItemRecord } from './ContractPeriodCard';
+import { ContractPeriodForm, emptyPeriodFormState, type PeriodFormState } from './ContractPeriodForm';
+import { resolveCurrentPeriod } from '@/lib/contracts';
 
-export interface ContractMonthRecord {
-  id: string;
-  periodId: string;
-  month: string;
-  active: boolean;
-  quotaOverride: number | null;
-  scopeNote: string | null;
-  amended: boolean;
-  note: string | null;
-}
-
-export interface ContractPeriodRecord {
-  id: string;
-  clientId: string;
-  label: string;
-  startsOn: string;
-  endsOn: string | null;
-  model: string;
-  cadencePerWeek: number | null;
-  monthlyQuota: number | null;
-  contractedTotal: number;
-  state: string;
-  carriedIn: number | null;
-  notes: string | null;
-  months: ContractMonthRecord[];
-}
+// Re-exported for the existing callers (ClientsPageClient, ClientDetail,
+// client-detail/route.ts) that import these types from this file.
+export type { ContractPeriodRecord, ContractMonthRecord, ContractLineItemRecord };
 
 export type SocialLinks = Record<string, { handle?: string; url?: string }>;
 
-const CONTRACT_MODELS = ['retainer', 'package'] as const;
-const CONTRACT_STATES = ['active', 'renewed', 'extended', 'paused', 'completed'] as const;
+function emptyMonthForm() {
+  return { month: '', active: true, quotaOverride: '', scopeNote: '', amended: false, note: '', lineItemId: '' };
+}
 
-function emptyPeriodForm() {
+function periodToFormState(p: ContractPeriodRecord): PeriodFormState {
   return {
-    label: '', startsOn: '', endsOn: '', model: 'retainer' as string, cadencePerWeek: '', monthlyQuota: '',
-    contractedTotal: '', state: 'active' as string, carriedIn: '0', notes: '',
+    label: p.label, startsOn: p.startsOn, endsOn: p.endsOn ?? '', model: p.model,
+    cadencePerWeek: p.cadencePerWeek?.toString() ?? '', monthlyQuota: p.monthlyQuota?.toString() ?? '',
+    contractedTotal: p.contractedTotal.toString(), state: p.state, carriedIn: (p.carriedIn ?? 0).toString(),
+    notes: p.notes ?? '', clientIds: p.clientIds.length > 0 ? p.clientIds : [p.clientId],
+    lineItems: p.lineItems.map(li => ({
+      deliverableType: li.deliverableType, contractedTotal: li.contractedTotal.toString(),
+      monthlyQuota: li.monthlyQuota?.toString() ?? '', carriedIn: (li.carriedIn ?? 0).toString(),
+    })),
+    cycleDurationDays: p.cycleDurationDays?.toString() ?? '', dataQualityFlag: p.dataQualityFlag ?? '',
+    renewedFromPeriodId: p.renewedFromPeriodId, renewedFromLabel: null,
   };
 }
 
-function emptyMonthForm() {
-  return { month: '', active: true, quotaOverride: '', scopeNote: '', amended: false, note: '' };
+function formStateToBody(clientId: string, form: PeriodFormState) {
+  return {
+    clientIds: form.clientIds,
+    label: form.label,
+    startsOn: form.startsOn,
+    endsOn: form.endsOn || null,
+    model: form.model,
+    cadencePerWeek: form.cadencePerWeek ? Number(form.cadencePerWeek) : null,
+    monthlyQuota: form.monthlyQuota ? Number(form.monthlyQuota) : null,
+    contractedTotal: form.contractedTotal ? Number(form.contractedTotal) : undefined,
+    state: form.state,
+    carriedIn: form.carriedIn ? Number(form.carriedIn) : 0,
+    notes: form.notes || null,
+    lineItems: form.lineItems
+      .filter(li => li.deliverableType && li.contractedTotal)
+      .map(li => ({
+        deliverableType: li.deliverableType,
+        contractedTotal: Number(li.contractedTotal),
+        monthlyQuota: li.monthlyQuota ? Number(li.monthlyQuota) : null,
+        carriedIn: li.carriedIn ? Number(li.carriedIn) : 0,
+      })),
+    cycleDurationDays: form.cycleDurationDays ? Number(form.cycleDurationDays) : null,
+    dataQualityFlag: form.dataQualityFlag || null,
+    renewedFromPeriodId: form.renewedFromPeriodId || null,
+  };
 }
-
-const inp: React.CSSProperties = {
-  width: '100%', padding: '8px 12px', fontSize: 14,
-  border: '1px solid #d4dbe2', borderRadius: 8,
-  boxSizing: 'border-box', fontFamily: 'inherit', color: '#111c28',
-  background: '#fff', outline: 'none',
-};
-
-const label: React.CSSProperties = {
-  display: 'block', fontSize: 12, fontWeight: 600, color: '#54616f',
-  marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em',
-};
-
-const fieldCap: React.CSSProperties = {
-  display: 'block', fontSize: 11, fontWeight: 600, color: '#8b97a4',
-  marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.03em',
-};
-
-const smallBtn: React.CSSProperties = {
-  flex: 1, padding: '7px 12px', borderRadius: 7, fontWeight: 600, fontSize: 13,
-  cursor: 'pointer', fontFamily: 'inherit', border: '1px solid #d4dbe2', background: '#fff', color: '#54616f',
-};
-function smallSaveBtn(disabled: boolean): React.CSSProperties {
-  return { ...smallBtn, flex: 'unset', border: 'none', background: disabled ? '#eef1f4' : '#FF6000', color: disabled ? '#8b97a4' : '#fff' };
-}
-const linkBtn: React.CSSProperties = {
-  fontSize: 12, fontWeight: 600, color: '#FF6000', background: 'none', border: 'none',
-  cursor: 'pointer', padding: 0, fontFamily: 'inherit',
-};
 
 // Contract periods/months + social links editor, shared between the admin
 // Clients drawer and the Dashboard's Client Detail view — same underlying
@@ -92,12 +76,19 @@ export function ClientEditPanel({
 }) {
   const mutating = useRef(false);
 
+  const [allClients, setAllClients] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    fetch('/api/admin/contracts/clients-roster').then(r => r.ok ? r.json() : []).then(setAllClients).catch(() => {});
+  }, []);
+  const clientName = (id: string) => allClients.find(c => c.id === id)?.name ?? '…';
+
   const [periodFormOpen, setPeriodFormOpen] = useState(false);
   const [editingPeriodId, setEditingPeriodId] = useState<string | null>(null);
-  const [periodForm, setPeriodForm] = useState(emptyPeriodForm());
+  const [periodForm, setPeriodForm] = useState<PeriodFormState>(() => emptyPeriodFormState(clientId));
   const [savingPeriod, setSavingPeriod] = useState(false);
   const [periodMsg, setPeriodMsg] = useState('');
   const [deletingPeriodId, setDeletingPeriodId] = useState<string | null>(null);
+  const [renewLoadingId, setRenewLoadingId] = useState<string | null>(null);
 
   const [monthFormPeriodId, setMonthFormPeriodId] = useState<string | null>(null);
   const [editingMonthId, setEditingMonthId] = useState<string | null>(null);
@@ -116,50 +107,75 @@ export function ClientEditPanel({
   const [savingSocial, setSavingSocial] = useState(false);
   const [socialMsg, setSocialMsg] = useState('');
 
+  const currentPeriod = resolveCurrentPeriod(periods, new Date());
+
   function openAddPeriod() {
     setEditingPeriodId(null);
-    setPeriodForm(emptyPeriodForm());
+    setPeriodForm(emptyPeriodFormState(clientId));
     setPeriodMsg('');
     setPeriodFormOpen(true);
   }
 
   function openEditPeriod(p: ContractPeriodRecord) {
     setEditingPeriodId(p.id);
-    setPeriodForm({
-      label: p.label, startsOn: p.startsOn, endsOn: p.endsOn ?? '', model: p.model,
-      cadencePerWeek: p.cadencePerWeek?.toString() ?? '', monthlyQuota: p.monthlyQuota?.toString() ?? '',
-      contractedTotal: p.contractedTotal.toString(), state: p.state, carriedIn: (p.carriedIn ?? 0).toString(),
-      notes: p.notes ?? '',
-    });
+    setPeriodForm(periodToFormState(p));
     setPeriodMsg('');
     setPeriodFormOpen(true);
+  }
+
+  async function openRenew(p: ContractPeriodRecord) {
+    if (renewLoadingId) return;
+    setRenewLoadingId(p.id);
+    try {
+      const res = await fetch(`/api/admin/contracts/${p.id}/renewal-preview`);
+      const preview = await res.json();
+      if (!res.ok) throw new Error(preview.error ?? 'Failed to compute renewal preview');
+      const base = periodToFormState(p);
+      setEditingPeriodId(null);
+      setPeriodForm({
+        ...base,
+        startsOn: preview.suggestedStartsOn ?? base.startsOn,
+        endsOn: '',
+        state: 'active',
+        carriedIn: String(preview.carriedIn ?? 0),
+        lineItems: base.lineItems.map(li => {
+          const match = (preview.lineItems ?? []).find((pl: { deliverableType: string; suggestedCarriedIn: number }) => pl.deliverableType === li.deliverableType);
+          return match ? { ...li, carriedIn: String(match.suggestedCarriedIn) } : li;
+        }),
+        clientIds: preview.clientIds ?? base.clientIds,
+        cycleDurationDays: preview.cycleDurationDays != null ? String(preview.cycleDurationDays) : base.cycleDurationDays,
+        renewedFromPeriodId: p.id,
+        renewedFromLabel: p.label,
+        dataQualityFlag: '', // a renewal starts clean — doesn't inherit the predecessor's flag
+      });
+      setPeriodMsg('');
+      setPeriodFormOpen(true);
+    } catch (e) {
+      setPeriodMsg(e instanceof Error ? e.message : 'Error');
+    } finally {
+      setRenewLoadingId(null);
+    }
   }
 
   async function savePeriod() {
     if (mutating.current) return;
     mutating.current = true;
     setSavingPeriod(true); setPeriodMsg('');
-    const body = {
-      clientId,
-      label: periodForm.label,
-      startsOn: periodForm.startsOn,
-      endsOn: periodForm.endsOn || null,
-      model: periodForm.model,
-      cadencePerWeek: periodForm.cadencePerWeek ? Number(periodForm.cadencePerWeek) : null,
-      monthlyQuota: periodForm.monthlyQuota ? Number(periodForm.monthlyQuota) : null,
-      contractedTotal: Number(periodForm.contractedTotal),
-      state: periodForm.state,
-      carriedIn: periodForm.carriedIn ? Number(periodForm.carriedIn) : 0,
-      notes: periodForm.notes || null,
-    };
+    const body = formStateToBody(clientId, periodForm);
     try {
       const url = editingPeriodId ? `/api/admin/contracts/${editingPeriodId}` : '/api/admin/contracts';
       const res = await fetch(url, { method: editingPeriodId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed');
-      const saved: ContractPeriodRecord = editingPeriodId
-        ? { ...data.period, months: periods.find(p => p.id === editingPeriodId)?.months ?? [] }
-        : { ...data.period, months: [] };
+      const savedLineItems: ContractLineItemRecord[] = (data.lineItems ?? []).map((li: { deliverableType: string; contractedTotal: number; monthlyQuota: number | null; carriedIn: number | null }, i: number) => ({
+        id: `${data.period.id}-li-${i}`, periodId: data.period.id, ...li,
+      }));
+      const saved: ContractPeriodRecord = {
+        ...data.period,
+        clientIds: data.clientIds ?? [clientId],
+        lineItems: savedLineItems,
+        months: editingPeriodId ? periods.find(p => p.id === editingPeriodId)?.months ?? [] : [],
+      };
       const nextPeriods = editingPeriodId
         ? periods.map(p => p.id === editingPeriodId ? saved : p)
         : [...periods, saved];
@@ -176,7 +192,7 @@ export function ClientEditPanel({
 
   async function deletePeriod(p: ContractPeriodRecord) {
     if (mutating.current) return;
-    if (!confirm(`Delete contract period "${p.label}"? This also deletes its monthly deviation rows. This cannot be undone.`)) return;
+    if (!confirm(`Delete contract period "${p.label}"? This also deletes its monthly deviation rows and line items. This cannot be undone.`)) return;
     mutating.current = true;
     setDeletingPeriodId(p.id);
     try {
@@ -204,7 +220,7 @@ export function ClientEditPanel({
     setEditingMonthId(m.id);
     setMonthForm({
       month: m.month, active: m.active, quotaOverride: m.quotaOverride?.toString() ?? '',
-      scopeNote: m.scopeNote ?? '', amended: m.amended, note: m.note ?? '',
+      scopeNote: m.scopeNote ?? '', amended: m.amended, note: m.note ?? '', lineItemId: m.lineItemId ?? '',
     });
     setMonthMsg('');
   }
@@ -220,6 +236,7 @@ export function ClientEditPanel({
       scopeNote: monthForm.scopeNote || null,
       amended: monthForm.amended,
       note: monthForm.note || null,
+      lineItemId: monthForm.lineItemId || null,
     };
     try {
       const url = editingMonthId ? `/api/admin/contracts/months/${editingMonthId}` : `/api/admin/contracts/${periodId}/months`;
@@ -279,73 +296,18 @@ export function ClientEditPanel({
     }
   }
 
-  const periodFormJsx = (
-    <div style={{ background: '#f4f6f8', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div>
-        <span style={fieldCap}>Label</span>
-        <input aria-label="Period label" value={periodForm.label} onChange={e => setPeriodForm(f => ({ ...f, label: e.target.value }))} placeholder="e.g. Contract 1" style={inp} />
-      </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <div style={{ flex: 1 }}>
-          <span style={fieldCap}>Start date</span>
-          <input aria-label="Start date" type="date" value={periodForm.startsOn} onChange={e => setPeriodForm(f => ({ ...f, startsOn: e.target.value }))} style={inp} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <span style={fieldCap}>End date (blank = open-ended)</span>
-          <input aria-label="End date (blank = open-ended)" type="date" value={periodForm.endsOn} onChange={e => setPeriodForm(f => ({ ...f, endsOn: e.target.value }))} style={inp} />
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <div style={{ flex: 1 }}>
-          <span style={fieldCap}>Delivery model</span>
-          <select aria-label="Delivery model" value={periodForm.model} onChange={e => setPeriodForm(f => ({ ...f, model: e.target.value }))} style={inp}>
-            {CONTRACT_MODELS.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
-        </div>
-        <div style={{ flex: 1 }}>
-          <span style={fieldCap}>Contract state</span>
-          <select aria-label="Contract state" value={periodForm.state} onChange={e => setPeriodForm(f => ({ ...f, state: e.target.value }))} style={inp}>
-            {CONTRACT_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <div style={{ flex: 1 }}>
-          <span style={fieldCap}>Cadence / week</span>
-          <input aria-label="Cadence per week" type="number" value={periodForm.cadencePerWeek} onChange={e => setPeriodForm(f => ({ ...f, cadencePerWeek: e.target.value }))} placeholder="e.g. 4" style={inp} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <span style={fieldCap}>Monthly quota</span>
-          <input aria-label="Monthly quota" type="number" value={periodForm.monthlyQuota} onChange={e => setPeriodForm(f => ({ ...f, monthlyQuota: e.target.value }))} placeholder="e.g. 16" style={inp} />
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <div style={{ flex: 1 }}>
-          <span style={fieldCap}>Contracted total *</span>
-          <input aria-label="Contracted total" type="number" value={periodForm.contractedTotal} onChange={e => setPeriodForm(f => ({ ...f, contractedTotal: e.target.value }))} placeholder="e.g. 63" style={inp} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <span style={fieldCap}>Carried in</span>
-          <input aria-label="Carried in" type="number" value={periodForm.carriedIn} onChange={e => setPeriodForm(f => ({ ...f, carriedIn: e.target.value }))} placeholder="0" style={inp} />
-        </div>
-      </div>
-      <div>
-        <span style={fieldCap}>Notes</span>
-        <textarea aria-label="Notes" value={periodForm.notes} onChange={e => setPeriodForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional — source of these numbers, known issues, etc." rows={2} style={{ ...inp, resize: 'vertical' }} />
-      </div>
-      {periodMsg && <div style={{ fontSize: 12, color: '#cf3f36' }}>{periodMsg}</div>}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" onClick={() => { setPeriodFormOpen(false); setEditingPeriodId(null); }} style={smallBtn}>Cancel</button>
-        <button type="button" onClick={savePeriod} disabled={savingPeriod || !periodForm.label || !periodForm.startsOn || !periodForm.contractedTotal} style={smallSaveBtn(savingPeriod || !periodForm.label || !periodForm.startsOn || !periodForm.contractedTotal)}>
-          {savingPeriod ? 'Saving…' : editingPeriodId ? 'Save changes' : 'Add period'}
-        </button>
-      </div>
-    </div>
-  );
-
-  function renderMonthForm(periodId: string) {
+  function renderMonthForm(periodId: string, lineItems: ContractLineItemRecord[]) {
     return (
       <div style={{ background: '#fff', border: '1px dashed #d4dbe2', borderRadius: 8, padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {lineItems.length > 0 && (
+          <div>
+            <span style={fieldCap}>Applies to</span>
+            <select aria-label="Applies to" value={monthForm.lineItemId} onChange={e => setMonthForm(f => ({ ...f, lineItemId: e.target.value }))} style={inp}>
+              <option value="">Whole contract</option>
+              {lineItems.map(li => <option key={li.id} value={li.id}>{li.deliverableType}</option>)}
+            </select>
+          </div>
+        )}
         <div>
           <span style={fieldCap}>Month</span>
           <input aria-label="Month" type="month" value={monthForm.month} onChange={e => setMonthForm(f => ({ ...f, month: e.target.value }))} style={inp} />
@@ -397,61 +359,76 @@ export function ClientEditPanel({
           )}
         </div>
 
-        {periodFormOpen && editingPeriodId === null && <div style={{ marginBottom: 12 }}>{periodFormJsx}</div>}
+        {periodFormOpen && editingPeriodId === null && (
+          <div style={{ marginBottom: 12 }}>
+            <ContractPeriodForm
+              form={periodForm} setForm={setPeriodForm} allClients={allClients} lockedClientId={clientId}
+              saving={savingPeriod} error={periodMsg} onCancel={() => { setPeriodFormOpen(false); setEditingPeriodId(null); }}
+              onSave={savePeriod} saveLabel={periodForm.renewedFromPeriodId ? 'Create renewal' : 'Add period'}
+            />
+          </div>
+        )}
 
         {periods.length === 0 && !periodFormOpen ? (
           <div style={{ fontSize: 13, color: '#8b97a4', fontStyle: 'italic' }}>No contract periods yet.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {periods.map(p => (
-              <div key={p.id} style={{ background: '#f4f6f8', borderRadius: 10, padding: 12 }}>
-                {periodFormOpen && editingPeriodId === p.id ? periodFormJsx : (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontWeight: 700, fontSize: 14, color: '#111c28' }}>{p.label}</span>
-                      <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 100, color: '#54616f', background: '#e7ebef', textTransform: 'capitalize' }}>{p.state}</span>
-                    </div>
-                    <div style={{ fontSize: 12, color: '#54616f', marginTop: 4 }}>
-                      {p.startsOn} → {p.endsOn ?? 'open-ended'} · {p.model}{p.cadencePerWeek ? ` · ${p.cadencePerWeek}x/week` : ''}
-                    </div>
-                    <div style={{ fontSize: 12, color: '#54616f', marginTop: 2 }}>
-                      {p.monthlyQuota != null ? `${p.monthlyQuota}/mo` : 'no standing quota'} · {p.contractedTotal} contracted{p.carriedIn ? ` (+${p.carriedIn} carried in)` : ''}
-                    </div>
-                    {p.notes && <div style={{ fontSize: 12, color: '#8b97a4', marginTop: 4 }}>{p.notes}</div>}
-                    <div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
-                      <button type="button" onClick={() => openEditPeriod(p)} style={linkBtn}>Edit</button>
-                      <button type="button" onClick={() => deletePeriod(p)} disabled={deletingPeriodId === p.id} style={{ ...linkBtn, color: '#cf3f36' }}>{deletingPeriodId === p.id ? 'Deleting…' : 'Delete'}</button>
+              periodFormOpen && editingPeriodId === p.id ? (
+                <div key={p.id}>
+                  <ContractPeriodForm
+                    form={periodForm} setForm={setPeriodForm} allClients={allClients} lockedClientId={clientId}
+                    saving={savingPeriod} error={periodMsg} onCancel={() => { setPeriodFormOpen(false); setEditingPeriodId(null); }}
+                    onSave={savePeriod} saveLabel="Save changes"
+                  />
+                </div>
+              ) : (
+                <ContractPeriodCard
+                  key={p.id}
+                  period={p}
+                  clientNames={p.clientIds.length > 0 ? p.clientIds.map(clientName) : [clientName(p.clientId)]}
+                  isCurrent={currentPeriod?.id === p.id}
+                  deleting={deletingPeriodId === p.id}
+                  onEdit={() => openEditPeriod(p)}
+                  onDelete={() => deletePeriod(p)}
+                  onRenew={() => openRenew(p)}
+                  monthsSection={
+                    <>
                       {!(monthFormPeriodId === p.id && editingMonthId === null) && (
-                        <button type="button" onClick={() => openAddMonth(p.id)} style={linkBtn}>+ Month deviation</button>
+                        <div style={{ marginTop: 8 }}>
+                          <button type="button" onClick={() => openAddMonth(p.id)} style={linkBtn}>+ Month deviation</button>
+                        </div>
                       )}
-                    </div>
-
-                    {(p.months.length > 0 || (monthFormPeriodId === p.id && editingMonthId === null)) && (
-                      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {p.months.map(m => (
-                          monthFormPeriodId === p.id && editingMonthId === m.id ? (
-                            <div key={m.id}>{renderMonthForm(p.id)}</div>
-                          ) : (
-                            <div key={m.id} style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 8, padding: 8, fontSize: 12 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <span style={{ fontWeight: 600, color: '#111c28' }}>{m.month}{!m.active ? ' · inactive' : ''}{m.amended ? ' · amended' : ''}</span>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                  <button type="button" onClick={() => openEditMonth(p.id, m)} style={linkBtn}>Edit</button>
-                                  <button type="button" onClick={() => deleteMonth(p.id, m)} style={{ ...linkBtn, color: '#cf3f36' }}>Delete</button>
+                      {(p.months.length > 0 || (monthFormPeriodId === p.id && editingMonthId === null)) && (
+                        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {p.months.map(m => (
+                            monthFormPeriodId === p.id && editingMonthId === m.id ? (
+                              <div key={m.id}>{renderMonthForm(p.id, p.lineItems)}</div>
+                            ) : (
+                              <div key={m.id} style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 8, padding: 8, fontSize: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <span style={{ fontWeight: 600, color: '#111c28' }}>
+                                    {m.month}{!m.active ? ' · inactive' : ''}{m.amended ? ' · amended' : ''}
+                                    {m.lineItemId ? ` · ${p.lineItems.find(li => li.id === m.lineItemId)?.deliverableType ?? 'line item'}` : ''}
+                                  </span>
+                                  <div style={{ display: 'flex', gap: 8 }}>
+                                    <button type="button" onClick={() => openEditMonth(p.id, m)} style={linkBtn}>Edit</button>
+                                    <button type="button" onClick={() => deleteMonth(p.id, m)} style={{ ...linkBtn, color: '#cf3f36' }}>Delete</button>
+                                  </div>
                                 </div>
+                                {m.quotaOverride != null && <div style={{ color: '#54616f', marginTop: 2 }}>Quota override: {m.quotaOverride}</div>}
+                                {m.scopeNote && <div style={{ color: '#54616f', marginTop: 2 }}>{m.scopeNote}</div>}
+                                {m.note && <div style={{ color: '#8b97a4', marginTop: 2 }}>{m.note}</div>}
                               </div>
-                              {m.quotaOverride != null && <div style={{ color: '#54616f', marginTop: 2 }}>Quota override: {m.quotaOverride}</div>}
-                              {m.scopeNote && <div style={{ color: '#54616f', marginTop: 2 }}>{m.scopeNote}</div>}
-                              {m.note && <div style={{ color: '#8b97a4', marginTop: 2 }}>{m.note}</div>}
-                            </div>
-                          )
-                        ))}
-                        {monthFormPeriodId === p.id && editingMonthId === null && renderMonthForm(p.id)}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
+                            )
+                          ))}
+                          {monthFormPeriodId === p.id && editingMonthId === null && renderMonthForm(p.id, p.lineItems)}
+                        </div>
+                      )}
+                    </>
+                  }
+                />
+              )
             ))}
           </div>
         )}
