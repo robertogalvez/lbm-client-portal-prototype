@@ -244,6 +244,36 @@ export function findPeriodCoveringMonth<T extends Pick<ContractPeriod, 'startsOn
   return periods.filter(p => daysUnderContractInMonth(p, month) > 0);
 }
 
+// ── Rolling-cycle anchor (Amendment B) ───────────────────────────────────────
+
+// Minimal shape needed to find "the first published video" — matches the
+// same 'posted in socials' + publishDate/dueDate fallback CalendarView
+// already uses (components/client/CalendarView.tsx getDisplayDate) so
+// "published" means the same thing here as it does on the client calendar.
+export interface PublishableVideo {
+  status: string;
+  publishDate: string | null;
+  dueDate: string | null;
+}
+
+/**
+ * Finds the date a rolling-cycle period's quota clock should start counting
+ * from: the earliest publish date, on or after `windowStart` (the period's
+ * startsOn), among videos already published. Returns null while the cycle
+ * is still waiting for its first publish — callers must not treat null as
+ * "starts today," it means "hasn't started."
+ */
+export function resolveCycleAnchor(videos: PublishableVideo[], windowStart: Date): Date | null {
+  const dates = videos
+    .filter(v => v.status.toLowerCase().trim() === 'posted in socials')
+    .map(v => v.publishDate ?? v.dueDate)
+    .filter((d): d is string => !!d)
+    .map(d => new Date(d))
+    .filter(d => d.getTime() >= windowStart.getTime());
+  if (dates.length === 0) return null;
+  return dates.reduce((earliest, d) => (d < earliest ? d : earliest));
+}
+
 // ── Renewal carry-in ─────────────────────────────────────────────────────────
 
 /** Shortfall from a completed period's contracted total — what a renewal starts already owing. Never negative: over-delivery doesn't carry in as a debt the other way. */
