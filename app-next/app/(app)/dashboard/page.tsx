@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm';
 import { isConfigured, MappedTask } from '@/lib/clickup';
 import { getDashboardTasks } from '@/lib/dashboard-tasks';
 import { db } from '@/lib/db';
-import { clients as clientsTable, contractPeriods, type ContractPeriod } from '@/lib/db/schema';
-import { fulfilment, attentionScore, healthTier, expiryLabel, type HealthTier } from '@/lib/contracts';
+import { clients as clientsTable, contractPeriods, contractPeriodClients, type ContractPeriod } from '@/lib/db/schema';
+import { fulfilment, attentionScore, healthTier, expiryLabel, resolveCurrentPeriod, type HealthTier } from '@/lib/contracts';
 import { DashboardTabs, KpiData, PortfolioClientRow, PipelineStage, PipelineStageCounts, PipelinePeriod, PipelinePeriodStat, PipelineClientRow } from '@/components/dashboard/DashboardTabs';
 
 export const revalidate = 60;
@@ -59,6 +58,7 @@ const fmtDate = (d: string | Date) => new Date(d).toLocaleDateString('en-US', { 
 interface ContractJoinRow {
   id: string;
   clientName: string;
+  clickupClientOptionId: string | null;
   label: string;
   startsOn: string;
   endsOn: string | null;
@@ -67,14 +67,21 @@ interface ContractJoinRow {
   state: ContractPeriod['state'];
 }
 
-// Portfolio overview, current-contract mode (§5.2). video_cache has no real
-// foreign key to `clients` — its `clientId` is a ClickUp custom-field option
-// id, a different id space from `clients.clickupTaskId` (a ClickUp task id).
-// Matching by normalized name is what the rest of this file already does
-// (see buildBacklog) and is the only reliable join available.
+// A task belongs to this period's client if the stable ClickUp option id
+// matches (the real join — see clients.clickupClientOptionId, added by the
+// contract redesign's Decision 3). Falls back to normalized-name matching
+// only when the id isn't resolved on one side yet (client not synced since
+// the option-id backfill, or the task's own field unset) — never "shows
+// nothing" just because the ID isn't populated yet.
+function matchesClient(t: MappedTask, p: Pick<ContractJoinRow, 'clientName' | 'clickupClientOptionId'>): boolean {
+  if (p.clickupClientOptionId && t.clientOptionId) return t.clientOptionId === p.clickupClientOptionId;
+  return norm(t.clientName ?? '') === norm(p.clientName);
+}
+
+// Portfolio overview, current-contract mode (§5.2).
 function buildPortfolio(periods: ContractJoinRow[], allTasks: MappedTask[], now: Date): PortfolioClientRow[] {
   return periods.map(p => {
-    const clientTasks = allTasks.filter(t => norm(t.clientName ?? '') === norm(p.clientName));
+    const clientTasks = allTasks.filter(t => matchesClient(t, p));
     const periodStartMs = new Date(p.startsOn).getTime();
 
     // A POSTED task whose publish date is still in the future hasn't
@@ -245,34 +252,46 @@ export default async function DashboardPage({
 
   const { inactive = '' } = await searchParams;
   const showInactive = inactive === '1';
-  const [taskResult, clientStatusRows, activeContracts] = await Promise.all([
+  const [taskResult, clientStatusRows, allPeriods, periodClients] = await Promise.all([
     getDashboardTasks(),
     // Hide Inactive clients (per the synced ClickUp Master Clients List) everywhere
     // on the dashboard by default — a client with no matching record (not yet
     // synced) is kept visible rather than silently hidden.
-    db.select({ id: clientsTable.id, name: clientsTable.name, clientStatus: clientsTable.clientStatus, socialLinks: clientsTable.socialLinks })
+    db.select({ id: clientsTable.id, name: clientsTable.name, clientStatus: clientsTable.clientStatus, socialLinks: clientsTable.socialLinks, clickupClientOptionId: clientsTable.clickupClientOptionId })
       .from(clientsTable)
-      .catch(() => [] as { id: string; name: string; clientStatus: string | null; socialLinks: unknown }[]),
-    // Portfolio overview data source (§9): contract_periods with state='active',
-    // joined to clients for the display name.
-    db.select({
-        id: contractPeriods.id,
-        clientName: clientsTable.name,
-        label: contractPeriods.label,
-        startsOn: contractPeriods.startsOn,
-        endsOn: contractPeriods.endsOn,
-        model: contractPeriods.model,
-        contractedTotal: contractPeriods.contractedTotal,
-        state: contractPeriods.state,
-      })
-      .from(contractPeriods)
-      .innerJoin(clientsTable, eq(contractPeriods.clientId, clientsTable.id))
-      .where(eq(contractPeriods.state, 'active'))
-      .catch(() => [] as ContractJoinRow[]),
+      .catch(() => [] as { id: string; name: string; clientStatus: string | null; socialLinks: unknown; clickupClientOptionId: string | null }[]),
+    db.select().from(contractPeriods).catch(() => [] as ContractPeriod[]),
+    db.select().from(contractPeriodClients).catch(() => [] as { periodId: string; clientId: string }[]),
   ]);
 
   let allTasks = taskResult.tasks;
   const error = taskResult.error;
+
+  // Portfolio overview data source: the ONE canonical "current" period per
+  // client (§5.2/Decision from the redesign) — resolveCurrentPeriod treats
+  // 'extended' as current too, fixing the old state==='active'-only filter
+  // that made renewed-but-still-running contracts invisible here.
+  const now0 = new Date();
+  const activeContracts: ContractJoinRow[] = clientStatusRows.flatMap(c => {
+    const clientPeriodIds = new Set([
+      ...periodClients.filter(pc => pc.clientId === c.id).map(pc => pc.periodId),
+      ...allPeriods.filter(p => p.clientId === c.id).map(p => p.id),
+    ]);
+    const clientPeriods = allPeriods.filter(p => clientPeriodIds.has(p.id));
+    const current = resolveCurrentPeriod(clientPeriods, now0);
+    if (!current) return [];
+    return [{
+      id: current.id,
+      clientName: c.name,
+      clickupClientOptionId: c.clickupClientOptionId,
+      label: current.label,
+      startsOn: current.startsOn,
+      endsOn: current.endsOn,
+      model: current.model,
+      contractedTotal: current.contractedTotal,
+      state: current.state,
+    }];
+  });
 
   const inactiveNames = new Set(
     clientStatusRows.filter(c => c.clientStatus === 'Inactive').map(c => norm(c.name))

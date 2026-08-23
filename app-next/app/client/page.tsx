@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { authUsers, clients, contractPeriods, contractMonths, videoPriorities } from '@/lib/db/schema';
+import { authUsers, clients, contractPeriods, contractPeriodClients, contractMonths, videoPriorities } from '@/lib/db/schema';
 import { eq, inArray } from 'drizzle-orm';
 import { getTasksFromList } from '@/lib/clickup';
 import { getThumbnailUrl } from '@/lib/frameio';
@@ -117,11 +117,22 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   const priorityRank = new Map(priorityRows.map(r => [r.clickupTaskId, r.rank]));
 
   // Report contract data (§5.6/§7.1) — every period on file for this client
-  // plus their deviation-only contract_months rows, so the report's month
-  // selector can resolve the right agreement for whichever month is chosen,
-  // the same way the dashboard's month mode does.
+  // (including a joint contract they're part of, via contract_period_clients
+  // — falling back to the legacy direct clientId column for any period PR 1's
+  // backfill hasn't reached) plus their deviation-only contract_months rows,
+  // so the report's month selector can resolve the right agreement for
+  // whichever month is chosen, the same way the dashboard's month mode does.
   const reportPeriods = clientRecord?.id
-    ? await db.select().from(contractPeriods).where(eq(contractPeriods.clientId, clientRecord.id)).orderBy(contractPeriods.startsOn)
+    ? await (async () => {
+        const [viaJoin, viaLegacyColumn] = await Promise.all([
+          db.select({ periodId: contractPeriodClients.periodId }).from(contractPeriodClients).where(eq(contractPeriodClients.clientId, clientRecord.id)),
+          db.select({ id: contractPeriods.id }).from(contractPeriods).where(eq(contractPeriods.clientId, clientRecord.id)),
+        ]);
+        const periodIds = [...new Set([...viaJoin.map(r => r.periodId), ...viaLegacyColumn.map(r => r.id)])];
+        return periodIds.length > 0
+          ? db.select().from(contractPeriods).where(inArray(contractPeriods.id, periodIds)).orderBy(contractPeriods.startsOn)
+          : [];
+      })()
     : [];
   const reportMonthRows = reportPeriods.length > 0
     ? await db.select().from(contractMonths).where(inArray(contractMonths.periodId, reportPeriods.map(p => p.id)))

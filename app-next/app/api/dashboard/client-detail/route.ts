@@ -43,10 +43,39 @@ export async function GET(req: Request) {
 
   if (!period) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
+  // This period's client set — a joint contract (Jay & Kristina) has more
+  // than one — falling back to the old direct clientId column for any
+  // period PR 1's backfill hasn't reached (shouldn't happen post-backfill).
+  const thisPeriodClients = await db.select({ clientId: contractPeriodClients.clientId })
+    .from(contractPeriodClients).where(eq(contractPeriodClients.periodId, id));
+  const periodClientIds = thisPeriodClients.length > 0 ? thisPeriodClients.map(c => c.clientId) : [period.clientId];
+
+  const clientRows = await db.select({ id: clientsTable.id, name: clientsTable.name, clickupClientOptionId: clientsTable.clickupClientOptionId })
+    .from(clientsTable).where(inArray(clientsTable.id, periodClientIds));
+  const displayName = clientRows.map(c => c.name).join(' & ') || period.clientName;
+  // Per-client fallback (not a blanket OR across the whole set): a client
+  // whose clickupClientOptionId IS resolved must match by ID only — falling
+  // back to name matching there too could wrongly pull in another client's
+  // tasks on a name collision. Name matching only kicks in for a client
+  // whose ID isn't resolved yet.
+  const idResolved = clientRows.filter(c => c.clickupClientOptionId);
+  const idFallback = clientRows.filter(c => !c.clickupClientOptionId);
+  const clientOptionIds = new Set(idResolved.map(c => c.clickupClientOptionId as string));
+  const clientNameFallbackSet = new Set(idFallback.map(c => norm(c.name)));
+
+  // "Every period sharing ANY client with this period" — not just periods
+  // on period.clientId directly — so a joint contract's history reads
+  // correctly for either party, and a period one of the joint clients had
+  // BEFORE joining (as a solo contract) shows up too.
+  const [sharedViaJoin, sharedViaLegacyColumn] = await Promise.all([
+    db.select({ periodId: contractPeriodClients.periodId }).from(contractPeriodClients).where(inArray(contractPeriodClients.clientId, periodClientIds)),
+    db.select({ id: contractPeriods.id }).from(contractPeriods).where(inArray(contractPeriods.clientId, periodClientIds)),
+  ]);
+  const relatedPeriodIds = [...new Set([id, ...sharedViaJoin.map(r => r.periodId), ...sharedViaLegacyColumn.map(r => r.id)])];
   const allPeriods = await db
     .select()
     .from(contractPeriods)
-    .where(eq(contractPeriods.clientId, period.clientId))
+    .where(inArray(contractPeriods.id, relatedPeriodIds))
     .orderBy(contractPeriods.startsOn);
 
   const periodIds = allPeriods.map(p => p.id);
@@ -59,7 +88,12 @@ export async function GET(req: Request) {
     : [[], [], []];
 
   const { tasks: allTasks } = await getDashboardTasks();
-  const clientTasks = allTasks.filter(t => norm(t.clientName ?? '') === norm(period.clientName));
+  // ID-based join (Decision 3) — falls back to normalized-name matching for
+  // any of this period's clients whose clickupClientOptionId isn't
+  // resolved yet, so a not-yet-synced client never silently shows nothing.
+  const clientTasks = allTasks.filter(t =>
+    (t.clientOptionId != null && clientOptionIds.has(t.clientOptionId)) || clientNameFallbackSet.has(norm(t.clientName ?? '')),
+  );
 
   const periodStartMs = new Date(period.startsOn).getTime();
   const published = clientTasks.filter(t => norm(t.status) === 'posted in socials' && parseDate(t.dateUpdated) >= periodStartMs).length;
@@ -110,7 +144,7 @@ export async function GET(req: Request) {
 
   const data: ClientDetailData = {
     clientId: period.clientId,
-    name: period.clientName,
+    name: displayName,
     type: period.model === 'package' ? 'package' : 'retainer',
     health,
     contracted: period.contractedTotal,
