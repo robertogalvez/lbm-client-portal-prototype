@@ -65,6 +65,7 @@ export async function POST() {
       frameioProjectId: r.frameioProjectId,
       clientStatus:   r.clientStatus,
       monthlyQuota:   r.monthlyQuota,
+      clickupClientOptionId: r.clickupClientOptionId,
       lastSyncedAt:   new Date(),
     };
 
