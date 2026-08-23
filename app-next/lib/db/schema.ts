@@ -184,6 +184,19 @@ export const contractPeriods = pgTable('contract_periods', {
   // contract end, Volvi's unreconciled total, Saeed's conflicting source
   // sheets) — surfaced to admins rather than silently carried forward.
   dataQualityFlag:  text('data_quality_flag'),
+  // Rolling-cycle mode (Amendment B): null = traditional fixed-date contract
+  // (startsOn/endsOn govern it directly, as above). A value (e.g. 30) means
+  // this period's quota window is measured from cycleAnchorDate, not
+  // startsOn — see cycleAnchorDate below. Mutually exclusive with contract
+  // line items: a rolling-cycle period always uses the aggregate
+  // contractedTotal/monthlyQuota, never a per-deliverable-type breakdown.
+  cycleDurationDays: integer('cycle_duration_days'),
+  // Set exactly once, the first time a video is detected published on/after
+  // startsOn — never recomputed afterward, even if publish dates are later
+  // reordered. Null while the cycle is still waiting for its first
+  // publish (no quota is counted yet). The cycle's real end date is always
+  // cycleAnchorDate + cycleDurationDays, never endsOn, once this is set.
+  cycleAnchorDate:  date('cycle_anchor_date'),
 });
 
 // Many-to-many period↔client join — almost always exactly one row per

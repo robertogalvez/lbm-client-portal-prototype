@@ -236,6 +236,9 @@ export async function POST(req: Request) {
         END $$`,
       sql`CREATE UNIQUE INDEX IF NOT EXISTS "contract_months_aggregate_unique_idx"
         ON "contract_months" ("period_id", "month") WHERE "line_item_id" IS NULL`,
+      // Contract redesign PR 3 (Amendment B) — rolling-cycle renewal fields.
+      sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS cycle_duration_days integer`,
+      sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS cycle_anchor_date date`,
     ]);
 
     const rows = await sql`
