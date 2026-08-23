@@ -1,27 +1,30 @@
 import { NextResponse } from 'next/server';
-import { headers } from 'next/headers';
-import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { authUsers, contractMonths } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { contractMonths, contractLineItems } from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
+import { requireAdmin } from '@/lib/require-admin';
 
 // `id` here is the contract_periods id this month deviation belongs to.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const caller = await db.select({ role: authUsers.role }).from(authUsers).where(eq(authUsers.id, session.user.id)).limit(1);
-  if (caller[0]?.role === 'client') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const gate = await requireAdmin();
+  if (gate instanceof NextResponse) return gate;
 
   const body = await req.json();
-  const { month, active, quotaOverride, scopeNote, amended, note } = body;
+  const { month, active, quotaOverride, scopeNote, amended, note, lineItemId } = body;
 
   if (!month) return NextResponse.json({ error: 'month is required' }, { status: 400 });
+
+  if (lineItemId) {
+    const [item] = await db.select({ id: contractLineItems.id }).from(contractLineItems)
+      .where(and(eq(contractLineItems.id, lineItemId), eq(contractLineItems.periodId, id))).limit(1);
+    if (!item) return NextResponse.json({ error: 'lineItemId does not belong to this period' }, { status: 400 });
+  }
 
   try {
     const [created] = await db.insert(contractMonths).values({
       periodId: id,
+      lineItemId: lineItemId || null,
       month,
       active: active ?? true,
       quotaOverride: quotaOverride ?? null,
@@ -31,7 +34,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }).returning();
     return NextResponse.json({ ok: true, month: created });
   } catch (e) {
-    // Unique (period_id, month) constraint — this month already has a deviation row.
+    // Unique (period_id, line_item_id, month) constraint — this month already
+    // has a deviation row (aggregate or for this same line item).
     return NextResponse.json({ error: String(e) }, { status: 409 });
   }
 }

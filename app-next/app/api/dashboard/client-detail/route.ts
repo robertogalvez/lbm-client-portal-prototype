@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { clients as clientsTable, contractPeriods, contractMonths } from '@/lib/db/schema';
+import { clients as clientsTable, contractPeriods, contractMonths, contractPeriodClients, contractLineItems } from '@/lib/db/schema';
 import { getDashboardTasks } from '@/lib/dashboard-tasks';
 import { fulfilment, beyondContract, healthTier, onCadence } from '@/lib/contracts';
 import type { ClientDetailData, LedgerRow, ContractHistoryRow } from '@/components/dashboard/ClientDetail';
@@ -44,27 +44,19 @@ export async function GET(req: Request) {
   if (!period) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const allPeriods = await db
-    .select({
-      id: contractPeriods.id,
-      clientId: contractPeriods.clientId,
-      label: contractPeriods.label,
-      startsOn: contractPeriods.startsOn,
-      endsOn: contractPeriods.endsOn,
-      model: contractPeriods.model,
-      cadencePerWeek: contractPeriods.cadencePerWeek,
-      monthlyQuota: contractPeriods.monthlyQuota,
-      contractedTotal: contractPeriods.contractedTotal,
-      state: contractPeriods.state,
-      carriedIn: contractPeriods.carriedIn,
-      notes: contractPeriods.notes,
-    })
+    .select()
     .from(contractPeriods)
     .where(eq(contractPeriods.clientId, period.clientId))
     .orderBy(contractPeriods.startsOn);
 
-  const allMonths = allPeriods.length > 0
-    ? await db.select().from(contractMonths).where(inArray(contractMonths.periodId, allPeriods.map(p => p.id)))
-    : [];
+  const periodIds = allPeriods.map(p => p.id);
+  const [allMonths, allLineItems, allPeriodClients] = periodIds.length > 0
+    ? await Promise.all([
+        db.select().from(contractMonths).where(inArray(contractMonths.periodId, periodIds)),
+        db.select().from(contractLineItems).where(inArray(contractLineItems.periodId, periodIds)),
+        db.select().from(contractPeriodClients).where(inArray(contractPeriodClients.periodId, periodIds)),
+      ])
+    : [[], [], []];
 
   const { tasks: allTasks } = await getDashboardTasks();
   const clientTasks = allTasks.filter(t => norm(t.clientName ?? '') === norm(period.clientName));
@@ -112,6 +104,8 @@ export async function GET(req: Request) {
   const periods: ContractPeriodRecord[] = allPeriods.map(p => ({
     ...p,
     months: allMonths.filter(m => m.periodId === p.id),
+    lineItems: allLineItems.filter(li => li.periodId === p.id),
+    clientIds: allPeriodClients.filter(pc => pc.periodId === p.id).map(pc => pc.clientId),
   }));
 
   const data: ClientDetailData = {
