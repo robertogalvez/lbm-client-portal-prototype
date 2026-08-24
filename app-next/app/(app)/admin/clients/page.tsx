@@ -6,7 +6,7 @@ import { authUsers, clients, contractPeriods, contractPeriodClients, contractLin
 import { eq, inArray } from 'drizzle-orm';
 import { getDashboardTasks } from '@/lib/dashboard-tasks';
 import { resolveCurrentPeriod } from '@/lib/contracts';
-import { buildBacklog, buildPortfolio, buildPortfolioKpis, type ContractJoinRow } from '@/lib/portfolio';
+import { buildBacklog, buildPortfolio, buildPortfolioKpis, type ContractJoinRow, type ClientPortfolioInput } from '@/lib/portfolio';
 import { ClientsPageClient } from './ClientsPageClient';
 
 export const revalidate = 60;
@@ -70,15 +70,14 @@ export default async function AdminClientsPage() {
   // filter that made renewed-but-still-running contracts invisible).
   // Reuses the exact allPeriods/allPeriodClients rows already loaded above.
   const now = new Date();
-  const activeContracts: ContractJoinRow[] = allClients.flatMap(c => {
+  const portfolioInputs: ClientPortfolioInput[] = allClients.map(c => {
     const periodIdsForClient = new Set([
       ...allPeriodClients.filter(pc => pc.clientId === c.id).map(pc => pc.periodId),
       ...allPeriods.filter(p => p.clientId === c.id).map(p => p.id),
     ]);
     const clientPeriods = allPeriods.filter(p => periodIdsForClient.has(p.id));
     const current = resolveCurrentPeriod(clientPeriods, now);
-    if (!current) return [];
-    return [{
+    const period: ContractJoinRow | null = current ? {
       id: current.id,
       clientName: c.name,
       clickupClientOptionId: c.clickupClientOptionId,
@@ -88,11 +87,18 @@ export default async function AdminClientsPage() {
       model: current.model,
       contractedTotal: current.contractedTotal,
       state: current.state,
-    }];
+    } : null;
+    return {
+      clientId: c.id,
+      clientName: c.name,
+      billing: c.type as 'retainer' | 'one_time' | null,
+      portalUserCount: portalUsers.filter(u => u.clientName === c.name).length,
+      period,
+    };
   });
 
   const allTasks = taskResult.tasks;
-  const portfolioRows = buildPortfolio(activeContracts, allTasks, now);
+  const portfolioRows = buildPortfolio(portfolioInputs, allTasks, now);
   const portfolioKpis = buildPortfolioKpis(portfolioRows, buildBacklog(allTasks));
 
   return <ClientsPageClient clients={clientsWithUsers} portfolioKpis={portfolioKpis} portfolioRows={portfolioRows} />;

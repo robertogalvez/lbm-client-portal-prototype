@@ -17,11 +17,17 @@ function recentMonths(): { value: string; label: string }[] {
 }
 
 export interface PortfolioClientRow {
-  id: string; // contract_periods.id
+  id: string; // contract_periods.id — or clients.id when noContractClientId is set
+  // Set (to the client's id) when this row has no resolved contract period
+  // yet — a just-synced "Needs setup" client, folded in here now that
+  // Portfolio is the single landing view for /admin/clients. Selecting such
+  // a row should open the contract-only fallback panel, not ClientDetail
+  // (which needs a real period id).
+  noContractClientId: string | null;
   name: string;
   subtitle: string; // contract label, e.g. "Contract 2"
   health: HealthTier;
-  type: 'retainer' | 'package';
+  type: 'retainer' | 'package' | null; // null only for a noContractClientId row
   periodText: string; // "Apr 21 – Jul 20, 2026"
   expiryText: string;
   expiryTone: 'red' | 'amber' | 'green' | 'slate';
@@ -32,6 +38,8 @@ export interface PortfolioClientRow {
   editing: number;
   onHold: number;
   attentionScore: number;
+  billing: 'retainer' | 'one_time' | null; // clients.type — commercial relationship, distinct from `type` (this contract's delivery model)
+  portalUserCount: number;
 }
 
 interface Props {
@@ -78,6 +86,7 @@ function deliveryBarColor(delivered: number, contracted: number): string {
 }
 
 function TypeChip({ type }: { type: PortfolioClientRow['type'] }) {
+  if (type === null) return <span style={{ fontSize: 11.5, color: '#8b97a4' }}>—</span>;
   const isRetainer = type === 'retainer';
   return (
     <span style={{
@@ -86,6 +95,20 @@ function TypeChip({ type }: { type: PortfolioClientRow['type'] }) {
       background: isRetainer ? '#eaf0ff' : '#efeafa',
     }}>
       {isRetainer ? 'Retainer' : 'Package'}
+    </span>
+  );
+}
+
+function BillingChip({ billing }: { billing: PortfolioClientRow['billing'] }) {
+  if (billing === null) return <span style={{ fontSize: 11.5, fontStyle: 'italic', color: '#8b97a4' }}>Needs setup</span>;
+  const isRetainer = billing === 'retainer';
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 7,
+      color: isRetainer ? '#1a56a0' : '#7c3aed',
+      background: isRetainer ? '#dbeafe' : '#ede9fe',
+    }}>
+      {isRetainer ? 'Retainer' : 'One-time'}
     </span>
   );
 }
@@ -230,7 +253,7 @@ export function PortfolioTable({ kpis, rows, onSelect }: Props) {
               </thead>
               <tbody>
                 {rows.length === 0 && (
-                  <tr><td colSpan={9} style={{ padding: '32px 16px', textAlign: 'center', color: '#8b97a4' }}>No active contracts yet.</td></tr>
+                  <tr><td colSpan={9} style={{ padding: '32px 16px', textAlign: 'center', color: '#8b97a4' }}>No clients yet.</td></tr>
                 )}
                 {GROUPS.map(group => {
                   const groupRows = sortWithin(filtered.filter(r => group.healths.includes(r.health)));
@@ -272,7 +295,14 @@ function FragmentGroup({ group, rows, onSelect }: { group: (typeof GROUPS)[numbe
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ width: 34, height: 34, borderRadius: 9, background: HEALTH_AVATAR_COLOR[r.health], color: '#fff', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{initials(r.name)}</span>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 600, color: '#111c28' }}>{r.name}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontWeight: 600, color: '#111c28' }}>{r.name}</span>
+                  {r.portalUserCount > 0 && (
+                    <span title={`${r.portalUserCount} portal user${r.portalUserCount === 1 ? '' : 's'}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 100, background: '#f5f7f9', color: '#54616f' }}>
+                      {r.portalUserCount}
+                    </span>
+                  )}
+                </div>
                 <div style={{ fontSize: 11.5, color: '#8b97a4' }}>{r.subtitle}</div>
               </div>
             </div>
@@ -288,7 +318,7 @@ function FragmentGroup({ group, rows, onSelect }: { group: (typeof GROUPS)[numbe
           </td>
           <td style={tdNum}>
             {r.contracted === 0 ? (
-              <span style={{ fontSize: 11.5, fontStyle: 'italic', color: '#8b97a4' }}>Awaiting production data</span>
+              <span style={{ fontSize: 11.5, fontStyle: 'italic', color: '#8b97a4' }}>{r.noContractClientId ? 'No contract yet' : 'Awaiting production data'}</span>
             ) : (
               <div style={{ minWidth: 90 }}>
                 <div style={{ fontSize: 12.5, fontFamily: 'var(--font-mono)' }}>{r.delivered} · {r.fulfilmentPct !== null ? `${Math.round(r.fulfilmentPct)}%` : '—'}</div>
@@ -309,10 +339,7 @@ function FragmentGroup({ group, rows, onSelect }: { group: (typeof GROUPS)[numbe
               color: group.dot, background: group.dot === '#cf3f36' ? '#fdedeb' : group.dot === '#a86a00' ? '#fbf1dc' : group.dot === '#14805f' ? '#e6f4ee' : '#eef1f4',
             }}>{group.label}</span>
           </td>
-          <td style={tdNum}>
-            {/* contract_periods has no billing column (contract-schema-spec.md doesn't define one) — not tracked rather than invented. */}
-            <span style={{ fontSize: 11.5, fontStyle: 'italic', color: '#8b97a4' }}>Not tracked</span>
-          </td>
+          <td style={tdNum}><BillingChip billing={r.billing} /></td>
           <td style={{ ...tdNum, color: '#c3cbd3' }}>›</td>
         </tr>
       ))}
