@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { clients as clientsTable, contractPeriods, contractMonths } from '@/lib/db/schema';
+import { clients as clientsTable, contractPeriods, contractMonths, contractPeriodClients } from '@/lib/db/schema';
 import { getDashboardTasks } from '@/lib/dashboard-tasks';
-import { resolveMonthAgreement } from '@/lib/contracts';
+import { resolveMonthAgreement, findPeriodCoveringMonth } from '@/lib/contracts';
 
 function norm(s: string) {
   return s.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -42,9 +42,10 @@ export async function GET(req: Request) {
   const monthStart = new Date(Date.UTC(y, m - 1, 1)).getTime();
   const monthEnd = new Date(Date.UTC(y, m, 0)).getTime();
 
-  const [allClients, allPeriods, monthRows, { tasks: allTasks }] = await Promise.all([
-    db.select({ id: clientsTable.id, name: clientsTable.name }).from(clientsTable),
+  const [allClients, allPeriods, periodClients, monthRows, { tasks: allTasks }] = await Promise.all([
+    db.select({ id: clientsTable.id, name: clientsTable.name, clickupClientOptionId: clientsTable.clickupClientOptionId }).from(clientsTable),
     db.select().from(contractPeriods),
+    db.select().from(contractPeriodClients),
     db.select().from(contractMonths).where(eq(contractMonths.month, month)),
     getDashboardTasks(),
   ]);
@@ -52,16 +53,22 @@ export async function GET(req: Request) {
   const monthRowByPeriod = new Map(monthRows.map(r => [r.periodId, r]));
 
   const rows: MonthModeRow[] = allClients.map(client => {
+    // Every period this client is on — via the join table (covers joint
+    // contracts too) or the legacy direct clientId column.
+    const linkedPeriodIds = new Set([
+      ...periodClients.filter(pc => pc.clientId === client.id).map(pc => pc.periodId),
+      ...allPeriods.filter(p => p.clientId === client.id).map(p => p.id),
+    ]);
+    const candidates = allPeriods.filter(p => linkedPeriodIds.has(p.id));
     // The period covering this month, if any; a client with several periods
     // over time has at most one that overlaps a given month in practice.
-    const candidates = allPeriods.filter(p => p.clientId === client.id);
-    const covering = candidates.find(p => {
-      const starts = new Date(p.startsOn).getTime();
-      const ends = p.endsOn ? new Date(p.endsOn).getTime() : Infinity;
-      return starts <= monthEnd && ends >= monthStart;
-    });
+    const covering = findPeriodCoveringMonth(candidates, month)[0];
 
-    const clientTasks = allTasks.filter(t => norm(t.clientName ?? '') === norm(client.name));
+    // ID-based join (Decision 3), falling back to normalized-name matching
+    // when this client's clickupClientOptionId isn't resolved yet.
+    const clientTasks = client.clickupClientOptionId
+      ? allTasks.filter(t => t.clientOptionId === client.clickupClientOptionId)
+      : allTasks.filter(t => norm(t.clientName ?? '') === norm(client.name));
     const delivered = clientTasks.filter(t =>
       norm(t.status) === 'posted in socials' &&
       parseDate(t.dateUpdated) >= monthStart && parseDate(t.dateUpdated) <= monthEnd
