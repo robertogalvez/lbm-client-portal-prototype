@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { clients as clientsTable, contractPeriods, contractMonths, contractPeriodClients } from '@/lib/db/schema';
 import { getDashboardTasks } from '@/lib/dashboard-tasks';
 import { resolveMonthAgreement, findPeriodCoveringMonth } from '@/lib/contracts';
+import { requireAdmin } from '@/lib/require-admin';
 
 function norm(s: string) {
   return s.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -35,6 +36,9 @@ export interface MonthModeResponse {
 }
 
 export async function GET(req: Request) {
+  const gate = await requireAdmin();
+  if (gate instanceof NextResponse) return gate;
+
   const month = new URL(req.url).searchParams.get('month'); // 'YYYY-MM'
   if (!month || !/^\d{4}-\d{2}$/.test(month)) return NextResponse.json({ error: 'month must be YYYY-MM' }, { status: 400 });
 

@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { clients as clientsTable, contractPeriods, contractMonths, contractPeriodClients, contractLineItems } from '@/lib/db/schema';
+import { authUsers, clients as clientsTable, contractPeriods, contractMonths, contractPeriodClients, contractLineItems } from '@/lib/db/schema';
 import { getDashboardTasks } from '@/lib/dashboard-tasks';
 import { fulfilment, beyondContract, healthTier, onCadence } from '@/lib/contracts';
+import { requireAdmin } from '@/lib/require-admin';
 import type { ClientDetailData, LedgerRow, ContractHistoryRow } from '@/components/dashboard/ClientDetail';
 import type { ContractPeriodRecord } from '@/components/shared/ClientEditPanel';
 
@@ -17,6 +18,9 @@ function parseDate(s: string) {
 }
 
 export async function GET(req: Request) {
+  const gate = await requireAdmin();
+  if (gate instanceof NextResponse) return gate;
+
   const id = new URL(req.url).searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
@@ -142,6 +146,17 @@ export async function GET(req: Request) {
     clientIds: allPeriodClients.filter(pc => pc.periodId === p.id).map(pc => pc.clientId),
   }));
 
+  // Portal & admin section (unified Clients page) — scoped to period.clientId
+  // specifically (the "primary" client), not the joint displayName: portal
+  // settings/users are a per-client concept, and no joint contract actually
+  // has more than one real client row populated yet (Decision 4 kept Jay &
+  // Kristina flattened onto "Jay" at migration time).
+  const [primaryClient] = await db.select().from(clientsTable).where(eq(clientsTable.id, period.clientId)).limit(1);
+  const portalUsers = primaryClient
+    ? await db.select({ id: authUsers.id, name: authUsers.name, email: authUsers.email, clientName: authUsers.clientName, emailVerified: authUsers.emailVerified })
+        .from(authUsers).where(eq(authUsers.clientName, primaryClient.name))
+    : [];
+
   const data: ClientDetailData = {
     clientId: period.clientId,
     name: displayName,
@@ -171,6 +186,23 @@ export async function GET(req: Request) {
     contractHistory,
     socialLinks: period.socialLinks as Record<string, { handle?: string; url?: string }> | null,
     periods,
+    portal: primaryClient ? {
+      clickupTaskId: primaryClient.clickupTaskId,
+      billingType: primaryClient.type as 'retainer' | 'one_time' | null,
+      contactName: primaryClient.contactName,
+      contactEmail: primaryClient.contactEmail,
+      whatsappNumber: primaryClient.whatsappNumber,
+      clientStatus: primaryClient.clientStatus,
+      frameioProjectId: primaryClient.frameioProjectId,
+      vistaSocialProfileIds: (primaryClient.brandingConfig as { vistaSocialProfileIds?: string } | null)?.vistaSocialProfileIds ?? null,
+      lastSyncedAt: primaryClient.lastSyncedAt ? primaryClient.lastSyncedAt.toISOString() : null,
+      showCalendar: primaryClient.showCalendar ?? false,
+      showInvoices: primaryClient.showInvoices ?? false,
+      showReport: primaryClient.showReport ?? false,
+      notifyEmail: primaryClient.notifyEmail ?? true,
+      notifySms: primaryClient.notifySms ?? false,
+      portalUsers,
+    } : null,
   };
 
   return NextResponse.json(data);
