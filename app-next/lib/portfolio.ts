@@ -60,6 +60,19 @@ export interface ContractJoinRow {
   state: ContractPeriod['state'];
 }
 
+// One entry per client in the whole roster — `period` is null for a client
+// with no resolved current contract (a just-synced "Needs setup" client).
+// Portfolio is now the single landing view for /admin/clients (folding in
+// what used to be the separate Directory tab), so it has to show every
+// client, not just ones already under an active/extended contract.
+export interface ClientPortfolioInput {
+  clientId: string;
+  clientName: string;
+  billing: 'retainer' | 'one_time' | null;
+  portalUserCount: number;
+  period: ContractJoinRow | null;
+}
+
 // A task belongs to this period's client if the stable ClickUp option id
 // matches (the real join — see clients.clickupClientOptionId, added by the
 // contract redesign's Decision 3). Falls back to normalized-name matching
@@ -71,9 +84,36 @@ export function matchesClient(t: MappedTask, p: Pick<ContractJoinRow, 'clientNam
   return norm(t.clientName ?? '') === norm(p.clientName);
 }
 
-// Portfolio overview, current-contract mode.
-export function buildPortfolio(periods: ContractJoinRow[], allTasks: MappedTask[], now: Date): PortfolioClientRow[] {
-  return periods.map(p => {
+// Portfolio overview, current-contract mode — one row per client in the
+// roster. A client with no resolved current period gets a 'pending' row
+// (health tier `healthTier()` itself never produces, so it's free to mean
+// "needs setup" here) instead of being dropped from the list.
+export function buildPortfolio(clients: ClientPortfolioInput[], allTasks: MappedTask[], now: Date): PortfolioClientRow[] {
+  return clients.map(c => {
+    if (!c.period) {
+      return {
+        id: c.clientId,
+        noContractClientId: c.clientId,
+        name: c.clientName,
+        subtitle: 'No contract yet',
+        health: 'pending',
+        type: null,
+        periodText: '—',
+        expiryText: 'No contract yet',
+        expiryTone: 'slate',
+        delivered: 0,
+        contracted: 0,
+        fulfilmentPct: null,
+        inReview: 0,
+        editing: 0,
+        onHold: 0,
+        attentionScore: -1,
+        billing: c.billing,
+        portalUserCount: c.portalUserCount,
+      } satisfies PortfolioClientRow;
+    }
+
+    const p = c.period;
     const clientTasks = allTasks.filter(t => matchesClient(t, p));
     const periodStartMs = new Date(p.startsOn).getTime();
 
@@ -98,6 +138,7 @@ export function buildPortfolio(periods: ContractJoinRow[], allTasks: MappedTask[
 
     return {
       id: p.id,
+      noContractClientId: null,
       name: p.clientName,
       subtitle: p.label,
       health,
@@ -112,31 +153,38 @@ export function buildPortfolio(periods: ContractJoinRow[], allTasks: MappedTask[
       editing,
       onHold,
       attentionScore: attentionScore({ onHold, pendingReview: inReview, editing, health }),
+      billing: c.billing,
+      portalUserCount: c.portalUserCount,
     } satisfies PortfolioClientRow;
   }).sort((a, b) => b.attentionScore - a.attentionScore);
 }
 
 export function buildPortfolioKpis(portfolioRows: PortfolioClientRow[], backlogRows: { name: string; backlogCount: number }[]): KpiData[] {
   const backlogByName = new Map(backlogRows.map(b => [norm(b.name), b.backlogCount]));
+  const withContract = portfolioRows.filter(r => !r.noContractClientId);
   return [
     {
-      label: 'Active contracts', value: portfolioRows.length, dotColor: '#FF6000',
+      label: 'Active contracts', value: withContract.length, dotColor: '#FF6000',
       tip: 'Count of retainer and package clients with an active contract period.',
     },
     {
-      label: 'Needs attention', value: portfolioRows.filter(r => r.health === 'critical' || r.health === 'watch').length, dotColor: '#cf3f36',
+      label: 'Needs setup', value: portfolioRows.filter(r => r.noContractClientId).length, dotColor: '#b06f06',
+      tip: 'Clients synced from ClickUp with no contract period on file yet.',
+    },
+    {
+      label: 'Needs attention', value: withContract.filter(r => r.health === 'critical' || r.health === 'watch').length, dotColor: '#cf3f36',
       tip: 'Clients whose health is critical or watch.',
     },
     {
-      label: 'Pending client review', value: portfolioRows.reduce((sum, r) => sum + r.inReview, 0), dotColor: '#a86a00',
+      label: 'Pending client review', value: withContract.reduce((sum, r) => sum + r.inReview, 0), dotColor: '#a86a00',
       tip: 'Videos awaiting client approval, summed across active-contract clients.',
     },
     {
-      label: 'In active editing', value: portfolioRows.reduce((sum, r) => sum + r.editing, 0), dotColor: '#2563eb',
+      label: 'In active editing', value: withContract.reduce((sum, r) => sum + r.editing, 0), dotColor: '#2563eb',
       tip: 'Videos currently in an editing/QC stage, summed across active-contract clients.',
     },
     {
-      label: 'Footage starved', value: portfolioRows.filter(r => (backlogByName.get(norm(r.name)) ?? 0) === 0).length, dotColor: '#cf3f36',
+      label: 'Footage starved', value: withContract.filter(r => (backlogByName.get(norm(r.name)) ?? 0) === 0).length, dotColor: '#cf3f36',
       tip: 'Clients with zero raw footage in ClickUp\'s pre-production statuses (Not Ready / Backlog / Not Assigned).',
     },
   ];
