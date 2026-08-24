@@ -1,9 +1,13 @@
+import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
+import { auth } from '@/lib/auth';
 import { isConfigured, MappedTask } from '@/lib/clickup';
 import { getDashboardTasks } from '@/lib/dashboard-tasks';
 import { db } from '@/lib/db';
-import { clients as clientsTable, contractPeriods, contractPeriodClients, type ContractPeriod } from '@/lib/db/schema';
-import { fulfilment, attentionScore, healthTier, expiryLabel, resolveCurrentPeriod, type HealthTier } from '@/lib/contracts';
-import { DashboardTabs, KpiData, PortfolioClientRow, PipelineStage, PipelineStageCounts, PipelinePeriod, PipelinePeriodStat, PipelineClientRow } from '@/components/dashboard/DashboardTabs';
+import { authUsers, clients as clientsTable } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
+import { BACKLOG_STATUSES, resolvePostedAt } from '@/lib/portfolio';
+import { DashboardTabs, PipelineStage, PipelineStageCounts, PipelinePeriod, PipelinePeriodStat, PipelineClientRow } from '@/components/dashboard/DashboardTabs';
 
 export const revalidate = 60;
 
@@ -29,100 +33,8 @@ function kpiDelta(current: number, previous: number | null | undefined, higherIs
   return { text: `${arrow} ${magnitude}`, good };
 }
 
-// Statuses that count as raw, unedited footage on hand ("To do" stage of the
-// pipeline) — feeds buildBacklog's footage-supply math AND the pipeline
-// analytics "Backlog" stage below, so both agree on what counts as backlog.
-const BACKLOG_STATUSES = new Set(['not ready', 'backlog', 'not assigned']);
 const QC_STATUSES = new Set(['tc - qc (somu)', 'qc final - am']);
 const PIPELINE_EDITING_STATUSES = new Set(['in progress (editor)', 'in progress (corrections)']);
-
-function buildBacklog(tasks: MappedTask[]): { name: string; backlogCount: number }[] {
-  const map = new Map<string, number>();
-  for (const t of tasks) {
-    const name = t.clientName ?? 'Unknown';
-    if (!map.has(name)) map.set(name, 0);
-    if (BACKLOG_STATUSES.has(norm(t.status))) map.set(name, map.get(name)! + 1);
-  }
-  return Array.from(map.entries())
-    .map(([name, backlogCount]) => ({ name, backlogCount }))
-    .sort((a, b) => a.backlogCount - b.backlogCount);
-}
-
-// Statuses counted as "in active editing" for the portfolio's In-flight
-// column (Clients section) — merges Editing/QC/Corrections into one bucket,
-// unlike the finer-grained pipeline analytics stages below.
-const EDITING_STATUSES = new Set(['qc final - am', 'tc - qc (somu)', 'in progress (corrections)', 'in progress (editor)']);
-
-const fmtDate = (d: string | Date) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-interface ContractJoinRow {
-  id: string;
-  clientName: string;
-  clickupClientOptionId: string | null;
-  label: string;
-  startsOn: string;
-  endsOn: string | null;
-  model: string;
-  contractedTotal: number;
-  state: ContractPeriod['state'];
-}
-
-// A task belongs to this period's client if the stable ClickUp option id
-// matches (the real join — see clients.clickupClientOptionId, added by the
-// contract redesign's Decision 3). Falls back to normalized-name matching
-// only when the id isn't resolved on one side yet (client not synced since
-// the option-id backfill, or the task's own field unset) — never "shows
-// nothing" just because the ID isn't populated yet.
-function matchesClient(t: MappedTask, p: Pick<ContractJoinRow, 'clientName' | 'clickupClientOptionId'>): boolean {
-  if (p.clickupClientOptionId && t.clientOptionId) return t.clientOptionId === p.clickupClientOptionId;
-  return norm(t.clientName ?? '') === norm(p.clientName);
-}
-
-// Portfolio overview, current-contract mode (§5.2).
-function buildPortfolio(periods: ContractJoinRow[], allTasks: MappedTask[], now: Date): PortfolioClientRow[] {
-  return periods.map(p => {
-    const clientTasks = allTasks.filter(t => matchesClient(t, p));
-    const periodStartMs = new Date(p.startsOn).getTime();
-
-    // A POSTED task whose publish date is still in the future hasn't
-    // actually gone live yet — see resolvePostedAt below — so it doesn't
-    // count toward delivered until that date arrives.
-    const nowMs = now.getTime();
-    const delivered = clientTasks.filter(t => {
-      if (norm(t.status) !== POSTED) return false;
-      const postedAt = resolvePostedAt(t);
-      return postedAt >= periodStartMs && postedAt <= nowMs;
-    }).length;
-    const inReview = clientTasks.filter(t => norm(t.status) === 'for client review').length;
-    const editing = clientTasks.filter(t => EDITING_STATUSES.has(norm(t.status))).length;
-    // ClickUp's live status vocabulary here has no "on hold" state (see
-    // EDITING_STATUSES — grep confirms none exists), unlike the Excel-only
-    // client-ledger reference data. Always 0 until one does.
-    const onHold = 0;
-
-    const fulfilmentFrac = fulfilment(delivered, p.contractedTotal);
-    const health: HealthTier = healthTier({ contractState: p.state, fulfilment: fulfilmentFrac });
-    const expiry = expiryLabel({ endsOn: p.endsOn, state: p.state }, now);
-
-    return {
-      id: p.id,
-      name: p.clientName,
-      subtitle: p.label,
-      health,
-      type: p.model === 'package' ? 'package' : 'retainer',
-      periodText: `${fmtDate(p.startsOn)} – ${p.endsOn ? fmtDate(p.endsOn) : 'Open'}`,
-      expiryText: expiry.text,
-      expiryTone: expiry.tone,
-      delivered,
-      contracted: p.contractedTotal,
-      fulfilmentPct: fulfilmentFrac !== null ? fulfilmentFrac * 100 : null,
-      inReview,
-      editing,
-      onHold,
-      attentionScore: attentionScore({ onHold, pendingReview: inReview, editing, health }),
-    } satisfies PortfolioClientRow;
-  }).sort((a, b) => b.attentionScore - a.attentionScore);
-}
 
 // ── Pipeline analytics (day / week / month, per client) ─────────────────────
 //
@@ -153,13 +65,6 @@ function pipelineStageOf(normStatus: string): PipelineStage | null {
   if (normStatus === 'for client review') return 'review';
   if (normStatus === 'ready to be posted') return 'ready';
   return null; // POSTED, handled separately by the caller
-}
-
-// The actual go-live moment for a POSTED task: publishDate when set (the
-// source of truth), falling back to dateUpdated for tasks posted before this
-// field was tracked, or posted manually outside VistaSocial.
-function resolvePostedAt(t: MappedTask): number {
-  return t.publishDate ? new Date(t.publishDate).getTime() : parseDate(t.dateUpdated);
 }
 
 function buildPipelineClientRows(
@@ -203,7 +108,7 @@ function buildPipelineClientRows(
       const row = rowFor(name);
       row.counts[stage]++;
       // Backlog isn't a "stall" concept — a client's raw-footage supply is
-      // tracked separately (buildBacklog / "Footage starved" KPI).
+      // tracked separately (see lib/portfolio.ts buildBacklog).
       if (stage !== 'backlog' && now - parseDate(t.dateUpdated) > STALL_MS) row.stalled[stage]++;
     }
   }
@@ -239,6 +144,15 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ inactive?: string }>;
 }) {
+  // Only the session-exists check ran here before — a logged-in client-role
+  // user could hit this URL directly (the sidebar just hides the link) and
+  // see every other client's production data. Same redirect
+  // /admin/clients/page.tsx already uses.
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) redirect('/login');
+  const [caller] = await db.select({ role: authUsers.role }).from(authUsers).where(eq(authUsers.id, session.user.id)).limit(1);
+  if (!caller || caller.role === 'client') redirect('/client');
+
   if (!isConfigured()) {
     return (
       <main style={{ padding: 40 }}>
@@ -252,46 +166,18 @@ export default async function DashboardPage({
 
   const { inactive = '' } = await searchParams;
   const showInactive = inactive === '1';
-  const [taskResult, clientStatusRows, allPeriods, periodClients] = await Promise.all([
+  const [taskResult, clientStatusRows] = await Promise.all([
     getDashboardTasks(),
     // Hide Inactive clients (per the synced ClickUp Master Clients List) everywhere
     // on the dashboard by default — a client with no matching record (not yet
     // synced) is kept visible rather than silently hidden.
-    db.select({ id: clientsTable.id, name: clientsTable.name, clientStatus: clientsTable.clientStatus, socialLinks: clientsTable.socialLinks, clickupClientOptionId: clientsTable.clickupClientOptionId })
+    db.select({ id: clientsTable.id, name: clientsTable.name, clientStatus: clientsTable.clientStatus })
       .from(clientsTable)
-      .catch(() => [] as { id: string; name: string; clientStatus: string | null; socialLinks: unknown; clickupClientOptionId: string | null }[]),
-    db.select().from(contractPeriods).catch(() => [] as ContractPeriod[]),
-    db.select().from(contractPeriodClients).catch(() => [] as { periodId: string; clientId: string }[]),
+      .catch(() => [] as { id: string; name: string; clientStatus: string | null }[]),
   ]);
 
   let allTasks = taskResult.tasks;
   const error = taskResult.error;
-
-  // Portfolio overview data source: the ONE canonical "current" period per
-  // client (§5.2/Decision from the redesign) — resolveCurrentPeriod treats
-  // 'extended' as current too, fixing the old state==='active'-only filter
-  // that made renewed-but-still-running contracts invisible here.
-  const now0 = new Date();
-  const activeContracts: ContractJoinRow[] = clientStatusRows.flatMap(c => {
-    const clientPeriodIds = new Set([
-      ...periodClients.filter(pc => pc.clientId === c.id).map(pc => pc.periodId),
-      ...allPeriods.filter(p => p.clientId === c.id).map(p => p.id),
-    ]);
-    const clientPeriods = allPeriods.filter(p => clientPeriodIds.has(p.id));
-    const current = resolveCurrentPeriod(clientPeriods, now0);
-    if (!current) return [];
-    return [{
-      id: current.id,
-      clientName: c.name,
-      clickupClientOptionId: c.clickupClientOptionId,
-      label: current.label,
-      startsOn: current.startsOn,
-      endsOn: current.endsOn,
-      model: current.model,
-      contractedTotal: current.contractedTotal,
-      state: current.state,
-    }];
-  });
 
   const inactiveNames = new Set(
     clientStatusRows.filter(c => c.clientStatus === 'Inactive').map(c => norm(c.name))
@@ -301,35 +187,6 @@ export default async function DashboardPage({
   }
 
   const now = Date.now();
-  const backlogRows   = buildBacklog(allTasks);
-  const portfolioRows = buildPortfolio(activeContracts, allTasks, new Date(now));
-  const assetRows = clientStatusRows
-    .filter(c => showInactive || c.clientStatus !== 'Inactive')
-    .map(c => ({ id: c.id, name: c.name, socialLinks: c.socialLinks as Record<string, { handle?: string; url?: string }> | null }));
-
-  const backlogByNameForKpi = new Map(backlogRows.map(b => [norm(b.name), b.backlogCount]));
-  const portfolioKpis: KpiData[] = [
-    {
-      label: 'Active contracts', value: portfolioRows.length, dotColor: '#FF6000',
-      tip: 'Count of retainer and package clients with an active contract period.',
-    },
-    {
-      label: 'Needs attention', value: portfolioRows.filter(r => r.health === 'critical' || r.health === 'watch').length, dotColor: '#cf3f36',
-      tip: 'Clients whose health is critical or watch.',
-    },
-    {
-      label: 'Pending client review', value: portfolioRows.reduce((sum, r) => sum + r.inReview, 0), dotColor: '#a86a00',
-      tip: 'Videos awaiting client approval, summed across active-contract clients.',
-    },
-    {
-      label: 'In active editing', value: portfolioRows.reduce((sum, r) => sum + r.editing, 0), dotColor: '#2563eb',
-      tip: 'Videos currently in an editing/QC stage, summed across active-contract clients.',
-    },
-    {
-      label: 'Footage starved', value: portfolioRows.filter(r => (backlogByNameForKpi.get(norm(r.name)) ?? 0) === 0).length, dotColor: '#cf3f36',
-      tip: 'Clients with zero raw footage in ClickUp\'s pre-production statuses (Not Ready / Backlog / Not Assigned).',
-    },
-  ];
 
   // Period windows for the pipeline analytics section. "Today" and "This
   // month" are calendar-aligned; "This week" is a rolling 7 days — the same
@@ -372,9 +229,6 @@ export default async function DashboardPage({
         pipelineStalledTotals={pipelineStalledTotals}
         pipelinePeriods={pipelinePeriods}
         pipelineClientRows={pipelineClientRows}
-        portfolioKpis={portfolioKpis}
-        portfolioRows={portfolioRows}
-        assetRows={assetRows}
         error={error}
       />
     </main>

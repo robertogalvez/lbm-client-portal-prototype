@@ -4,6 +4,33 @@ import { useEffect, useState } from 'react';
 import type { HealthTier } from '@/lib/contracts';
 import { PLATFORMS } from './AssetInventory';
 import { ClientEditPanel, type ContractPeriodRecord, type SocialLinks } from '@/components/shared/ClientEditPanel';
+import { Toggle } from '@/components/ui/Toggle';
+
+export interface PortalUser {
+  id: string;
+  name: string;
+  email: string;
+  clientName: string | null;
+  emailVerified: boolean;
+}
+
+export interface ClientPortalData {
+  clickupTaskId: string;
+  billingType: 'retainer' | 'one_time' | null;
+  contactName: string | null;
+  contactEmail: string | null;
+  whatsappNumber: string | null;
+  clientStatus: string | null;
+  frameioProjectId: string | null;
+  vistaSocialProfileIds: string | null;
+  lastSyncedAt: string | null;
+  showCalendar: boolean;
+  showInvoices: boolean;
+  showReport: boolean;
+  notifyEmail: boolean;
+  notifySms: boolean;
+  portalUsers: PortalUser[];
+}
 
 export interface LedgerRow {
   id: string;
@@ -55,6 +82,7 @@ export interface ClientDetailData {
   contractHistory: ContractHistoryRow[];
   socialLinks: SocialLinks | null;
   periods: ContractPeriodRecord[];
+  portal: ClientPortalData | null;
 }
 
 const HEALTH_LABEL: Record<HealthTier, string> = {
@@ -109,12 +137,12 @@ export function ClientDetail({ id, name, onBack }: { id: string; name: string; o
 
       {error && <div style={{ color: '#cf3f36', fontSize: 13.5 }}>Couldn&apos;t load this client: {error}</div>}
       {!data && !error && <div style={{ color: '#8b97a4', fontSize: 13.5 }}>Loading…</div>}
-      {data && <ClientDetailBody data={data} onRefresh={load} />}
+      {data && <ClientDetailBody data={data} onRefresh={load} onBack={onBack} />}
     </div>
   );
 }
 
-function ClientDetailBody({ data, onRefresh }: { data: ClientDetailData; onRefresh: () => void }) {
+function ClientDetailBody({ data, onRefresh, onBack }: { data: ClientDetailData; onRefresh: () => void; onBack: () => void }) {
   const [ledgerFilter, setLedgerFilter] = useState<string>('all');
   const [editOpen, setEditOpen] = useState(false);
 
@@ -311,6 +339,16 @@ function ClientDetailBody({ data, onRefresh }: { data: ClientDetailData; onRefre
         </div>
       </div>
 
+      {/* Portal & admin — the capability that used to live only in the
+          separate /admin/clients drawer (invite/manage portal users, view
+          as client, delete, portal display toggles) is now part of this
+          same unified page. Scoped to the "primary" client on this period
+          (see route.ts) — null only if that client row was deleted out
+          from under an existing period, which shouldn't happen in practice. */}
+      {data.portal && (
+        <PortalAdminCard clientId={data.clientId} clientName={data.name} portal={data.portal} onRefresh={onRefresh} onDeleted={onBack} />
+      )}
+
       {/* Edit drawer — same ClientEditPanel used by the admin Clients page,
           so AMs can update contracts/social links without leaving this view. */}
       {editOpen && (
@@ -339,6 +377,258 @@ function ClientDetailBody({ data, onRefresh }: { data: ClientDetailData; onRefre
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+const inp: React.CSSProperties = {
+  width: '100%', padding: '8px 12px', fontSize: 13.5,
+  border: '1px solid #d4dbe2', borderRadius: 8,
+  boxSizing: 'border-box', fontFamily: 'inherit', color: '#111c28',
+  background: '#fff', outline: 'none',
+};
+
+function isValidClickUpTaskId(taskId: string): boolean {
+  return /^[a-z0-9]+$/i.test(taskId) && taskId.length >= 7;
+}
+
+// The "Portal & admin" section — everything that used to live only in the
+// separate /admin/clients drawer (ClickUp read-only fields, portal display
+// toggles, portal-user invite/manage, view-as, delete). Same API routes as
+// before (/api/admin/clients/[id], /api/admin/create-client,
+// /api/admin/portal-user/[id], /api/admin/view-as) — only the UI moved.
+function PortalAdminCard({
+  clientId, clientName, portal, onRefresh, onDeleted,
+}: {
+  clientId: string;
+  clientName: string;
+  portal: ClientPortalData;
+  onRefresh: () => void;
+  onDeleted: () => void;
+}) {
+  const [fBillingType, setFBillingType] = useState<'retainer' | 'one_time' | null>(portal.billingType);
+  const [fCalendar, setFCalendar] = useState(portal.showCalendar);
+  const [fInvoices, setFInvoices] = useState(portal.showInvoices);
+  const [fReport, setFReport] = useState(portal.showReport);
+  const [fNotifyEmail, setFNotifyEmail] = useState(portal.notifyEmail);
+  const [fNotifySms, setFNotifySms] = useState(portal.notifySms);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState('');
+
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [invName, setInvName] = useState(portal.portalUsers.length === 0 ? (portal.contactName ?? '') : '');
+  const [invEmail, setInvEmail] = useState(portal.portalUsers.length === 0 ? (portal.contactEmail ?? '') : '');
+  const [inviting, setInviting] = useState(false);
+  const [invMsg, setInvMsg] = useState('');
+
+  const [viewingAs, setViewingAs] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const hasLinkedUsers = portal.portalUsers.length > 0;
+
+  async function save() {
+    setSaving(true); setSaveMsg('');
+    try {
+      const res = await fetch(`/api/admin/clients/${clientId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: fBillingType, showCalendar: fCalendar, showInvoices: fInvoices, showReport: fReport, notifyEmail: fNotifyEmail, notifySms: fNotifySms }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed');
+      setSaveMsg('Saved.');
+    } catch (e) {
+      setSaveMsg(e instanceof Error ? e.message : 'Error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function invite() {
+    if (!invEmail || !invName) return;
+    setInviting(true); setInvMsg('');
+    try {
+      const res = await fetch('/api/admin/create-client', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: invEmail, name: invName, clientName }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed');
+      setInvMsg('Invited!');
+      setInvEmail(''); setInvName(''); setInviteOpen(false);
+      onRefresh();
+    } catch (e) {
+      setInvMsg(e instanceof Error ? e.message : 'Error');
+    } finally {
+      setInviting(false);
+    }
+  }
+
+  async function resendInvite(u: PortalUser) {
+    try {
+      const res = await fetch('/api/admin/create-client', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: u.email, name: u.name, clientName }),
+      });
+      if (!res.ok) throw new Error('Failed to resend');
+    } catch { /* surfaced via portalUsers list staying "Pending" — good enough signal */ }
+  }
+
+  async function cancelInvite(u: PortalUser) {
+    if (!confirm(`Remove portal access for ${u.name}?`)) return;
+    try {
+      const res = await fetch(`/api/admin/portal-user/${u.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed');
+      onRefresh();
+    } catch (e) {
+      setInvMsg(e instanceof Error ? e.message : 'Error');
+    }
+  }
+
+  async function viewAsClient() {
+    setViewingAs(true);
+    try {
+      const res = await fetch('/api/admin/view-as', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to start client view');
+      window.location.assign('/client');
+    } catch (err) {
+      setViewingAs(false);
+      alert(err instanceof Error ? err.message : 'Error');
+    }
+  }
+
+  async function del() {
+    if (!confirm(`Delete "${clientName}"? This cannot be undone, and it will reappear on the next ClickUp sync if it's still Active/Inactive there.`)) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/clients/${clientId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed');
+      onDeleted();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Error');
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: '#111c28' }}>Portal & admin</div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+        <Card title="From ClickUp">
+          {isValidClickUpTaskId(portal.clickupTaskId) ? (
+            <a href={`https://app.clickup.com/t/${portal.clickupTaskId}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 600, color: '#FF6000', textDecoration: 'none', display: 'block', marginBottom: 8 }}>Open in ClickUp →</a>
+          ) : (
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#cf3f36', marginBottom: 8 }}>Invalid task ID</div>
+          )}
+          <Row label="Contact" value={portal.contactName || '—'} />
+          <Row label="Email" value={portal.contactEmail || '—'} />
+          <Row label="Phone" value={portal.whatsappNumber || '—'} />
+          <Row label="Client status" value={portal.clientStatus || '—'} />
+          <Row label="Frame.io project ID" value={portal.frameioProjectId || '—'} />
+          <Row label="Vista Social profile IDs" value={portal.vistaSocialProfileIds || '—'} />
+          {portal.lastSyncedAt && <div style={{ fontSize: 11.5, color: '#8b97a4', marginTop: 6 }}>Last synced {new Date(portal.lastSyncedAt).toLocaleString()}</div>}
+        </Card>
+
+        <Card title="Portal settings">
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#8b97a4', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Billing type</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {(['retainer', 'one_time'] as const).map(t => (
+                <button type="button" key={t} onClick={() => setFBillingType(t)} style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: `1px solid ${fBillingType === t ? '#FF6000' : '#d4dbe2'}`, background: fBillingType === t ? '#fff8f5' : '#fff', color: fBillingType === t ? '#FF6000' : '#54616f', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  {t === 'retainer' ? 'Retainer' : 'One-time'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {[
+            { label: 'Show publishing calendar', checked: fCalendar, set: setFCalendar },
+            { label: 'Show invoices', checked: fInvoices, set: setFInvoices },
+            { label: 'Show posted-on-socials report', checked: fReport, set: setFReport },
+            { label: 'Email notifications (review ready)', checked: fNotifyEmail, set: setFNotifyEmail },
+            { label: 'SMS notifications (review ready)', checked: fNotifySms, set: setFNotifySms },
+          ].map(t => (
+            <div key={t.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #f0f2f5' }}>
+              <span style={{ fontSize: 12.5 }}>{t.label}</span>
+              <Toggle checked={t.checked} onChange={t.set} label={t.label} />
+            </div>
+          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
+            <button type="button" onClick={save} disabled={saving} style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: saving ? '#eef1f4' : '#FF6000', color: saving ? '#8b97a4' : '#fff', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {saving ? 'Saving…' : 'Save changes'}
+            </button>
+            {saveMsg && <span style={{ fontSize: 12, color: saveMsg === 'Saved.' ? '#14805f' : '#cf3f36' }}>{saveMsg}</span>}
+          </div>
+        </Card>
+
+        <Card title="Portal access">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+            <button type="button" onClick={() => { setInviteOpen(v => !v); setInvMsg(''); }} style={{ fontSize: 12, fontWeight: 600, color: '#FF6000', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
+              + Invite user
+            </button>
+          </div>
+          {inviteOpen && (
+            <div style={{ background: '#f4f6f8', borderRadius: 10, padding: 12, marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <input aria-label="Full name" value={invName} onChange={e => setInvName(e.target.value)} placeholder="Full name" style={inp} />
+              <input aria-label="Email address" type="email" value={invEmail} onChange={e => setInvEmail(e.target.value)} placeholder="client@example.com" style={inp} />
+              {invMsg && <div style={{ fontSize: 12, color: invMsg === 'Invited!' ? '#14805f' : '#cf3f36' }}>{invMsg}</div>}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" onClick={() => setInviteOpen(false)} style={{ flex: 1, padding: '6px 10px', borderRadius: 7, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                <button type="button" onClick={invite} disabled={inviting || !invEmail || !invName} style={{ flex: 1, padding: '6px 10px', borderRadius: 7, border: 'none', background: inviting || !invEmail || !invName ? '#eef1f4' : '#FF6000', color: inviting || !invEmail || !invName ? '#8b97a4' : '#fff', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  {inviting ? 'Sending…' : 'Send invite'}
+                </button>
+              </div>
+            </div>
+          )}
+          {portal.portalUsers.length === 0 ? (
+            <div style={{ fontSize: 12.5, color: '#8b97a4', fontStyle: 'italic' }}>No portal users yet.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {portal.portalUsers.map(u => (
+                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 9px', background: '#f4f6f8', borderRadius: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600 }}>{u.name}</div>
+                    <div style={{ fontSize: 11.5, color: '#8b97a4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</div>
+                  </div>
+                  <span style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 6px', borderRadius: 100, color: u.emailVerified ? '#14805f' : '#b06f06', background: u.emailVerified ? '#e6f4ee' : '#fdf3e1', flexShrink: 0 }}>
+                    {u.emailVerified ? 'Active' : 'Pending'}
+                  </span>
+                  {!u.emailVerified && (
+                    <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                      <button type="button" onClick={() => resendInvite(u)} title="Resend invite" style={{ padding: '3px 7px', borderRadius: 6, border: '1px solid #d4dbe2', background: '#fff', color: '#54616f', fontSize: 10.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Resend</button>
+                      <button type="button" onClick={() => cancelInvite(u)} title="Cancel invitation" style={{ padding: '3px 7px', borderRadius: 6, border: '1px solid #fbd5d0', background: '#fef2f1', color: '#cf3f36', fontSize: 10.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card title="Danger zone">
+          <button
+            type="button"
+            onClick={viewAsClient}
+            disabled={viewingAs}
+            title="View the portal exactly as this client sees it"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#54616f', fontWeight: 600, background: 'none', border: 'none', cursor: viewingAs ? 'default' : 'pointer', padding: 0, fontFamily: 'inherit', marginBottom: 14 }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+            {viewingAs ? 'Opening…' : 'View as client'}
+          </button>
+          <button
+            type="button"
+            onClick={del}
+            disabled={deleting || hasLinkedUsers}
+            title={hasLinkedUsers ? 'Remove all portal users before deleting this client' : ''}
+            style={{ fontSize: 12.5, color: hasLinkedUsers ? '#8b97a4' : '#cf3f36', background: 'none', border: 'none', cursor: hasLinkedUsers ? 'not-allowed' : 'pointer', padding: 0, fontFamily: 'inherit', fontWeight: 600, display: 'block' }}
+          >
+            {deleting ? 'Deleting…' : 'Delete client'}
+          </button>
+          {hasLinkedUsers && <div style={{ fontSize: 11.5, color: '#8b97a4', marginTop: 4 }}>Remove all portal users before deleting.</div>}
+        </Card>
+      </div>
     </div>
   );
 }
