@@ -41,7 +41,7 @@ export function ByClientTable({ rows, inactiveCount }: { rows: AdminClientRow[];
           placeholder="Search clients…"
           aria-label="Search clients"
           style={{
-            width: 260, padding: '9px 12px', borderRadius: 9,
+            width: 260, maxWidth: '100%', padding: '9px 12px', borderRadius: 9,
             border: `1px solid ${T.lineStrong}`, fontFamily: 'inherit', fontSize: 13, color: T.ink,
           }}
         />

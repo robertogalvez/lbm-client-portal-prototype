@@ -708,6 +708,15 @@ body {
 .db-table-scroll > * { min-width: 860px; }
 .db-table-scroll-wide > * { min-width: 1000px; }
 
+/* The admin screens' content padding. 34px of gutter each side is right on a
+   desktop and wasteful on a phone, where it eats a fifth of the width. */
+.db-page-body { padding: 22px 34px 44px; }
+@media (max-width: 600px) {
+  .db-page-body { padding: 18px 16px 40px; }
+  .db-page-header { padding-right: 16px !important; }
+  .db-tabs-wrap { margin-left: 16px !important; margin-right: 16px !important; }
+}
+
 /* Client detail drops to one column before the rail gets too narrow to read. */
 .db-detail-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 18px; align-items: start; }
 @media (max-width: 1080px) {

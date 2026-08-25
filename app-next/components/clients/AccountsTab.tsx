@@ -63,7 +63,7 @@ export function AccountsTab({ rows, inactiveCount }: { rows: AdminClientRow[]; i
           onChange={e => setQuery(e.target.value)}
           placeholder="Search clients…"
           aria-label="Search clients"
-          style={{ width: 300, padding: '11px 13px', borderRadius: 10, border: `1px solid ${T.lineStrong}`, fontFamily: 'inherit', fontSize: 13 }}
+          style={{ width: 300, maxWidth: '100%', padding: '11px 13px', borderRadius: 10, border: `1px solid ${T.lineStrong}`, fontFamily: 'inherit', fontSize: 13 }}
         />
         {FILTERS.map(f => {
           const active = filter === f.key;

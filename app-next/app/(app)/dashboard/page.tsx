@@ -61,7 +61,7 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 34px 44px' }}>
+      <div className="db-page-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         <PipelineCard
           stages={totals.stages}
           stalled={totals.stalledStages}

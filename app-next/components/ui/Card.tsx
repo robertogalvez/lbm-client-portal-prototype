@@ -28,7 +28,7 @@ export function Card({ title, subtitle, action, children, padded = true, style }
             {title && <div style={{ fontSize: 16, fontWeight: 600, color: T.ink, letterSpacing: '-0.01em' }}>{title}</div>}
             {subtitle && <div style={{ fontSize: 12.5, color: T.ink3, marginTop: 4, lineHeight: 1.45 }}>{subtitle}</div>}
           </div>
-          {action && <div style={{ flexShrink: 0 }}>{action}</div>}
+          {action && <div style={{ flexShrink: 0, maxWidth: '100%' }}>{action}</div>}
         </div>
       )}
       <div style={padded ? { padding: '16px 24px 22px' } : { paddingTop: 14 }}>{children}</div>

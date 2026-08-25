@@ -100,7 +100,7 @@ export function ClientsPageClient({ tab, rows, inactiveCount, showInactive, clie
         </div>
       )}
 
-      <div style={{ margin: '20px 34px 0' }}>
+      <div className="db-tabs-wrap" style={{ margin: '20px 34px 0' }}>
         <Tabs
           label="Clients views"
           value={tab}
@@ -112,7 +112,7 @@ export function ClientsPageClient({ tab, rows, inactiveCount, showInactive, clie
         />
       </div>
 
-      <div style={{ padding: '22px 34px 44px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div className="db-page-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         <RenewalsPanel onOpenClient={name => {
           const row = rows.find(r => r.name === name);
           if (row?.periodId) router.push(`/admin/clients/${row.periodId}`);

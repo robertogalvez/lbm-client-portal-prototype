@@ -81,7 +81,7 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
         subtitle={`${row.model === 'package' ? 'Package' : 'Retainer'} contract · ${row.termText}`}
       />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 34px 44px' }}>
+      <div className="db-page-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         {/* Identity */}
         <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 14, padding: '22px 24px', display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <Avatar name={displayName} color={row.avatarColor} size={52} radius={12} />
@@ -100,7 +100,7 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
               <span>{row.termText}</span>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <Button variant="outline" onClick={async () => {
               const res = await fetch('/api/admin/view-as', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },

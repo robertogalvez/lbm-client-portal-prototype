@@ -331,9 +331,15 @@ export function ContractChannelsDrawer({ open, onClose, clientId, clientName, pe
       subtitle="Contract & channels"
       footer={
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span style={{ flex: 1, fontSize: 12.5, color: T.ink3 }}>One save for the whole panel.</span>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={saveAll} disabled={saving || !canSave}>{saving ? 'Saving…' : 'Save changes'}</Button>
+          {/* minWidth, so on a phone this drops onto its own line instead of
+              squeezing into a five-word-tall column beside the buttons. */}
+          <span style={{ flex: '1 1 auto', minWidth: 150, fontSize: 12.5, color: T.ink3 }}>One save for the whole panel.</span>
+          {/* The two buttons wrap as a pair, so Save never ends up alone on a
+              line below Cancel on a narrow drawer. */}
+          <span style={{ display: 'flex', gap: 10, marginLeft: 'auto' }}>
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button onClick={saveAll} disabled={saving || !canSave}>{saving ? 'Saving…' : 'Save changes'}</Button>
+          </span>
         </div>
       }
     >
@@ -436,7 +442,7 @@ export function ContractChannelsDrawer({ open, onClose, clientId, clientName, pe
 
             <div>
               <span style={fieldCap}>How they buy</span>
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 {([
                   { key: 'retainer', title: 'Retainer', hint: 'A fixed number every month' },
                   { key: 'package', title: 'Package', hint: 'One agreed total, no monthly rhythm' },
@@ -449,7 +455,7 @@ export function ContractChannelsDrawer({ open, onClose, clientId, clientName, pe
                       aria-pressed={selected}
                       onClick={() => setForm(f => ({ ...f, model: opt.key }))}
                       style={{
-                        flex: 1, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+                        flex: '1 1 160px', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
                         padding: '13px 15px', borderRadius: 10,
                         border: `1px solid ${selected ? '#ffc09a' : T.lineStrong}`,
                         background: selected ? '#fff8f5' : T.surface,
@@ -468,12 +474,12 @@ export function ContractChannelsDrawer({ open, onClose, clientId, clientName, pe
               <input aria-label="Period label" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder="e.g. Package 1" style={inp} />
             </div>
 
-            <div style={{ display: 'flex', gap: 10 }}>
-              <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 160px' }}>
                 <span style={fieldCap}>Starts</span>
                 <input aria-label="Starts" type="date" value={form.startsOn} onChange={e => setForm(f => ({ ...f, startsOn: e.target.value }))} style={{ ...inp, fontFamily: MONO }} />
               </div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: '1 1 160px' }}>
                 <span style={fieldCap}>Ends</span>
                 <input aria-label="Ends — leave blank for open-ended" type="date" value={form.endsOn} onChange={e => setForm(f => ({ ...f, endsOn: e.target.value }))} style={{ ...inp, fontFamily: MONO }} />
                 <span style={{ display: 'block', fontSize: 11.5, color: T.ink3, marginTop: 4 }}>Leave blank for open-ended.</span>
@@ -535,12 +541,12 @@ export function ContractChannelsDrawer({ open, onClose, clientId, clientName, pe
             </Disclosure>
 
             <Disclosure label="Cadence, rolling cycles & carry-over" open={advancedOpen} onToggle={() => setAdvancedOpen(o => !o)}>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 160px' }}>
                   <span style={fieldCap}>Videos per week</span>
                   <input aria-label="Videos per week" type="number" value={form.cadencePerWeek} onChange={e => setForm(f => ({ ...f, cadencePerWeek: e.target.value }))} placeholder="Only if billed weekly" style={inp} />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: '1 1 160px' }}>
                   <span style={fieldCap}>Carried over from last period</span>
                   <input aria-label="Carried over from last period" type="number" value={form.carriedIn} onChange={e => setForm(f => ({ ...f, carriedIn: e.target.value }))} placeholder="0" style={inp} />
                 </div>

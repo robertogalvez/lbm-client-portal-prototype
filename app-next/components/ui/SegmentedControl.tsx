@@ -12,7 +12,7 @@ interface SegmentedControlProps<T extends string> {
 /** Pill group — the Pipeline range and the video ledger scope. One option active at a time. */
 export function SegmentedControl<V extends string>({ options, value, onChange, label }: SegmentedControlProps<V>) {
   return (
-    <div role="group" aria-label={label} style={{ display: 'inline-flex', gap: 2, background: T.track, borderRadius: 9, padding: 4 }}>
+    <div role="group" aria-label={label} style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 2, background: T.track, borderRadius: 9, padding: 4, maxWidth: '100%' }}>
       {options.map(o => {
         const active = o.value === value;
         return (
