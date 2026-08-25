@@ -26,10 +26,21 @@ interface FrameioStatus {
   bannerReason: string | null;
 }
 
+interface QuickBooksStatus {
+  connected: boolean;
+  configured: boolean;
+  needsReauth: boolean;
+  daysUntilReauth: number | null;
+  realmId: string | null;
+  banner: string | null;
+  bannerReason: string | null;
+}
+
 interface Props {
   users: User[];
   currentUserId: string;
   frameio: FrameioStatus;
+  quickbooks: QuickBooksStatus;
   smsConfigured: boolean;
 }
 
@@ -82,6 +93,82 @@ function FrameioConnectionSection({ frameio }: { frameio: FrameioStatus }) {
         >
           {connected && !needsReauth ? 'Renew authorization' : 'Connect Frame.io'}
         </a>
+      </div>
+    </div>
+  );
+}
+
+function QuickBooksConnectionSection({ quickbooks }: { quickbooks: QuickBooksStatus }) {
+  const { connected, configured, needsReauth, daysUntilReauth, realmId } = quickbooks;
+  const soon = connected && daysUntilReauth !== null && daysUntilReauth <= 14;
+
+  const statusText = !configured
+    ? 'Not configured — QUICKBOOKS_CLIENT_ID / QUICKBOOKS_CLIENT_SECRET are missing'
+    : !connected || needsReauth
+      ? 'Not connected — authorization required'
+      : `Connected${realmId ? ` · company ${realmId}` : ''} · expires in ${daysUntilReauth} day${daysUntilReauth === 1 ? '' : 's'}`;
+  const dotColor = (!configured || !connected || needsReauth) ? '#e5484d' : soon ? '#e59700' : '#14805f';
+
+  return (
+    <div style={{ marginTop: 32 }}>
+      <h2 style={{ fontSize: 15, fontWeight: 700, color: '#111c28', margin: '0 0 4px' }}>QuickBooks connection</h2>
+      <p style={{ fontSize: 12.5, color: '#8b97a4', margin: '0 0 12px' }}>
+        Powers the Invoices section for admins and, where enabled, the client portal. Intuit refresh tokens lapse after 100 days — reconnect below when prompted.
+      </p>
+
+      {quickbooks.banner === 'connected' && (
+        <div style={{ background: '#e4f3ec', border: '1px solid #b7e0c9', color: '#14805f', borderRadius: 8, padding: '10px 14px', fontSize: 13, marginBottom: 12 }}>
+          ✓ QuickBooks connected successfully.
+        </div>
+      )}
+      {quickbooks.banner === 'disconnected' && (
+        <div style={{ background: '#f4f6f8', border: '1px solid #e7ebef', color: '#54616f', borderRadius: 8, padding: '10px 14px', fontSize: 13, marginBottom: 12 }}>
+          QuickBooks disconnected.
+        </div>
+      )}
+      {quickbooks.banner === 'error' && (
+        <div style={{ background: '#fdedeb', border: '1px solid #f8d0cc', color: '#cf3f36', borderRadius: 8, padding: '10px 14px', fontSize: 13, marginBottom: 12 }}>
+          QuickBooks authorization failed{quickbooks.bannerReason ? `: ${quickbooks.bannerReason}` : ''}. Please try again.
+        </div>
+      )}
+
+      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#111c28' }}>{statusText}</div>
+            {soon && !needsReauth && (
+              <div style={{ fontSize: 12, color: '#e59700', marginTop: 3 }}>Reconnect soon to keep invoices in sync.</div>
+            )}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {connected && (
+            <form method="post" action="/api/quickbooks/oauth/disconnect">
+              <button
+                type="submit"
+                style={{
+                  fontSize: 13, fontWeight: 600, color: '#54616f', background: '#fff',
+                  border: '1px solid #e7ebef', borderRadius: 8, padding: '9px 14px', cursor: 'pointer',
+                }}
+              >
+                Disconnect
+              </button>
+            </form>
+          )}
+          <a
+            href="/api/quickbooks/oauth/start"
+            aria-disabled={!configured}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600,
+              color: '#fff', background: !configured ? '#b6bfc9' : (!connected || needsReauth || soon) ? '#FF6000' : '#54616f',
+              borderRadius: 8, padding: '9px 16px', textDecoration: 'none',
+              pointerEvents: configured ? undefined : 'none',
+            }}
+          >
+            {connected && !needsReauth ? 'Reconnect' : 'Connect QuickBooks'}
+          </a>
+        </div>
       </div>
     </div>
   );
@@ -219,7 +306,7 @@ function ForceSyncSection() {
   );
 }
 
-export function SettingsPageClient({ users: initial, currentUserId, frameio, smsConfigured }: Props) {
+export function SettingsPageClient({ users: initial, currentUserId, frameio, quickbooks, smsConfigured }: Props) {
   const [users, setUsers] = useState<User[]>(initial);
   const [drawer, setDrawer] = useState<{ mode: DrawerMode; user?: User } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -458,6 +545,8 @@ export function SettingsPageClient({ users: initial, currentUserId, frameio, sms
       </div>
 
       <FrameioConnectionSection frameio={frameio} />
+
+      <QuickBooksConnectionSection quickbooks={quickbooks} />
 
       <ForceSyncSection />
 

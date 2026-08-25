@@ -128,6 +128,7 @@ export async function POST(req: Request) {
         "alerted_at"        timestamp,
         "updated_at"        timestamp DEFAULT now()
       )`,
+      sql`ALTER TABLE "oauth_tokens" ADD COLUMN IF NOT EXISTS "realm_id" varchar(64)`,
       sql`CREATE TABLE IF NOT EXISTS "frameio_synced_comments" (
         "frameio_comment_id" varchar(100) PRIMARY KEY NOT NULL,
         "clickup_task_id"    varchar(50) NOT NULL,

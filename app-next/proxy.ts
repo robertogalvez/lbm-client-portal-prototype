@@ -10,6 +10,9 @@ const PUBLIC_PATHS = [
   // by the PKCE state cookie in-handler. renew-check: called by the cron (no
   // session), cron-secret guarded. (/start stays session-gated in-handler.)
   '/api/frameio/oauth/callback', '/api/frameio/oauth/renew-check',
+  // QuickBooks OAuth callback: hit via redirect from Intuit (no session);
+  // guarded by the state cookie in-handler. (/start stays session-gated.)
+  '/api/quickbooks/oauth/callback',
 ];
 
 export function proxy(request: NextRequest) {

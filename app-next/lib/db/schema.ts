@@ -277,6 +277,7 @@ export const oauthTokens = pgTable('oauth_tokens', {
   provider:        varchar('provider', { length: 50 }).primaryKey(),
   accessToken:     text('access_token'),
   refreshToken:    text('refresh_token'),
+  realmId:         varchar('realm_id', { length: 64 }), // QuickBooks company id
   expiresAt:       timestamp('expires_at'),
   refreshIssuedAt: timestamp('refresh_issued_at'),
   alertedAt:       timestamp('alerted_at'),

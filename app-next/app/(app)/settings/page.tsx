@@ -5,12 +5,13 @@ import { db } from '@/lib/db';
 import { authUsers } from '@/lib/db/schema';
 import { eq, ne } from 'drizzle-orm';
 import { getConnectionStatus } from '@/lib/frameio';
+import { getConnectionStatus as getQuickBooksStatus } from '@/lib/quickbooks';
 import { isSmsConfigured } from '@/lib/sms';
 import { SettingsPageClient } from './SettingsPageClient';
 
 export const dynamic = 'force-dynamic';
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ frameio?: string; reason?: string }> }) {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ frameio?: string; quickbooks?: string; reason?: string }> }) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect('/login');
   const sp = await searchParams;
@@ -26,7 +27,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   // The user list and the Frame.io connection check are independent, and the
   // latter goes out over the network — no reason to wait on it in series.
   // The catch stays per-promise so a Frame.io failure does not reject both.
-  const [users, conn] = await Promise.all([
+  const [users, conn, qbo] = await Promise.all([
     db
       .select({
         id: authUsers.id,
@@ -44,6 +45,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       .where(ne(authUsers.role, 'client'))
       .orderBy(authUsers.createdAt),
     getConnectionStatus().catch(() => null),
+    getQuickBooksStatus().catch(() => null),
   ]);
   const frameio = {
     connected: conn?.connected ?? false,
@@ -55,5 +57,15 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     bannerReason: sp.reason ?? null,
   };
 
-  return <SettingsPageClient users={users} currentUserId={session.user.id} frameio={frameio} smsConfigured={isSmsConfigured()} />;
+  const quickbooks = {
+    connected: qbo?.connected ?? false,
+    configured: qbo?.configured ?? false,
+    needsReauth: qbo?.needsReauth ?? true,
+    daysUntilReauth: qbo?.daysUntilReauth ?? null,
+    realmId: qbo?.realmId ?? null,
+    banner: sp.quickbooks ?? null,
+    bannerReason: sp.reason ?? null,
+  };
+
+  return <SettingsPageClient users={users} currentUserId={session.user.id} frameio={frameio} quickbooks={quickbooks} smsConfigured={isSmsConfigured()} />;
 }

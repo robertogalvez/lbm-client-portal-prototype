@@ -17,7 +17,7 @@ import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { BannerStats } from '@/components/client/BannerStats';
 import { PriorityReorderList } from '@/components/client/PriorityReorderList';
 import { getViewAsClient } from '@/lib/view-as';
-import { getInvoicesForClient, isQuickBooksConfigured } from '@/lib/quickbooks';
+import { getInvoicesForClient, isQuickBooksConnected } from '@/lib/quickbooks';
 import { InstagramLink } from '@/components/InstagramLink';
 import Link from 'next/link';
 
@@ -137,7 +137,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   const reportMonthRows = reportPeriods.length > 0
     ? await db.select().from(contractMonths).where(inArray(contractMonths.periodId, reportPeriods.map(p => p.id)))
     : [];
-  const quickbooksConnected = isQuickBooksConfigured();
+  const quickbooksConnected = await isQuickBooksConnected();
   // Only surface the Invoices tab once QuickBooks is actually wired up — otherwise
   // clients would see a tab full of labeled "sample data" as if it were real.
   const showInvoices = (clientRecord?.showInvoices ?? false) && quickbooksConnected;
