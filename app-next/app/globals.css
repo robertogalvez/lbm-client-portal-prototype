@@ -687,6 +687,12 @@ body {
 
 /* Topbar — push right of hamburger button on narrow screens */
 .db-topbar { }
+
+/* Whole-row links in the admin tables. The row is an <a> so it is keyboard
+   reachable and opens in a new tab like any other link; this just gives it
+   the hover the old div-with-onClick rows had. */
+.db-row-link:hover { background: #f5f7f9; }
+.db-row-link:focus-visible { outline: 2px solid #FF6000; outline-offset: -2px; }
 @media (max-width: 860px) {
   .db-topbar { padding-left: 62px !important; }
   /* Dashboard topbar's inline tab row/toggle don't fit alongside the title

@@ -2,11 +2,14 @@
 
 import { ButtonHTMLAttributes, ReactNode } from 'react';
 
-type Variant = 'primary' | 'outline' | 'ghost' | 'danger' | 'whatsapp';
+type Variant = 'primary' | 'dark' | 'outline' | 'ghost' | 'danger' | 'whatsapp';
 type Size = 'sm' | 'md' | 'lg';
 
 const VARIANTS: Record<Variant, React.CSSProperties> = {
   primary:  { background: '#FF6000', color: '#fff', border: '1px solid transparent' },
+  // Ink, not brand: a secondary-but-committing action (the contract editor,
+  // the coverage CTAs) that shouldn't compete with the page's one accent CTA.
+  dark:     { background: '#111c28', color: '#fff', border: '1px solid transparent' },
   outline:  { background: '#fff', color: '#111c28', border: '1px solid #d4dbe2' },
   ghost:    { background: 'transparent', color: '#54616f', border: '1px solid transparent' },
   danger:   { background: '#fdedeb', color: '#cf3f36', border: '1px solid #fdedeb' },

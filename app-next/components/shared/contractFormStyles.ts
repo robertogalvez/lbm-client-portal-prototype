@@ -1,7 +1,6 @@
 // Shared inline style constants for the contract-editing surface
-// (ClientEditPanel, ContractPeriodCard, ContractPeriodForm) — split out so
-// the three files can share one visual language without importing from
-// each other.
+// (ContractChannelsDrawer), kept out of the component so the form fields
+// stay visually consistent wherever they are reused.
 
 export const inp: React.CSSProperties = {
   width: '100%', padding: '8px 12px', fontSize: 14,

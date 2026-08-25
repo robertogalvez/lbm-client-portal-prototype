@@ -298,3 +298,68 @@ export function expiryLabel(period: Pick<ContractPeriod, 'endsOn' | 'state'>, no
   if (daysLeft <= 21) return { text: `Expires in ${daysLeft}d`, tone: 'amber' };
   return { text: `Active · ${daysLeft}d left`, tone: 'green' };
 }
+
+// ── Coverage: is enough work in motion to honour what we sold? ──────────────
+//
+// The account manager's core question, and the one figure no screen computed
+// before: percent-delivered cannot distinguish a remainder that is already in
+// production from one that does not exist yet. A contract can be 100 videos
+// short and read as "62% delivered".
+//
+//     notStarted = sold − delivered − inPipeline
+//
+// `inPipeline` is anything in backlog, editing, QC, client review or
+// ready-to-post; `delivered` is published. A negative remainder means the
+// pipeline exceeds what the contract covers — unbilled work — and is reported
+// as `over`, never as a negative count.
+
+export type CoverageStatus = 'short' | 'covered' | 'over';
+
+export interface Coverage {
+  sold: number;
+  delivered: number;
+  inPipeline: number;
+  /** Sold but not yet shot, briefed or started. Zero when covered or over. */
+  notStarted: number;
+  /** Videos in flight beyond what the contract covers. Zero unless status is 'over'. */
+  over: number;
+  status: CoverageStatus;
+}
+
+export function coverage(input: { sold: number; delivered: number; inPipeline: number }): Coverage {
+  const { sold, delivered, inPipeline } = input;
+  const remainder = sold - delivered - inPipeline;
+  return {
+    sold,
+    delivered,
+    inPipeline,
+    notStarted: Math.max(0, remainder),
+    over: Math.max(0, -remainder),
+    status: remainder > 0 ? 'short' : remainder < 0 ? 'over' : 'covered',
+  };
+}
+
+/** Whole days left on the term. null for an open-ended term (no deadline to pace against). */
+export function termDaysLeft(period: Pick<ContractPeriod, 'endsOn'>, now: Date): number | null {
+  if (!period.endsOn) return null;
+  return Math.ceil((new Date(period.endsOn).getTime() - now.getTime()) / 86_400_000);
+}
+
+export type PaceNeeded =
+  // A live term with a deadline: how many per week clears the gap in time.
+  | { kind: 'pace'; perWeek: number }
+  // Nothing left to start — the contract is covered.
+  | { kind: 'covered' }
+  // No deadline to divide by (open-ended term), so state the work instead.
+  | { kind: 'open'; remaining: number }
+  // Expired or absent term: a pace figure is meaningless without a deadline,
+  // so the caller renders the contractual problem instead.
+  | { kind: 'blocked'; remaining: number };
+
+export function paceNeeded(notStarted: number, daysLeft: number | null, hasTerm: boolean): PaceNeeded {
+  if (notStarted <= 0) return { kind: 'covered' };
+  if (!hasTerm || (daysLeft !== null && daysLeft < 0)) return { kind: 'blocked', remaining: notStarted };
+  if (daysLeft === null) return { kind: 'open', remaining: notStarted };
+  const weeks = Math.max(1, Math.ceil(daysLeft / 7));
+  return { kind: 'pace', perWeek: Math.ceil(notStarted / weeks) };
+}

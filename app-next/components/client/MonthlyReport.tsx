@@ -115,7 +115,7 @@ export function MonthlyReport({ clientName, periods, monthRows, tasks }: Props) 
 
   const pendingReview = scopedTasks.filter(t => norm(t.status) === 'for client review').length;
   const editing = scopedTasks.filter(t => EDITING_STATUSES.has(norm(t.status))).length;
-  const onHold = 0; // no live "on hold" ClickUp status exists today (see DashboardTabs.tsx)
+  const onHold = 0; // no live "on hold" ClickUp status exists today
 
   const contracted = isMonthScoped ? (agreement && agreement.kind !== 'none' ? agreement.quota : null) : (activePeriod?.contractedTotal ?? null);
   const fulfilmentFrac = contracted !== null ? fulfilment(published, contracted) : null;
