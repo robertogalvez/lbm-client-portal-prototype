@@ -124,7 +124,25 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
               <span>{cov ? `${cov.sold} deliverables` : 'no contract'}</span>
               <span style={{ color: T.lineStrong }}>·</span>
               <span>{row.termText}</span>
+              {row.term.kind === 'cycle' && (
+                <>
+                  <span style={{ color: T.lineStrong }}>·</span>
+                  <span>{row.termDaysLeft !== null && row.termDaysLeft < 0 ? `ended ${Math.abs(row.termDaysLeft)}d ago` : `${row.termDaysLeft}d left`}</span>
+                </>
+              )}
             </div>
+            {/* The cycle clock starts at the first published video, not at the
+                contract's start date — say so, or the window looks arbitrary. */}
+            {row.term.kind === 'cycle' && (
+              <div style={{ fontSize: 12, color: T.ink3, marginTop: 6 }}>
+                Cycle started {fmtDate(row.term.anchorDate)} — the first video published on this contract.
+              </div>
+            )}
+            {row.term.kind === 'cycle-pending' && (
+              <div style={{ fontSize: 12, color: '#B4762A', marginTop: 6 }}>
+                {row.term.durationDays}-day cycle — the clock starts when the first video is published.
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <Button variant="outline" onClick={async () => {

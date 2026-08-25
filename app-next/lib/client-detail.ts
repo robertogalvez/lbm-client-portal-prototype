@@ -142,6 +142,8 @@ export async function loadClientDetail(id: string): Promise<ClientDetailData | n
     model: period.model,
     contractedTotal: period.contractedTotal,
     state: period.state,
+    cycleDurationDays: period.cycleDurationDays,
+    cycleAnchorDate: period.cycleAnchorDate,
   };
   const optionIds = new Set(clientRows.map(c => c.clickupClientOptionId).filter(Boolean) as string[]);
   const nameFallback = new Set(clientRows.filter(c => !c.clickupClientOptionId).map(c => norm(c.name)));

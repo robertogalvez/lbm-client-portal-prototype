@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { T, MONO } from '@/components/ui/tokens';
 import { PLATFORMS, handleFromUrl, type SocialLinks } from '@/lib/socialLinks';
-import { resolveCurrentPeriod } from '@/lib/contracts';
+import { resolveCurrentPeriod, resolveTerm } from '@/lib/contracts';
 import type { ContractPeriodRecord, ContractMonthRecord, ContractLineItemRecord } from '@/lib/contract-records';
 import { inp, fieldCap, linkBtn } from './contractFormStyles';
 
@@ -367,7 +367,18 @@ export function ContractChannelsDrawer({ open, onClose, clientId, clientName, pe
                   {current?.id === p.id && <StatusBadge tone="green" dot={false}>Active</StatusBadge>}
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 12, color: T.ink2, marginTop: 8, lineHeight: 1.6 }}>
-                  <div>{fmtDate(p.startsOn)} → {p.endsOn ? fmtDate(p.endsOn) : 'open-ended'}</div>
+                  {/* A rolling cycle's real window comes from its anchor, not
+                      its endsOn — show the dates that actually govern it. */}
+                  {(() => {
+                    const term = resolveTerm(p, new Date());
+                    if (term.kind === 'cycle') {
+                      return <div>{fmtDate(term.anchorDate!)} → {fmtDate(term.endsOn!)} · {term.durationDays}-day cycle</div>;
+                    }
+                    if (term.kind === 'cycle-pending') {
+                      return <div>{term.durationDays}-day cycle · not started yet</div>;
+                    }
+                    return <div>{fmtDate(p.startsOn)} → {p.endsOn ? fmtDate(p.endsOn) : 'open-ended'}</div>;
+                  })()}
                   <div>
                     {p.contractedTotal} deliverables
                     {deliveredOnCurrent?.periodId === p.id && (
@@ -399,6 +410,14 @@ export function ContractChannelsDrawer({ open, onClose, clientId, clientName, pe
                     <button type="button" onClick={() => deletePeriod(p)} style={{ ...linkBtn, color: T.destructive }}>
                       Delete this period
                     </button>
+                  </div>
+                )}
+
+                {p.cycleDurationDays != null && (
+                  <div style={{ fontSize: 12, color: T.ink3, marginTop: 8, lineHeight: 1.5 }}>
+                    {p.cycleAnchorDate
+                      ? `Counting from ${fmtDate(p.cycleAnchorDate)}, the first video published on this contract.`
+                      : 'The clock starts when the first video is published — nothing is counted yet.'}
                   </div>
                 )}
 

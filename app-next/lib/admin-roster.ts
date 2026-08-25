@@ -59,6 +59,8 @@ export async function loadAdminRoster(opts: { includeInactive?: boolean } = {}):
       model: current.model,
       contractedTotal: current.contractedTotal,
       state: current.state,
+      cycleDurationDays: current.cycleDurationDays,
+      cycleAnchorDate: current.cycleAnchorDate,
     } : null;
     return {
       clientId: c.id,
