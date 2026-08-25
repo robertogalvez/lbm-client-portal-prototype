@@ -34,10 +34,17 @@ function paceText(pace: PaceNeeded | null, r: AdminClientRow): string {
       return r.termExpired
         ? `Contract ended, ${pace.remaining} still owed`
         : `No term on file, ${pace.remaining} still owed`;
+    case 'cycle-pending':
+      // The deadline is known in length but not yet in date, so there is no
+      // pace to quote — publishing the first video is what starts the clock.
+      return `${pace.remaining} to start · ${pace.durationDays}-day clock starts at first publish`;
   }
 }
 
 function termLeftText(r: AdminClientRow): string {
+  // A rolling cycle has a real deadline — anchor + duration — so it must never
+  // read "Open-ended" the way its null endsOn would suggest.
+  if (r.term.kind === 'cycle-pending') return `${r.term.durationDays}d · not started`;
   if (r.termDaysLeft === null) return 'Open-ended';
   return r.termDaysLeft < 0 ? `Ended ${Math.abs(r.termDaysLeft)}d ago` : `${r.termDaysLeft} days`;
 }

@@ -8,8 +8,8 @@
 
 import type { MappedTask } from '@/lib/clickup';
 import {
-  coverage, paceNeeded, termDaysLeft, expiryLabel, fulfilment,
-  type Coverage, type PaceNeeded,
+  coverage, paceNeeded, resolveTerm, termLabel, fulfilment,
+  type Coverage, type PaceNeeded, type TermWindow,
 } from '@/lib/contracts';
 import { matchesClient, resolvePostedAt, type ClientPortfolioInput } from '@/lib/portfolio';
 import {
@@ -40,6 +40,12 @@ export interface AdminClientRow {
   expiryTone: 'red' | 'amber' | 'green' | 'slate';
   termDaysLeft: number | null;
   termExpired: boolean;
+  /**
+   * How this contract's clock actually works. A rolling cycle runs from the
+   * first published video (`anchorDate`), not from `endsOn` — read this rather
+   * than the period's dates when showing a deadline.
+   */
+  term: TermWindow;
   billing: 'retainer' | 'one_time' | null;
   portalUserCount: number;
 
@@ -77,6 +83,13 @@ export function avatarColorOf(name: string): string {
 }
 
 const fmtDate = (d: string | Date) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+/** The term as a person reads it — a rolling cycle names its real window, not "open". */
+function termText(p: { startsOn: string; endsOn: string | null }, term: TermWindow): string {
+  if (term.kind === 'cycle') return `${fmtDate(term.anchorDate!)} – ${fmtDate(term.endsOn!)} · ${term.durationDays}-day cycle`;
+  if (term.kind === 'cycle-pending') return `${term.durationDays}-day cycle · starts at first publish`;
+  return `${fmtDate(p.startsOn)} – ${p.endsOn ? fmtDate(p.endsOn) : 'open'}`;
+}
 
 // Every row ends in a next action, not a status badge. Ordered by what
 // actually matters most for that client, so the sentence names the single
@@ -140,10 +153,15 @@ export function buildAdminRows(
       return postedAt >= periodStartMs && postedAt <= nowMs;
     }).length;
 
-    const daysLeft = p ? termDaysLeft({ endsOn: p.endsOn }, now) : null;
+    // Cycle-aware: for a rolling contract the deadline is anchor + duration,
+    // never endsOn (see resolveTerm).
+    const term: TermWindow = p
+      ? resolveTerm(p, now)
+      : { kind: 'open', endsOn: null, daysLeft: null, anchorDate: null, durationDays: null };
+    const daysLeft = term.daysLeft;
     const termExpired = daysLeft !== null && daysLeft < 0;
     const expiry = p
-      ? expiryLabel({ endsOn: p.endsOn, state: p.state }, now)
+      ? termLabel(term, p.state)
       : { text: 'No contract yet', tone: 'slate' as const };
 
     const cov = p ? coverage({ sold: p.contractedTotal, delivered, inPipeline: buckets.inFlight }) : null;
@@ -159,11 +177,12 @@ export function buildAdminRows(
 
       model: p ? (p.model === 'package' ? 'package' as const : 'retainer' as const) : null,
       contractLabel: p ? p.label : 'No contract yet',
-      termText: p ? `${fmtDate(p.startsOn)} – ${p.endsOn ? fmtDate(p.endsOn) : 'open'}` : 'No contract yet',
+      termText: p ? termText(p, term) : 'No contract yet',
       expiryText: expiry.text,
       expiryTone: expiry.tone,
       termDaysLeft: daysLeft,
       termExpired,
+      term,
       billing: c.billing,
       portalUserCount: c.portalUserCount,
 
@@ -176,7 +195,11 @@ export function buildAdminRows(
 
       coverage: cov,
       fulfilmentPct: fulfilmentFrac !== null ? fulfilmentFrac * 100 : null,
-      pace: cov ? paceNeeded(cov.notStarted, daysLeft, !!p && !termExpired) : null,
+      pace: cov
+        ? (term.kind === 'cycle-pending' && cov.notStarted > 0
+            ? { kind: 'cycle-pending' as const, remaining: cov.notStarted, durationDays: term.durationDays! }
+            : paceNeeded(cov.notStarted, daysLeft, !!p && !termExpired))
+        : null,
     };
 
     const filterTags: AdminFilterTag[] = [];

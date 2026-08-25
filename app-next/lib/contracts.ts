@@ -339,10 +339,85 @@ export function coverage(input: { sold: number; delivered: number; inPipeline: n
   };
 }
 
-/** Whole days left on the term. null for an open-ended term (no deadline to pace against). */
-export function termDaysLeft(period: Pick<ContractPeriod, 'endsOn'>, now: Date): number | null {
-  if (!period.endsOn) return null;
-  return Math.ceil((new Date(period.endsOn).getTime() - now.getTime()) / 86_400_000);
+// ── Term resolution: fixed dates vs rolling cycles ──────────────────────────
+//
+// A rolling-cycle period (cycleDurationDays set) does not run on its endsOn
+// date. Its clock starts when the FIRST video of the cycle is published —
+// cycleAnchorDate, set once by the renewals endpoint via resolveCycleAnchor —
+// and runs cycleDurationDays from there. Per the schema: once the anchor is
+// set, the real end date is always anchor + duration, never endsOn.
+//
+// Everything that asks "how long is left" must go through resolveTerm, or a
+// 30-day contract three days from expiry reads as open-ended.
+
+export type TermKind =
+  // Ordinary start/end dates.
+  | 'fixed'
+  // Open-ended with no cycle: genuinely no deadline.
+  | 'open'
+  // Rolling cycle, clock running from the first published video.
+  | 'cycle'
+  // Rolling cycle whose first video has not been published yet, so the
+  // countdown has not begun. Not the same as having no deadline.
+  | 'cycle-pending';
+
+export interface TermWindow {
+  kind: TermKind;
+  /** The date the term actually ends. null when open, or a cycle not yet anchored. */
+  endsOn: string | null;
+  /** Whole days remaining. Negative when the term has run out. null when there is no end date. */
+  daysLeft: number | null;
+  /** For a cycle: the publish date its clock started from. */
+  anchorDate: string | null;
+  durationDays: number | null;
+}
+
+type TermInput = Pick<ContractPeriod, 'endsOn'> &
+  Partial<Pick<ContractPeriod, 'cycleDurationDays' | 'cycleAnchorDate'>>;
+
+const daysBetween = (to: string, now: Date) =>
+  Math.ceil((new Date(to).getTime() - now.getTime()) / 86_400_000);
+
+export function resolveTerm(period: TermInput, now: Date): TermWindow {
+  const duration = period.cycleDurationDays ?? null;
+
+  if (duration) {
+    if (!period.cycleAnchorDate) {
+      return { kind: 'cycle-pending', endsOn: null, daysLeft: null, anchorDate: null, durationDays: duration };
+    }
+    const endsOn = new Date(new Date(period.cycleAnchorDate).getTime() + duration * 86_400_000)
+      .toISOString().slice(0, 10);
+    return {
+      kind: 'cycle',
+      endsOn,
+      daysLeft: daysBetween(endsOn, now),
+      anchorDate: period.cycleAnchorDate,
+      durationDays: duration,
+    };
+  }
+
+  if (!period.endsOn) {
+    return { kind: 'open', endsOn: null, daysLeft: null, anchorDate: null, durationDays: null };
+  }
+  return {
+    kind: 'fixed',
+    endsOn: period.endsOn,
+    daysLeft: daysBetween(period.endsOn, now),
+    anchorDate: null,
+    durationDays: null,
+  };
+}
+
+/** The status chip for a term, cycle-aware. Supersedes calling expiryLabel with endsOn alone. */
+export function termLabel(term: TermWindow, state: ContractPeriod['state']): ExpiryLabel {
+  if (state === 'completed') return { text: 'Ended', tone: 'slate' };
+  if (term.kind === 'cycle-pending') {
+    return { text: `${term.durationDays}-day cycle · not started`, tone: 'amber' };
+  }
+  if (term.daysLeft === null) return { text: 'Active', tone: 'green' };
+  if (term.daysLeft < 0) return { text: `Expired ${Math.abs(term.daysLeft)}d ago`, tone: 'red' };
+  if (term.daysLeft <= 21) return { text: `Expires in ${term.daysLeft}d`, tone: 'amber' };
+  return { text: `Active · ${term.daysLeft}d left`, tone: 'green' };
 }
 
 export type PaceNeeded =
@@ -354,7 +429,11 @@ export type PaceNeeded =
   | { kind: 'open'; remaining: number }
   // Expired or absent term: a pace figure is meaningless without a deadline,
   // so the caller renders the contractual problem instead.
-  | { kind: 'blocked'; remaining: number };
+  | { kind: 'blocked'; remaining: number }
+  // A rolling cycle whose clock has not started: the deadline is known in
+  // length but not yet in date, so pace cannot be computed until the first
+  // video goes out.
+  | { kind: 'cycle-pending'; remaining: number; durationDays: number };
 
 export function paceNeeded(notStarted: number, daysLeft: number | null, hasTerm: boolean): PaceNeeded {
   if (notStarted <= 0) return { kind: 'covered' };

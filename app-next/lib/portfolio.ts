@@ -47,6 +47,10 @@ export interface ContractJoinRow {
   model: string;
   contractedTotal: number;
   state: ContractPeriod['state'];
+  // Rolling-cycle mode: the term runs from the first published video, not
+  // from endsOn. Null on an ordinary fixed-date contract.
+  cycleDurationDays: number | null;
+  cycleAnchorDate: string | null;
 }
 
 // One entry per client in the whole roster — `period` is null for a client
