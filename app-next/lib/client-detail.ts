@@ -40,6 +40,12 @@ export interface LedgerRow {
   /** ISO. The old ledger rendered "Invalid Date" on every row. */
   date: string | null;
   frameLink: string | null;
+  /**
+   * Dead in ClickUp — archived, or discarded without posting. These are
+   * hidden by default: they are not work anyone can act on, and they made the
+   * ledger several times longer than the live pipeline it is meant to show.
+   */
+  archived: boolean;
 }
 
 export interface ClientDetailData {
@@ -54,6 +60,11 @@ export interface ClientDetailData {
 
 const DAY_MS = 86_400_000;
 
+// ClickUp's two terminal "this will never ship" statuses. The live-fetch path
+// in lib/clickup.ts already drops them (HIDDEN_STATUSES), but the video_cache
+// mirror keeps every row, so the ledger has to filter them itself.
+const ARCHIVED_STATUSES = new Set(['archived', 'not posted - discarded']);
+
 /** What a video's status means to a human, and who is holding it up. */
 function ledgerState(status: string, firstName: string, waitDays: number): { stateLabel: string; tone: LedgerRow['tone'] } {
   const s = norm(status);
@@ -65,6 +76,9 @@ function ledgerState(status: string, firstName: string, waitDays: number): { sta
       // two-month-old one are not the same problem.
       tone: waitDays > 21 ? 'danger' : 'warn',
     };
+  }
+  if (ARCHIVED_STATUSES.has(s)) {
+    return { stateLabel: s === 'archived' ? 'Archived' : 'Discarded, not posted', tone: 'mute' };
   }
   const stage = pipelineStageOf(s);
   if (stage === 'editing') return { stateLabel: 'In editing', tone: 'info' };
@@ -155,6 +169,7 @@ export async function loadClientDetail(id: string): Promise<ClientDetailData | n
         ...ledgerState(t.status, firstName, waitDays),
         date: valid ? new Date(updated).toISOString() : null,
         frameLink: t.frameLink,
+        archived: ARCHIVED_STATUSES.has(norm(t.status)),
         sortKey: valid ? updated : 0,
       };
     })

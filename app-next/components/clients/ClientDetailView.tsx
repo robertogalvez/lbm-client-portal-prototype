@@ -21,10 +21,22 @@ const TONE_COLOR: Record<LedgerRow['tone'], string> = {
 };
 
 const LEDGER_SCOPES = [
-  { value: 'all' as const, label: 'All' },
   { value: 'waiting' as const, label: 'Waiting on client' },
+  { value: 'all' as const, label: 'All' },
   { value: 'published' as const, label: 'Published' },
 ];
+
+/** How many ledger rows before paging. The card sits beside a three-card rail
+ *  and used to run several screens past it on an account with any history. */
+const PAGE_SIZE = 8;
+
+type Scope = 'all' | 'waiting' | 'published';
+
+function inScope(r: LedgerRow, scope: Scope): boolean {
+  if (scope === 'waiting') return r.stateLabel.startsWith('Waiting');
+  if (scope === 'published') return r.stateLabel === 'Published';
+  return true;
+}
 
 const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : 'No date recorded';
@@ -47,7 +59,14 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
   const router = useRouter();
   const [data, setData] = useState(initial);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [scope, setScope] = useState<'all' | 'waiting' | 'published'>('all');
+  // "Waiting on client" leads, because it is the only part of the ledger that
+  // needs a decision today — but opening on an empty table would be worse than
+  // the wrong tab, so an account with nothing waiting starts on All.
+  const [scope, setScope] = useState<Scope>(
+    () => initial.ledger.some(r => !r.archived && inScope(r, 'waiting')) ? 'waiting' : 'all',
+  );
+  const [showArchived, setShowArchived] = useState(false);
+  const [page, setPage] = useState(0);
   const [syncOpen, setSyncOpen] = useState(false);
 
   const { row, displayName, ledger, portal } = data;
@@ -60,9 +79,16 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
     router.refresh();
   }, [row.periodId, router]);
 
-  const visibleLedger = ledger.filter(r =>
-    scope === 'all' ? true : scope === 'waiting' ? r.stateLabel.startsWith('Waiting') : r.stateLabel === 'Published',
-  );
+  const archivedCount = ledger.filter(r => r.archived).length;
+  const scoped = ledger.filter(r => (showArchived || !r.archived) && inScope(r, scope));
+  const pageCount = Math.max(1, Math.ceil(scoped.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const visibleLedger = scoped.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
+  function changeScope(next: Scope) {
+    setScope(next);
+    setPage(0); // page 3 of the old filter is meaningless under the new one
+  }
 
   const channels = PLATFORMS
     .map(p => ({ ...p, link: data.socialLinks?.[p.key] }))
@@ -121,7 +147,7 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
             <p style={{ fontSize: 16, fontWeight: 600, color: '#2C1A12', lineHeight: 1.45, margin: '8px 0 0' }}>{row.nextAction}</p>
           </div>
           {row.waitingOnClient > 0 && (
-            <Button onClick={() => setScope('waiting')}>Show what {firstName} is holding</Button>
+            <Button onClick={() => changeScope('waiting')}>Show what {firstName} is holding</Button>
           )}
         </div>
 
@@ -166,12 +192,32 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
 
             <Card
               title="Video ledger"
-              subtitle={`${ledger.length} videos · newest first`}
+              subtitle={`${scoped.length} video${scoped.length === 1 ? '' : 's'} · newest first`}
               padded={false}
-              action={<SegmentedControl label="Ledger scope" options={LEDGER_SCOPES} value={scope} onChange={setScope} />}
+              action={
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'flex-end' }}>
+                  <SegmentedControl label="Ledger scope" options={LEDGER_SCOPES} value={scope} onChange={changeScope} />
+                  {archivedCount > 0 && (
+                    <button
+                      type="button"
+                      aria-pressed={showArchived}
+                      onClick={() => { setShowArchived(v => !v); setPage(0); }}
+                      style={{
+                        background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                        fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600,
+                        color: showArchived ? T.brand : T.ink3,
+                      }}
+                    >
+                      {showArchived ? 'Hide' : 'Show'} {archivedCount} archived
+                    </button>
+                  )}
+                </div>
+              }
             >
               {visibleLedger.length === 0 && (
-                <div style={{ padding: '30px 24px', fontSize: 13, color: T.ink3, textAlign: 'center' }}>Nothing in this view.</div>
+                <div style={{ padding: '30px 24px', fontSize: 13, color: T.ink3, textAlign: 'center' }}>
+                  {scope === 'waiting' ? `Nothing is waiting on ${firstName}.` : 'Nothing in this view.'}
+                </div>
               )}
               {visibleLedger.map(v => (
                 <div
@@ -181,7 +227,7 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
                     padding: '13px 24px', borderTop: `1px solid ${T.dividerLight}`,
                   }}
                 >
-                  <span style={{ fontSize: 13.5, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.title}</span>
+                  <span style={{ fontSize: 13.5, fontWeight: 600, color: v.archived ? T.ink3 : T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.title}</span>
                   <span style={{ fontSize: 12.5, fontWeight: 600, color: TONE_COLOR[v.tone] }}>{v.stateLabel}</span>
                   <span style={{ fontFamily: MONO, fontSize: 12, color: T.ink3 }}>{fmtDate(v.date)}</span>
                   <span style={{ textAlign: 'right' }}>
@@ -191,6 +237,19 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
                   </span>
                 </div>
               ))}
+
+              {pageCount > 1 && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+                  padding: '14px 24px 4px', borderTop: `1px solid ${T.dividerLight}`,
+                }}>
+                  <span style={{ flex: 1, fontSize: 12, color: T.ink3 }}>
+                    {safePage * PAGE_SIZE + 1}–{Math.min(scoped.length, (safePage + 1) * PAGE_SIZE)} of {scoped.length}
+                  </span>
+                  <Button size="sm" variant="outline" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>Previous</Button>
+                  <Button size="sm" variant="outline" disabled={safePage >= pageCount - 1} onClick={() => setPage(safePage + 1)}>Next</Button>
+                </div>
+              )}
             </Card>
           </div>
 
