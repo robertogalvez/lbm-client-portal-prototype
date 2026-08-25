@@ -73,6 +73,7 @@ export default async function AdminClientsPage({
       showInactive={showInactive}
       clientRecords={clientRecords}
       openClientId={client || null}
+      error={roster.error}
     />
   );
 }

@@ -693,6 +693,26 @@ body {
    the hover the old div-with-onClick rows had. */
 .db-row-link:hover { background: #f5f7f9; }
 .db-row-link:focus-visible { outline: 2px solid #FF6000; outline-offset: -2px; }
+
+/* Admin page header — same hamburger clearance as .db-topbar, for the four
+   simplified admin screens whose <main> owns its own padding. */
+@media (max-width: 860px) {
+  .db-page-header { padding-left: 62px !important; }
+}
+
+/* The admin tables are column-dense by design (five to seven columns of
+   numbers that only mean something side by side). Below their natural width
+   they scroll horizontally inside the card rather than crushing every column
+   to two characters. */
+.db-table-scroll { overflow-x: auto; }
+.db-table-scroll > * { min-width: 860px; }
+.db-table-scroll-wide > * { min-width: 1000px; }
+
+/* Client detail drops to one column before the rail gets too narrow to read. */
+.db-detail-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 1080px) {
+  .db-detail-grid { grid-template-columns: minmax(0, 1fr); }
+}
 @media (max-width: 860px) {
   .db-topbar { padding-left: 62px !important; }
   /* Dashboard topbar's inline tab row/toggle don't fit alongside the title

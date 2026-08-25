@@ -8,6 +8,7 @@ import { ProgressBar } from '@/components/ui/Bars';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { T, MONO } from '@/components/ui/tokens';
 import { colHeader, headerRow, bodyRow, emptyState } from '@/components/ui/table';
+import { TableScroll } from '@/components/ui/TableScroll';
 import type { AdminClientRow, AdminFilterTag } from '@/lib/admin-views';
 
 const GRID = '2.2fr 1.6fr 1.5fr 1.4fr 2.2fr';
@@ -99,6 +100,7 @@ export function AccountsTab({ rows, inactiveCount }: { rows: AdminClientRow[]; i
       </div>
 
       <Card padded={false}>
+        <TableScroll>
         <div style={{ ...headerRow(GRID), padding: '4px 24px 12px' }}>
           <span style={colHeader}>Client</span>
           <span style={colHeader}>Contract term</span>
@@ -167,6 +169,7 @@ export function AccountsTab({ rows, inactiveCount }: { rows: AdminClientRow[]; i
             </span>
           </Link>
         ))}
+        </TableScroll>
       </Card>
     </div>
   );

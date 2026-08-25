@@ -125,7 +125,7 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
           )}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.55fr) minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
+        <div className="db-detail-grid">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {/* Same formula, colours and wording as the Coverage tab — this is
                 the per-account view of it, computed by the same selector. */}
@@ -283,6 +283,7 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
         clientName={displayName}
         periods={data.periods}
         socialLinks={data.socialLinks}
+        deliveredOnCurrent={row.periodId && cov ? { periodId: row.periodId, delivered: cov.delivered } : undefined}
         onSaved={refresh}
       />}
     </main>

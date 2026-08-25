@@ -6,6 +6,7 @@ import { CoverageBar, CoverageLegend } from '@/components/ui/Bars';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { T, MONO, COVERAGE_COLORS } from '@/components/ui/tokens';
 import { colHeader, headerRow, emptyState } from '@/components/ui/table';
+import { TableScroll } from '@/components/ui/TableScroll';
 import type { AdminClientRow } from '@/lib/admin-views';
 import { buildCoverageSummary } from '@/lib/admin-views';
 import type { PaceNeeded } from '@/lib/contracts';
@@ -151,6 +152,7 @@ export function CoverageTab({ rows }: { rows: AdminClientRow[] }) {
         padded={false}
         action={<CoverageLegend />}
       >
+        <TableScroll wide>
         <div style={{ ...headerRow(GRID), padding: '4px 24px 12px' }}>
           <span style={colHeader}>Client / contract</span>
           <span style={colHeader}>Sold</span>
@@ -196,6 +198,7 @@ export function CoverageTab({ rows }: { rows: AdminClientRow[] }) {
             </Link>
           );
         })}
+        </TableScroll>
 
         {summary.noContractRows.length > 0 && (
           <p style={{ padding: '16px 24px 4px', fontSize: 12.5, color: T.ink3, lineHeight: 1.55, margin: 0 }}>

@@ -31,9 +31,11 @@ interface Props {
   clientRecords: ClientRecord[];
   /** ?client=<id> — a row with no contract period yet opens straight into the editor. */
   openClientId: string | null;
+  /** A ClickUp fetch failure means the numbers below are stale — say so. */
+  error?: string | null;
 }
 
-export function ClientsPageClient({ tab, rows, inactiveCount, showInactive, clientRecords, openClientId }: Props) {
+export function ClientsPageClient({ tab, rows, inactiveCount, showInactive, clientRecords, openClientId, error }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -89,6 +91,14 @@ export function ClientsPageClient({ tab, rows, inactiveCount, showInactive, clie
           </>
         }
       />
+
+      {error && (
+        <div style={{ margin: '18px 34px 0' }}>
+          <div style={{ background: '#fdedeb', border: '1px solid #f8d0cc', borderRadius: 8, padding: '12px 16px', fontSize: 13, color: T.danger }}>
+            ClickUp error: {error} — the counts below may be out of date.
+          </div>
+        </div>
+      )}
 
       <div style={{ margin: '20px 34px 0' }}>
         <Tabs

@@ -130,11 +130,18 @@ interface Props {
   clientName: string;
   periods: ContractPeriodRecord[];
   socialLinks: SocialLinks | null;
+  /**
+   * Delivered-so-far for the current period, when the caller knows it (the
+   * client detail page does; the Clients list opens this for clients that
+   * have no contract yet, so it doesn't). Turns the period card's scope line
+   * into "40 deliverables · 1 delivered · 39 owed".
+   */
+  deliveredOnCurrent?: { periodId: string; delivered: number };
   /** Called after a successful save so the caller can refresh its data. */
   onSaved: (periods: ContractPeriodRecord[], links: SocialLinks) => void;
 }
 
-export function ContractChannelsDrawer({ open, onClose, clientId, clientName, periods: initialPeriods, socialLinks, onSaved }: Props) {
+export function ContractChannelsDrawer({ open, onClose, clientId, clientName, periods: initialPeriods, socialLinks, deliveredOnCurrent, onSaved }: Props) {
   const mutating = useRef(false);
   // Callers mount this only while it is open, so the local copy always
   // starts from fresh props — no prop→state resync effect needed.
@@ -357,6 +364,9 @@ export function ContractChannelsDrawer({ open, onClose, clientId, clientName, pe
                   <div>{fmtDate(p.startsOn)} → {p.endsOn ? fmtDate(p.endsOn) : 'open-ended'}</div>
                   <div>
                     {p.contractedTotal} deliverables
+                    {deliveredOnCurrent?.periodId === p.id && (
+                      ` · ${deliveredOnCurrent.delivered} delivered · ${Math.max(0, p.contractedTotal - deliveredOnCurrent.delivered)} owed`
+                    )}
                     {p.monthlyQuota ? ` · ${p.monthlyQuota}/month` : ''}
                     {p.clientIds.length > 1 ? ` · joint with ${p.clientIds.length - 1} other${p.clientIds.length === 2 ? '' : 's'}` : ''}
                   </div>

@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
 import { T, dash } from '@/components/ui/tokens';
 import { colHeader, headerRow, bodyRow, emptyState, tableFooter } from '@/components/ui/table';
+import { TableScroll } from '@/components/ui/TableScroll';
 import type { AdminClientRow } from '@/lib/admin-views';
 
 const GRID = '2fr 1fr 1.1fr 1.1fr 2.4fr';
@@ -46,18 +47,19 @@ export function ByClientTable({ rows, inactiveCount }: { rows: AdminClientRow[];
         />
       }
     >
-      <div style={{ ...headerRow(GRID), paddingTop: 4 }}>
+      <TableScroll>
+        <div style={{ ...headerRow(GRID), paddingTop: 4 }}>
         <span style={colHeader}>Client</span>
         <span style={colHeader}>In flight</span>
         <span style={colHeader}>Stuck with us</span>
         <span style={colHeader}>Waiting on client</span>
-        <span style={colHeader}>What to do</span>
-      </div>
+          <span style={colHeader}>What to do</span>
+        </div>
 
-      {filtered.length === 0 && <div style={emptyState}>No clients match “{query}”.</div>}
+        {filtered.length === 0 && <div style={emptyState}>No clients match “{query}”.</div>}
 
-      {filtered.map(r => (
-        <Link
+        {filtered.map(r => (
+          <Link
           key={r.id}
           href={r.periodId ? `/admin/clients/${r.periodId}` : `/admin/clients?client=${r.clientId}`}
           style={{ ...bodyRow(GRID), textDecoration: 'none', color: 'inherit' }}
@@ -74,8 +76,9 @@ export function ByClientTable({ rows, inactiveCount }: { rows: AdminClientRow[];
           <span style={{ fontSize: 15, fontWeight: r.stalledWithUs ? 700 : 600, color: r.stalledWithUs ? T.brand : T.ghost }}>{dash(r.stalledWithUs)}</span>
           <span style={{ fontSize: 15, fontWeight: r.waitingOnClient ? 700 : 600, color: r.waitingOnClient ? '#B4762A' : T.ghost }}>{dash(r.waitingOnClient)}</span>
           <span style={{ fontSize: 13, color: T.ink2, lineHeight: 1.45 }}>{r.nextAction}</span>
-        </Link>
-      ))}
+          </Link>
+        ))}
+      </TableScroll>
 
       <div style={tableFooter}>
         {rows.length} active client{rows.length === 1 ? '' : 's'}
