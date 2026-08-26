@@ -7,8 +7,9 @@ import { db } from '@/lib/db';
 import { authUsers, clients as clientsTable, contractPeriods, contractMonths, contractPeriodClients, contractLineItems } from '@/lib/db/schema';
 import { getDashboardTasks } from '@/lib/dashboard-tasks';
 import { buildAdminRows, type AdminClientRow } from '@/lib/admin-views';
-import { norm, parseDate, POSTED, pipelineStageOf } from '@/lib/pipeline';
+import { norm, parseDate, POSTED, pipelineStageOf, ARCHIVED_STATUSES } from '@/lib/pipeline';
 import type { ContractJoinRow } from '@/lib/portfolio';
+import { resolvePostedAt } from '@/lib/portfolio';
 import type { ContractPeriodRecord } from '@/lib/contract-records';
 import type { SocialLinks } from '@/lib/socialLinks';
 
@@ -54,16 +55,20 @@ export interface ClientDetailData {
   ledger: LedgerRow[];
   socialLinks: SocialLinks | null;
   periods: ContractPeriodRecord[];
+  /**
+   * Delivered count for every period on this client, not just the current
+   * one — the drawer used to show delivery figures for the current period
+   * only, so a closed cycle's history was invisible. Computed the same way
+   * as the current period's `delivered` (a real publish date inside the
+   * period's own window), just repeated per period instead of once.
+   */
+  deliveredByPeriod: Record<string, number>;
   clickupTaskId: string | null;
   portal: ClientPortalData | null;
 }
 
 const DAY_MS = 86_400_000;
 
-// ClickUp's two terminal "this will never ship" statuses. The live-fetch path
-// in lib/clickup.ts already drops them (HIDDEN_STATUSES), but the video_cache
-// mirror keeps every row, so the ledger has to filter them itself.
-const ARCHIVED_STATUSES = new Set(['archived', 'not posted - discarded']);
 
 /** What a video's status means to a human, and who is holding it up. */
 function ledgerState(status: string, firstName: string, waitDays: number): { stateLabel: string; tone: LedgerRow['tone'] } {
@@ -187,6 +192,20 @@ export async function loadClientDetail(id: string): Promise<ClientDetailData | n
     clientIds: allPeriodClients.filter(pc => pc.periodId === p.id).map(pc => pc.clientId),
   }));
 
+  // Same delivered definition as the current period (a real publish date
+  // inside the period's own window), computed for every period so a closed
+  // cycle's history shows in the drawer instead of just its total.
+  const deliveredByPeriod: Record<string, number> = {};
+  for (const p of allPeriods) {
+    const start = new Date(p.startsOn).getTime();
+    const end = p.endsOn ? new Date(p.endsOn).getTime() : now.getTime();
+    deliveredByPeriod[p.id] = clientTasks.filter(t => {
+      if (norm(t.status) !== POSTED) return false;
+      const postedAt = resolvePostedAt(t);
+      return postedAt >= start && postedAt <= end;
+    }).length;
+  }
+
   // Portal settings and users are a per-client concept, so they are scoped to
   // the primary client rather than a joint contract's combined name.
   const portalUsers = primaryClient
@@ -200,6 +219,7 @@ export async function loadClientDetail(id: string): Promise<ClientDetailData | n
     ledger,
     socialLinks: (primaryClient?.socialLinks ?? null) as SocialLinks | null,
     periods,
+    deliveredByPeriod,
     clickupTaskId: primaryClient?.clickupTaskId ?? null,
     portal: primaryClient ? {
       clickupTaskId: primaryClient.clickupTaskId,

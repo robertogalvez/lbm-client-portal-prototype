@@ -24,12 +24,21 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 
 /** In-flight reads as stacked chips, one per stage that actually has work in it. */
 function inFlightChips(r: AdminClientRow) {
-  const parts: { label: string; tone: 'amber' | 'blue' | 'slate' }[] = [];
+  const parts: { label: string; tone: 'amber' | 'blue' | 'slate' | 'red'; title?: string }[] = [];
   if (r.stages.review) parts.push({ label: `${r.stages.review} in review`, tone: 'amber' });
   if (r.stages.editing) parts.push({ label: `${r.stages.editing} editing`, tone: 'blue' });
   if (r.stages.qc) parts.push({ label: `${r.stages.qc} in QC`, tone: 'blue' });
   if (r.stages.backlog) parts.push({ label: `${r.stages.backlog} in backlog`, tone: 'slate' });
   if (r.stages.ready) parts.push({ label: `${r.stages.ready} ready to post`, tone: 'blue' });
+  // A ClickUp status this app doesn't recognise (a renamed or added column).
+  // Flagged rather than dropped — see lib/pipeline.ts's unclassified bucket.
+  if (r.unclassified) {
+    parts.push({
+      label: `${r.unclassified} unclassified`,
+      tone: 'red',
+      title: `ClickUp status not mapped to a stage: ${r.unclassifiedStatuses.join(', ')}`,
+    });
+  }
   if (parts.length === 0) parts.push({ label: 'nothing in flight', tone: 'slate' });
   return parts;
 }
@@ -159,7 +168,9 @@ export function AccountsTab({ rows, inactiveCount }: { rows: AdminClientRow[]; i
 
             <span style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-start' }}>
               {inFlightChips(r).map(c => (
-                <StatusBadge key={c.label} tone={c.tone} dot={false}>{c.label}</StatusBadge>
+                <span key={c.label} title={c.title}>
+                  <StatusBadge tone={c.tone} dot={false}>{c.label}</StatusBadge>
+                </span>
               ))}
             </span>
 

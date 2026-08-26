@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { T, MONO } from '@/components/ui/tokens';
 import { PLATFORMS, handleFromUrl, type SocialLinks } from '@/lib/socialLinks';
-import { resolveCurrentPeriod, resolveTerm } from '@/lib/contracts';
+import { fmtCalendarDate as fmtDate } from '@/lib/calendar-date';
+import { resolveCurrentPeriod, resolveTerm, type Coverage } from '@/lib/contracts';
 import type { ContractPeriodRecord, ContractMonthRecord, ContractLineItemRecord } from '@/lib/contract-records';
 import { inp, fieldCap, linkBtn } from './contractFormStyles';
 
@@ -104,7 +105,6 @@ function formToBody(form: PeriodForm, existing: ContractPeriodRecord | null) {
   };
 }
 
-const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
 function Disclosure({ label, open, onToggle, children }: { label: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
   return (
@@ -131,17 +131,29 @@ interface Props {
   periods: ContractPeriodRecord[];
   socialLinks: SocialLinks | null;
   /**
-   * Delivered-so-far for the current period, when the caller knows it (the
-   * client detail page does; the Clients list opens this for clients that
-   * have no contract yet, so it doesn't). Turns the period card's scope line
-   * into "40 deliverables · 1 delivered · 39 owed".
+   * Coverage for the current period, when the caller has it (the client
+   * detail page does; the Clients list opens this drawer for clients with no
+   * contract yet, so it doesn't). Rendering "owed" from the same coverage()
+   * output as the rest of the app — rather than a local `total - delivered` —
+   * is what keeps this number from disagreeing with the Coverage tab one
+   * click away: coverage() nets out work already in the pipeline, a plain
+   * subtraction does not.
    */
-  deliveredOnCurrent?: { periodId: string; delivered: number };
+  coverageOnCurrent?: { periodId: string; coverage: Coverage };
+  /**
+   * Delivered count for every period, current and past — the drawer used to
+   * show delivery figures for the current period only, so a closed cycle's
+   * history was invisible. A past period shows `delivered · owed` with owed
+   * as `total - delivered`, the same formula the inventory itself uses for a
+   * closed cycle (no in-flight to net out, unlike the live coverage() figure
+   * shown for the current period).
+   */
+  deliveredByPeriod?: Record<string, number>;
   /** Called after a successful save so the caller can refresh its data. */
   onSaved: (periods: ContractPeriodRecord[], links: SocialLinks) => void;
 }
 
-export function ContractChannelsDrawer({ open, onClose, clientId, clientName, periods: initialPeriods, socialLinks, deliveredOnCurrent, onSaved }: Props) {
+export function ContractChannelsDrawer({ open, onClose, clientId, clientName, periods: initialPeriods, socialLinks, coverageOnCurrent, deliveredByPeriod, onSaved }: Props) {
   const mutating = useRef(false);
   // Callers mount this only while it is open, so the local copy always
   // starts from fresh props — no prop→state resync effect needed.
@@ -364,7 +376,19 @@ export function ContractChannelsDrawer({ open, onClose, clientId, clientName, pe
               <div key={p.id} style={{ background: T.surfaceSubtle, border: `1px solid ${T.line}`, borderRadius: 12, padding: '16px 18px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: T.ink }}>{p.label}</span>
-                  {current?.id === p.id && <StatusBadge tone="green" dot={false}>Active</StatusBadge>}
+                  {current?.id === p.id && (() => {
+                    // resolveCurrentPeriod falls back to the newest eligible
+                    // period even when its term has run out, so "current"
+                    // does not mean "live" — confirmed on Hector, where this
+                    // badge read "Active" on a contract the Accounts row
+                    // badged "Expired 107d ago" one click away. Read the term
+                    // itself rather than assuming resolved == live.
+                    const term = resolveTerm(p, new Date());
+                    const expired = term.daysLeft !== null && term.daysLeft < 0;
+                    return expired
+                      ? <StatusBadge tone="red" dot={false}>Latest · expired</StatusBadge>
+                      : <StatusBadge tone="green" dot={false}>Active</StatusBadge>;
+                  })()}
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 12, color: T.ink2, marginTop: 8, lineHeight: 1.6 }}>
                   {/* A rolling cycle's real window comes from its anchor, not
@@ -381,9 +405,19 @@ export function ContractChannelsDrawer({ open, onClose, clientId, clientName, pe
                   })()}
                   <div>
                     {p.contractedTotal} deliverables
-                    {deliveredOnCurrent?.periodId === p.id && (
-                      ` · ${deliveredOnCurrent.delivered} delivered · ${Math.max(0, p.contractedTotal - deliveredOnCurrent.delivered)} owed`
-                    )}
+                    {coverageOnCurrent?.periodId === p.id ? (() => {
+                      const cov = coverageOnCurrent.coverage;
+                      // "owed" reads as notStarted normally, but as "N over" when
+                      // the pipeline already exceeds the contract — never a
+                      // negative number, and never silently wrong the way
+                      // `total - delivered` goes once anything is in flight.
+                      const owedLabel = cov.status === 'over' ? `${cov.over} over` : `${cov.notStarted} owed`;
+                      return ` · ${cov.delivered} delivered · ${owedLabel}`;
+                    })() : deliveredByPeriod?.[p.id] !== undefined && (() => {
+                      const delivered = deliveredByPeriod[p.id];
+                      const owed = Math.max(0, p.contractedTotal - delivered);
+                      return ` · ${delivered} delivered · ${owed} owed`;
+                    })()}
                     {p.monthlyQuota ? ` · ${p.monthlyQuota}/month` : ''}
                     {p.clientIds.length > 1 ? ` · joint with ${p.clientIds.length - 1} other${p.clientIds.length === 2 ? '' : 's'}` : ''}
                   </div>
