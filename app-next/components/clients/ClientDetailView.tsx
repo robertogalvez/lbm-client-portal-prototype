@@ -162,17 +162,6 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
           </div>
         </div>
 
-        {/* Exactly one banner, exactly one primary action. */}
-        <div style={{ background: ATTENTION.bg, border: `1px solid ${ATTENTION.border}`, borderRadius: 14, padding: '20px 24px', display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 260 }}>
-            <div style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: ATTENTION.head }}>Next action</div>
-            <p style={{ fontSize: 16, fontWeight: 600, color: '#2C1A12', lineHeight: 1.45, margin: '8px 0 0' }}>{row.nextAction}</p>
-          </div>
-          {row.waitingOnClient > 0 && (
-            <Button onClick={() => changeScope('waiting')}>Show what {firstName} is holding</Button>
-          )}
-        </div>
-
         <div className="db-detail-grid">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {/* Same formula, colours and wording as the Coverage tab — this is
