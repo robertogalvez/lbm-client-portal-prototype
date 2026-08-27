@@ -13,12 +13,15 @@ import { resolveCurrentPeriod } from '@/lib/contracts';
 import type { ContractJoinRow, ClientPortfolioInput } from '@/lib/portfolio';
 import { buildAdminRows, buildAdminTotals, type AdminClientRow, type AdminTotals } from '@/lib/admin-views';
 import { norm } from '@/lib/pipeline';
+import { buildFirstPassStats, type FirstPassStats } from '@/lib/revisions';
 
 export interface AdminRoster {
   rows: AdminClientRow[];
   totals: AdminTotals;
   /** Clients hidden because ClickUp marks them Inactive — surfaced as "N inactive hidden". */
   inactiveCount: number;
+  /** Studio-wide, not per-client — computed over every posted task regardless of client status. */
+  firstPass: FirstPassStats;
   error?: string | null;
 }
 
@@ -72,5 +75,11 @@ export async function loadAdminRoster(opts: { includeInactive?: boolean } = {}):
   });
 
   const rows = buildAdminRows(inputs, allTasks, now);
-  return { rows, totals: buildAdminTotals(rows), inactiveCount: inactive.length, error: taskResult.error };
+  return {
+    rows,
+    totals: buildAdminTotals(rows),
+    inactiveCount: inactive.length,
+    firstPass: buildFirstPassStats(allTasks, now),
+    error: taskResult.error,
+  };
 }

@@ -7,6 +7,7 @@ import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { loadAdminRoster } from '@/lib/admin-roster';
 import { PipelineCard } from '@/components/dashboard/PipelineCard';
+import { FirstPassCard } from '@/components/dashboard/FirstPassCard';
 import { ByClientTable } from '@/components/dashboard/ByClientTable';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { T } from '@/components/ui/tokens';
@@ -47,7 +48,7 @@ export default async function DashboardPage() {
   // Inactive clients are always hidden here and counted in the table footer —
   // the global "Show inactive" toggle lived on this page but nobody flipped it
   // daily, so it moved to Clients where the roster is the subject.
-  const { rows, totals, inactiveCount, error } = await loadAdminRoster();
+  const { rows, totals, inactiveCount, firstPass, error } = await loadAdminRoster();
 
   return (
     <main style={{ maxWidth: 1400 }}>
@@ -72,6 +73,7 @@ export default async function DashboardPage() {
           unclassified={totals.unclassified}
           unclassifiedStatuses={totals.unclassifiedStatuses}
         />
+        <FirstPassCard thisMonth={firstPass.thisMonth} lastMonth={firstPass.lastMonth} />
         <ByClientTable rows={rows} inactiveCount={inactiveCount} />
       </div>
     </main>
