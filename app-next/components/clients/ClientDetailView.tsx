@@ -34,8 +34,8 @@ const PAGE_SIZE = 8;
 type Scope = 'all' | 'waiting' | 'published';
 
 function inScope(r: LedgerRow, scope: Scope): boolean {
-  if (scope === 'waiting') return r.stateLabel.startsWith('Waiting');
-  if (scope === 'published') return r.stateLabel === 'Published';
+  if (scope === 'waiting') return r.waitingOnClient;
+  if (scope === 'published') return r.published;
   return true;
 }
 
@@ -214,7 +214,7 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
 
             <Card
               title="Video ledger"
-              subtitle={`${scoped.length} video${scoped.length === 1 ? '' : 's'} · newest first`}
+              subtitle={`${scoped.length} video${scoped.length === 1 ? '' : 's'} · by status`}
               padded={false}
               action={
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'flex-end' }}>
@@ -245,14 +245,17 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
                 <div
                   key={v.id}
                   style={{
-                    display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 1fr 90px', gap: 12, alignItems: 'center',
+                    display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 1fr 130px', gap: 12, alignItems: 'center',
                     padding: '13px 24px', borderTop: `1px solid ${T.dividerLight}`,
                   }}
                 >
                   <span style={{ fontSize: 13.5, fontWeight: 600, color: v.archived ? T.ink3 : T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.title}</span>
                   <span style={{ fontSize: 12.5, fontWeight: 600, color: TONE_COLOR[v.tone] }}>{v.stateLabel}</span>
                   <span style={{ fontFamily: MONO, fontSize: 12, color: T.ink3 }}>{fmtDate(v.date)}</span>
-                  <span style={{ textAlign: 'right' }}>
+                  <span style={{ textAlign: 'right', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                    {v.clickupUrl && (
+                      <a href={v.clickupUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 600, color: T.ink3, textDecoration: 'none' }}>CU ↗</a>
+                    )}
                     {v.frameLink && (
                       <a href={v.frameLink} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 600, color: T.brand, textDecoration: 'none' }}>F.io ↗</a>
                     )}
