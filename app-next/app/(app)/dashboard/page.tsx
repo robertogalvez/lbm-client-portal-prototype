@@ -72,6 +72,7 @@ export default async function DashboardPage() {
           waitingOnClient={totals.waitingOnClient}
           unclassified={totals.unclassified}
           unclassifiedStatuses={totals.unclassifiedStatuses}
+          firstPass={firstPass}
         />
         <FirstPassCard thisMonth={firstPass.thisMonth} lastMonth={firstPass.lastMonth} />
         <ByClientTable rows={rows} inactiveCount={inactiveCount} />
