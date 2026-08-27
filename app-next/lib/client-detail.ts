@@ -35,18 +35,54 @@ export interface ClientPortalData {
 export interface LedgerRow {
   id: string;
   title: string;
-  /** Plain language: "Waiting on Jay · 11d", "In editing", "Published". */
+  /** The real ClickUp status, humanized — "Not ready", "QC Final (Daniel)" —
+   *  plus a wait-time suffix for client review. Never a collapsed stage name
+   *  like "In backlog": that hid the difference between Backlog and Not
+   *  Ready, which read as a data bug when compared against ClickUp. */
   stateLabel: string;
   tone: 'ok' | 'warn' | 'danger' | 'info' | 'mute';
   /** ISO. The old ledger rendered "Invalid Date" on every row. */
   date: string | null;
   frameLink: string | null;
+  /** https://app.clickup.com/t/<id> — null only if the task id itself is missing. */
+  clickupUrl: string | null;
+  /** Scope-matching flags, independent of stateLabel's wording. */
+  waitingOnClient: boolean;
+  published: boolean;
   /**
    * Dead in ClickUp — archived, or discarded without posting. These are
    * hidden by default: they are not work anyone can act on, and they made the
    * ledger several times longer than the live pipeline it is meant to show.
    */
   archived: boolean;
+}
+
+// Capitalizes each word in a raw ClickUp status ("qc final (daniel)") while
+// keeping QC/TC as acronyms, so the ledger can show the literal status
+// instead of a collapsed stage name.
+function humanizeStatus(status: string): string {
+  const LOWER = new Set(['in', 'to', 'on', 'of', 'a']);
+  return status
+    .split(' ')
+    .map((word, i) => {
+      const core = word.replace(/[a-z]+/gi, m =>
+        i > 0 && LOWER.has(m.toLowerCase()) ? m.toLowerCase() : m[0].toUpperCase() + m.slice(1).toLowerCase(),
+      );
+      return core.replace(/\bQc\b/g, 'QC').replace(/\bTc\b/g, 'TC');
+    })
+    .join(' ');
+}
+
+// Pipeline order for the ledger's default sort — a client comparing this
+// against ClickUp's "group by status" view expects work-in-progress order,
+// not an arbitrary timestamp shuffle.
+const STAGE_RANK: Record<string, number> = { backlog: 0, editing: 1, qc: 2, review: 3, ready: 4 };
+function statusRank(status: string): number {
+  const s = norm(status);
+  if (ARCHIVED_STATUSES.has(s)) return 7;
+  if (s === POSTED) return 6;
+  const stage = pipelineStageOf(s);
+  return stage ? STAGE_RANK[stage] : 5; // unclassified: after Ready, before Published
 }
 
 export interface ClientDetailData {
@@ -70,27 +106,24 @@ export interface ClientDetailData {
 const DAY_MS = 86_400_000;
 
 
-/** What a video's status means to a human, and who is holding it up. */
-function ledgerState(status: string, firstName: string, waitDays: number): { stateLabel: string; tone: LedgerRow['tone'] } {
+/** The real ClickUp status, humanized, plus who's holding it up for review. */
+function ledgerState(status: string, waitDays: number): { stateLabel: string; tone: LedgerRow['tone'] } {
   const s = norm(status);
-  if (s === POSTED) return { stateLabel: 'Published', tone: 'ok' };
+  const label = humanizeStatus(status);
+  if (s === POSTED) return { stateLabel: label, tone: 'ok' };
   if (s === 'for client review') {
     return {
-      stateLabel: `Waiting on ${firstName} · ${waitDays}d`,
+      stateLabel: `${label} · ${waitDays}d`,
       // Escalates past three weeks — a fortnight-old review and a
       // two-month-old one are not the same problem.
       tone: waitDays > 21 ? 'danger' : 'warn',
     };
   }
-  if (ARCHIVED_STATUSES.has(s)) {
-    return { stateLabel: s === 'archived' ? 'Archived' : 'Discarded, not posted', tone: 'mute' };
-  }
+  if (ARCHIVED_STATUSES.has(s)) return { stateLabel: label, tone: 'mute' };
   const stage = pipelineStageOf(s);
-  if (stage === 'editing') return { stateLabel: 'In editing', tone: 'info' };
-  if (stage === 'qc') return { stateLabel: 'In QC', tone: 'info' };
-  if (stage === 'ready') return { stateLabel: 'Ready to post', tone: 'ok' };
-  if (stage === 'backlog') return { stateLabel: 'In backlog', tone: 'mute' };
-  return { stateLabel: status, tone: 'mute' };
+  if (stage === 'editing' || stage === 'qc') return { stateLabel: label, tone: 'info' };
+  if (stage === 'ready') return { stateLabel: label, tone: 'ok' };
+  return { stateLabel: label, tone: 'mute' }; // backlog, unclassified
 }
 
 /**
@@ -164,26 +197,30 @@ export async function loadClientDetail(id: string): Promise<ClientDetailData | n
     period: joinRow,
   }], clientTasks, now);
 
-  const firstName = displayName.split(' ')[0];
   const ledger: LedgerRow[] = clientTasks
     .map(t => {
       const updated = parseDate(t.dateUpdated);
       const valid = Number.isFinite(updated) && updated > 0;
       const waitDays = valid ? Math.max(0, Math.floor((now.getTime() - updated) / DAY_MS)) : 0;
+      const s = norm(t.status);
       return {
         id: t.clickupTaskId,
         title: t.clientFacingTitle ?? t.title,
-        ...ledgerState(t.status, firstName, waitDays),
+        ...ledgerState(t.status, waitDays),
         date: valid ? new Date(updated).toISOString() : null,
         frameLink: t.frameLink,
-        archived: ARCHIVED_STATUSES.has(norm(t.status)),
+        clickupUrl: t.clickupTaskId ? `https://app.clickup.com/t/${t.clickupTaskId}` : null,
+        waitingOnClient: s === 'for client review',
+        published: s === POSTED,
+        archived: ARCHIVED_STATUSES.has(s),
+        rank: statusRank(t.status),
         sortKey: valid ? updated : 0,
       };
     })
-    // Newest first, always with a real date. Rows whose timestamp never
-    // parsed sort last rather than rendering "Invalid Date" mid-table.
-    .sort((a, b) => b.sortKey - a.sortKey)
-    .map(r => { const { sortKey, ...rest } = r; void sortKey; return rest; });
+    // Grouped by where the video sits in the pipeline (matching ClickUp's own
+    // "group by status" view), newest first within each status.
+    .sort((a, b) => a.rank - b.rank || b.sortKey - a.sortKey)
+    .map(r => { const { rank, sortKey, ...rest } = r; void rank; void sortKey; return rest; });
 
   const periods: ContractPeriodRecord[] = allPeriods.map(p => ({
     ...p,
