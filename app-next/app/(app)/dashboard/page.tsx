@@ -69,6 +69,8 @@ export default async function DashboardPage() {
           inFlight={totals.inFlight}
           stalledWithUs={totals.stalledWithUs}
           waitingOnClient={totals.waitingOnClient}
+          unclassified={totals.unclassified}
+          unclassifiedStatuses={totals.unclassifiedStatuses}
         />
         <ByClientTable rows={rows} inactiveCount={inactiveCount} />
       </div>

@@ -19,6 +19,15 @@ interface Props {
   inFlight: number;
   stalledWithUs: number;
   waitingOnClient: number;
+  /**
+   * In flight, but no client's ClickUp status matched a known stage (e.g. a
+   * new QC reviewer's status before the pattern was widened to catch it —
+   * see lib/pipeline.ts). The six tiles below sum to `inFlight - unclassified`,
+   * not `inFlight`; without this note that gap reads as the subtitle
+   * contradicting its own tiles.
+   */
+  unclassified: number;
+  unclassifiedStatuses: string[];
 }
 
 /**
@@ -30,7 +39,7 @@ interface Props {
  * doesn't change with the selected range; only "Posted" is date-scoped, which
  * is what the range control drives.
  */
-export function PipelineCard({ stages, stalled, posted, inFlight, stalledWithUs, waitingOnClient }: Props) {
+export function PipelineCard({ stages, stalled, posted, inFlight, stalledWithUs, waitingOnClient, unclassified, unclassifiedStatuses }: Props) {
   const [range, setRange] = useState<PipelinePeriod>('today');
 
   const rangeLabel = RANGES.find(r => r.value === range)!.label.toLowerCase();
@@ -50,6 +59,19 @@ export function PipelineCard({ stages, stalled, posted, inFlight, stalledWithUs,
       subtitle={`${inFlight} videos in flight · ${stalledWithUs + waitingOnClient} blocked — ${stalledWithUs} stalled with us, ${waitingOnClient} waiting on clients`}
       action={<SegmentedControl label="Posted range" options={RANGES} value={range} onChange={setRange} />}
     >
+      {unclassified > 0 && (
+        <div
+          title={`ClickUp status not mapped to a stage: ${unclassifiedStatuses.join(', ')}`}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 12, fontWeight: 600, color: T.danger,
+            background: '#fdedeb', borderRadius: 8, padding: '5px 10px',
+            marginBottom: 12,
+          }}
+        >
+          {unclassified} in flight with an unrecognised status — not shown in the tiles below
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {tiles.map(t => {
           const hasStalled = t.stalled > 0;
