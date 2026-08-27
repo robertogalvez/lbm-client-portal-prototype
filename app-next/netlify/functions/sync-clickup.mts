@@ -36,6 +36,13 @@ const videoCache = pgTable('video_cache', {
 
 const BASE = 'https://api.clickup.com/api/v2';
 const TERMINAL = ['Posted in Socials', 'Archived', 'Not Posted — Discarded'];
+// The synced list also holds one non-video "Client" record task per client
+// (title is just the client name — e.g. "Apex", "Ohr Sholmo"), used only to
+// carry the clickupTaskId/clickupClientOptionId onboarded into the `clients`
+// table. ClickUp's custom task type for these is 1020; without this filter
+// each one syncs in as a phantom "backlog" video, inflating every pipeline
+// count by one per client.
+const CLIENT_RECORD_TASK_TYPE = 1020;
 const DELIVERABLE_TYPE_MAP: Record<string, string> = {
   'short-form': 'short_form',
   'short form': 'short_form',
@@ -94,7 +101,9 @@ export default async function handler() {
   const db = drizzle(sql, { schema: { videoCache } });
 
   const rawTasks = await fetchAllTasksFromList(listId, token);
-  const activeTasks = rawTasks.filter((t: any) => !TERMINAL.includes(t.status?.status));
+  const activeTasks = rawTasks.filter((t: any) =>
+    !TERMINAL.includes(t.status?.status) && t.custom_item_id !== CLIENT_RECORD_TASK_TYPE,
+  );
 
   // Extract option maps once from whichever task has type_config populated for each field.
   // ClickUp only includes type_config on some tasks in the response, so we can't rely on it per-task.
