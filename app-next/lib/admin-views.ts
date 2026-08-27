@@ -234,6 +234,15 @@ export interface AdminTotals {
   stuck: number;
   posted: Record<PipelinePeriod, number>;
   activeClients: number;
+  /**
+   * In flight, but no client's ClickUp status matched a known stage — see
+   * lib/pipeline.ts. `stages` sums only the five known stages, so `inFlight`
+   * legitimately exceeds that sum by exactly this number; a screen that
+   * shows `stages` as tiles must also show this or its own total will look
+   * wrong next to them.
+   */
+  unclassified: number;
+  unclassifiedStatuses: string[];
 }
 
 /**
@@ -254,6 +263,8 @@ export function buildAdminTotals(rows: AdminClientRow[]): AdminTotals {
   const inFlight = sum(r => r.inFlight);
   const stalledWithUs = sum(r => r.stalledWithUs);
   const waitingOnClient = sum(r => r.waitingOnClient);
+  const unclassified = sum(r => r.unclassified);
+  const unclassifiedStatuses = Array.from(new Set(rows.flatMap(r => r.unclassifiedStatuses))).sort();
 
   const totals: AdminTotals = {
     stages,
@@ -268,10 +279,12 @@ export function buildAdminTotals(rows: AdminClientRow[]): AdminTotals {
       month: sum(r => r.posted.month),
     },
     activeClients: rows.length,
+    unclassified,
+    unclassifiedStatuses,
   };
 
   if (process.env.NODE_ENV !== 'production') {
-    const stageSum = PIPELINE_STAGE_KEYS.reduce((s, k) => s + stages[k], 0);
+    const stageSum = PIPELINE_STAGE_KEYS.reduce((s, k) => s + stages[k], 0) + unclassified;
     if (stageSum !== inFlight) {
       console.warn(`[admin-views] in-flight ${inFlight} does not equal the stage columns ${stageSum} — a screen is about to contradict its own table.`);
     }
