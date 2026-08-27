@@ -12,6 +12,7 @@ import {
   type Coverage, type PaceNeeded, type TermWindow,
 } from '@/lib/contracts';
 import { matchesClient, resolvePostedAt, type ClientPortfolioInput } from '@/lib/portfolio';
+import { fmtCalendarDate } from '@/lib/calendar-date';
 import {
   buildStageBuckets, postedCutoffs, norm, POSTED, PIPELINE_STAGE_KEYS,
   type PipelineStageCounts, type PipelinePeriod,
@@ -56,6 +57,9 @@ export interface AdminClientRow {
   stalledWithUs: number;
   waitingOnClient: number;
   posted: Record<PipelinePeriod, number>;
+  /** In flight, but the ClickUp status matched no known stage — see lib/pipeline.ts. */
+  unclassified: number;
+  unclassifiedStatuses: string[];
 
   // Coverage (null when there is no contract to measure against)
   coverage: Coverage | null;
@@ -82,13 +86,11 @@ export function avatarColorOf(name: string): string {
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
-const fmtDate = (d: string | Date) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
 /** The term as a person reads it — a rolling cycle names its real window, not "open". */
 function termText(p: { startsOn: string; endsOn: string | null }, term: TermWindow): string {
-  if (term.kind === 'cycle') return `${fmtDate(term.anchorDate!)} – ${fmtDate(term.endsOn!)} · ${term.durationDays}-day cycle`;
+  if (term.kind === 'cycle') return `${fmtCalendarDate(term.anchorDate!)} – ${fmtCalendarDate(term.endsOn!)} · ${term.durationDays}-day cycle`;
   if (term.kind === 'cycle-pending') return `${term.durationDays}-day cycle · starts at first publish`;
-  return `${fmtDate(p.startsOn)} – ${p.endsOn ? fmtDate(p.endsOn) : 'open'}`;
+  return `${fmtCalendarDate(p.startsOn)} – ${p.endsOn ? fmtCalendarDate(p.endsOn) : 'open'}`;
 }
 
 // Every row ends in a next action, not a status badge. Ordered by what
@@ -192,6 +194,8 @@ export function buildAdminRows(
       stalledWithUs: buckets.stalledWithUs,
       waitingOnClient: buckets.waitingOnClient,
       posted: buckets.posted,
+      unclassified: buckets.unclassified,
+      unclassifiedStatuses: buckets.unclassifiedStatuses,
 
       coverage: cov,
       fulfilmentPct: fulfilmentFrac !== null ? fulfilmentFrac * 100 : null,

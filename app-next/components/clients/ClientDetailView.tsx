@@ -14,6 +14,7 @@ import { CoverageBar, CoverageLegend } from '@/components/ui/Bars';
 import { T, MONO, ATTENTION, COVERAGE_COLORS } from '@/components/ui/tokens';
 import { ContractChannelsDrawer } from '@/components/shared/ContractChannelsDrawer';
 import { PLATFORMS } from '@/lib/socialLinks';
+import { fmtCalendarDate } from '@/lib/calendar-date';
 import type { ClientDetailData, LedgerRow, PortalUser } from '@/lib/client-detail';
 
 const TONE_COLOR: Record<LedgerRow['tone'], string> = {
@@ -38,6 +39,9 @@ function inScope(r: LedgerRow, scope: Scope): boolean {
   return true;
 }
 
+// Ledger rows carry a real timestamp (when a task last moved), not a stored
+// calendar date, so ordinary locale formatting is fine here — this is not
+// the date-off-by-one class of bug (see lib/calendar-date.ts).
 const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : 'No date recorded';
 
@@ -135,7 +139,7 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
                 contract's start date — say so, or the window looks arbitrary. */}
             {row.term.kind === 'cycle' && (
               <div style={{ fontSize: 12, color: T.ink3, marginTop: 6 }}>
-                Cycle started {fmtDate(row.term.anchorDate)} — the first video published on this contract.
+                Cycle started {fmtCalendarDate(row.term.anchorDate)} — the first video published on this contract.
               </div>
             )}
             {row.term.kind === 'cycle-pending' && (
@@ -360,7 +364,8 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
         clientName={displayName}
         periods={data.periods}
         socialLinks={data.socialLinks}
-        deliveredOnCurrent={row.periodId && cov ? { periodId: row.periodId, delivered: cov.delivered } : undefined}
+        coverageOnCurrent={row.periodId && cov ? { periodId: row.periodId, coverage: cov } : undefined}
+        deliveredByPeriod={data.deliveredByPeriod}
         onSaved={refresh}
       />}
     </main>
