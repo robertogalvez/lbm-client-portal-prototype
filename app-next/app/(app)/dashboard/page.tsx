@@ -7,7 +7,6 @@ import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { loadAdminRoster } from '@/lib/admin-roster';
 import { PipelineCard } from '@/components/dashboard/PipelineCard';
-import { FirstPassCard } from '@/components/dashboard/FirstPassCard';
 import { ByClientTable } from '@/components/dashboard/ByClientTable';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { T } from '@/components/ui/tokens';
@@ -72,8 +71,8 @@ export default async function DashboardPage() {
           waitingOnClient={totals.waitingOnClient}
           unclassified={totals.unclassified}
           unclassifiedStatuses={totals.unclassifiedStatuses}
+          firstPass={firstPass}
         />
-        <FirstPassCard thisMonth={firstPass.thisMonth} lastMonth={firstPass.lastMonth} />
         <ByClientTable rows={rows} inactiveCount={inactiveCount} />
       </div>
     </main>

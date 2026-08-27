@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { T } from '@/components/ui/tokens';
 import type { PipelinePeriod, PipelineStageCounts } from '@/lib/pipeline';
+import type { FirstPassStats } from '@/lib/revisions';
 
 const RANGES = [
   { value: 'today' as const, label: 'Today' },
@@ -28,6 +29,11 @@ interface Props {
    */
   unclassified: number;
   unclassifiedStatuses: string[];
+  firstPass: FirstPassStats;
+}
+
+function dash(v: number | null, suffix = '') {
+  return v === null ? '—' : `${v}${suffix}`;
 }
 
 /**
@@ -39,7 +45,7 @@ interface Props {
  * doesn't change with the selected range; only "Posted" is date-scoped, which
  * is what the range control drives.
  */
-export function PipelineCard({ stages, stalled, posted, inFlight, stalledWithUs, waitingOnClient, unclassified, unclassifiedStatuses }: Props) {
+export function PipelineCard({ stages, stalled, posted, inFlight, stalledWithUs, waitingOnClient, unclassified, unclassifiedStatuses, firstPass }: Props) {
   const [range, setRange] = useState<PipelinePeriod>('today');
 
   const rangeLabel = RANGES.find(r => r.value === range)!.label.toLowerCase();
@@ -52,6 +58,21 @@ export function PipelineCard({ stages, stalled, posted, inFlight, stalledWithUs,
     { label: `Posted ${rangeLabel}`, count: posted[range], stalled: 0, footer: posted[range] > 0 ? 'live' : `nothing ${rangeLabel}` },
   ];
   const max = Math.max(1, ...tiles.map(t => t.count));
+
+  // Not a count, so it sits outside the shared max-normalised bar above — its
+  // own bar reads 0-100% directly. "Clean" = ClickUp's Revision # field at 1,
+  // the video reached Posted without ever being sent back.
+  const { thisMonth, lastMonth } = firstPass;
+  const cleanDelta = thisMonth.cleanPct !== null && lastMonth.cleanPct !== null
+    ? Math.round((thisMonth.cleanPct - lastMonth.cleanPct) * 10) / 10
+    : null;
+  const cleanTone = cleanDelta === null ? T.ink3 : cleanDelta === 0 ? T.ink3 : cleanDelta > 0 ? T.ok : T.danger;
+  const cleanFooter = cleanDelta === null
+    ? (lastMonth.cleanPct === null ? 'no prior month' : 'no posted videos yet')
+    : cleanDelta === 0
+      ? 'flat vs last month'
+      : `${cleanDelta > 0 ? '↑' : '↓'} ${Math.abs(cleanDelta)}pt vs last month`;
+  const missing = thisMonth.missing + lastMonth.missing;
 
   return (
     <Card
@@ -70,6 +91,19 @@ export function PipelineCard({ stages, stalled, posted, inFlight, stalledWithUs,
           }}
         >
           {unclassified} in flight with an unrecognised status — not shown in the tiles below
+        </div>
+      )}
+      {missing > 0 && (
+        <div
+          title="These posted videos have no value in ClickUp's Revision # field, so they're left out of the First-pass clean tile rather than counted as either clean or revised."
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 12, fontWeight: 600, color: T.warn,
+            background: '#fff6e5', borderRadius: 8, padding: '5px 10px',
+            marginBottom: 12,
+          }}
+        >
+          {missing} posted video{missing === 1 ? '' : 's'} missing a revision count — excluded from First-pass clean
         </div>
       )}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -96,6 +130,25 @@ export function PipelineCard({ stages, stalled, posted, inFlight, stalledWithUs,
             </div>
           );
         })}
+        <div
+          title={`This month: ${dash(thisMonth.cleanPct, '%')} clean, ${dash(thisMonth.avgRevisions)} avg revisions/video. Last month: ${dash(lastMonth.cleanPct, '%')} clean, ${dash(lastMonth.avgRevisions)} avg revisions/video.`}
+          style={{
+            flex: '1 1 140px', padding: '14px 16px', borderRadius: 11,
+            background: T.surfaceSubtle, border: `1px solid ${T.divider}`,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: T.ink2 }}>First-pass clean</span>
+            <span style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', color: T.ink }}>{dash(thisMonth.cleanPct, '%')}</span>
+          </div>
+          <div style={{ height: 6, borderRadius: 999, background: T.page, margin: '10px 0 8px', overflow: 'hidden' }}>
+            <div style={{
+              width: `${Math.max(3, thisMonth.cleanPct ?? 0)}%`, height: '100%', borderRadius: 999,
+              background: T.ghost,
+            }} />
+          </div>
+          <div style={{ fontSize: 12, color: cleanTone }}>{cleanFooter}</div>
+        </div>
       </div>
     </Card>
   );
