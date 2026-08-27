@@ -30,6 +30,7 @@ const videoCache = pgTable('video_cache', {
   isYoutube:         boolean('is_youtube').default(false),
   dateUpdated:       text('date_updated'),
   dueDate:           text('due_date'),
+  vistasocialScheduledAt: timestamp('vistasocial_scheduled_at'),
   lastSyncedAt:      timestamp('last_synced_at').defaultNow(),
   dirty:             boolean('dirty').default(false),
 });
@@ -146,6 +147,7 @@ export default async function handler() {
     const instagramField = find('Instagram URL');
     const amField       = find('Account Manager (AM)');
     const qcField       = find('QUALITY CHECK (Somu)');
+    const publishDateField = find('Publish Date (VistaSocial)');
 
     const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
     const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
@@ -173,6 +175,14 @@ export default async function handler() {
       const ms = Number(task.due_date);
       dueDate = isNaN(ms) ? task.due_date : new Date(ms).toISOString();
     }
+
+    // "Publish Date (VistaSocial)" is a ClickUp date field — its value is
+    // epoch ms. Never populated by this sync before, so resolvePostedAt()
+    // always fell back to dateUpdated (last status-change time, not the
+    // real go-live date).
+    let vistasocialScheduledAt: Date | null = null;
+    const pubDateMs = Number(publishDateField?.value);
+    if (Number.isFinite(pubDateMs) && pubDateMs > 0) vistasocialScheduledAt = new Date(pubDateMs);
 
     const clientName   = resolveByName('Client Name (AM)', clientIdx);
     const qualityCheck = resolveByName('QUALITY CHECK (Somu)', qcIdx);
@@ -210,6 +220,7 @@ export default async function handler() {
       isYoutube,
       dateUpdated:      task.date_updated ?? null,
       dueDate,
+      vistasocialScheduledAt,
       lastSyncedAt:     new Date(),
       dirty:            false,
     };
@@ -240,6 +251,7 @@ export default async function handler() {
     isYoutube:        excluded('is_youtube'),
     dateUpdated:      excluded('date_updated'),
     dueDate:          excluded('due_date'),
+    vistasocialScheduledAt: excluded('vistasocial_scheduled_at'),
     lastSyncedAt:     excluded('last_synced_at'),
     dirty:            excluded('dirty'),
   };
