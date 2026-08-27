@@ -17,7 +17,19 @@ export type PipelinePeriod = 'today' | 'week' | 'month';
 // across the roster — always equals the true in-flight count.
 export const PIPELINE_STAGE_KEYS: PipelineStage[] = ['backlog', 'editing', 'qc', 'review', 'ready'];
 
-export const QC_STATUSES = new Set(['tc - qc (somu)', 'qc final - am']);
+// "QC Final" got split per reviewer at some point — "qc final - am" became
+// "QC Final (Daniel)", and "QC Final (Michel)" now exists alongside it. That
+// is not a one-off rename: this workspace attributes the final QC pass to
+// whichever teammate did it, so a new name will keep appearing every time
+// someone joins or leaves that rotation. Matching every "qc final …" status
+// by prefix (see qcStatusMatches) means the next reviewer's name doesn't
+// need a code change — only a genuinely new stage would.
+export const QC_STATUSES = new Set(['tc - qc (somu)']);
+const QC_FINAL_PREFIX = 'qc final';
+
+function qcStatusMatches(normStatus: string): boolean {
+  return QC_STATUSES.has(normStatus) || normStatus.startsWith(QC_FINAL_PREFIX);
+}
 export const PIPELINE_EDITING_STATUSES = new Set(['in progress (editor)', 'in progress (corrections)']);
 export const POSTED = 'posted in socials';
 // ClickUp's two terminal "this will never ship" statuses. Excluded from
@@ -54,7 +66,7 @@ export function emptyStageCounts(): PipelineStageCounts {
 export function pipelineStageOf(normStatus: string): PipelineStage | null {
   if (BACKLOG_STATUSES.has(normStatus)) return 'backlog';
   if (PIPELINE_EDITING_STATUSES.has(normStatus)) return 'editing';
-  if (QC_STATUSES.has(normStatus)) return 'qc';
+  if (qcStatusMatches(normStatus)) return 'qc';
   if (normStatus === 'for client review') return 'review';
   if (normStatus === 'ready to be posted') return 'ready';
   return null; // POSTED — the caller handles it, it is the one date-scoped stage
