@@ -119,8 +119,19 @@ export async function POST() {
     let tasksWithRevisions = 0;
     let tasksWithoutRevisionField = 0;
     let revisionFieldExamples: any[] = [];
+    // The synced list/folder also holds one non-video "Client" record task
+    // per client, whose title is always exactly the client's own name (e.g.
+    // task "Apex" with Client Name (AM) = Apex). No real video is ever
+    // titled that — excluded the same way as the other two sync paths.
+    const clientRecordIds = new Set<string>();
 
-    const rows = mergedTasks.map((task: any) => {
+    const rows = mergedTasks.filter((task: any) => {
+      const clientField = (task.custom_fields ?? []).find((f: any) => f.name === 'Client Name (AM)');
+      const clientIdx = typeof clientField?.value === 'number' ? clientField.value : null;
+      const clientName = resolveOpt('Client Name (AM)', clientIdx);
+      if (clientName && task.name === clientName) { clientRecordIds.add(task.id); return false; }
+      return true;
+    }).map((task: any) => {
       const fields = task.custom_fields ?? [];
       const find = (name: string) => fields.find((f: any) => f.name === name);
 
@@ -220,8 +231,12 @@ export async function POST() {
         });
     }
 
-    // Delete rows that no longer exist in ClickUp (webhook may have missed deletions)
-    const clickupIds = mergedTasks.map((t: any) => t.id as string);
+    // Delete rows that no longer exist in ClickUp (webhook may have missed
+    // deletions) or belong to a per-client record task — those still exist
+    // in ClickUp so they'd otherwise never be seen as orphaned.
+    const clickupIds = mergedTasks
+      .map((t: any) => t.id as string)
+      .filter((id: string) => !clientRecordIds.has(id));
     let deleted = 0;
     if (clickupIds.length > 0) {
       const result = await db.delete(videoCache)
