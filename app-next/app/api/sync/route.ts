@@ -146,7 +146,7 @@ export async function POST(req: Request) {
     // per client, whose title is always exactly the client's own name (e.g.
     // task "Apex" with Client Name (AM) = Apex). No real video is ever
     // titled that. Excluded here the same way as netlify/functions/sync-clickup.mts.
-    if (clientName && task.name === clientName) { skipped++; continue; }
+    if (clientName && task.name.trim().toLowerCase() === clientName.trim().toLowerCase()) { skipped++; continue; }
 
     let revisions: number | null = null;
     if (typeof revisionsField?.value === 'number') {

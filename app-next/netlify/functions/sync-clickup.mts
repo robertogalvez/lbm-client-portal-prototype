@@ -184,8 +184,12 @@ export default async function handler() {
     // no real video is ever titled that. custom_item_id looked like a
     // cleaner signal but the bulk list endpoint doesn't reliably surface it,
     // so this was silently a no-op; matching on title is what actually found
-    // and removed these 17 rows when the bug was first diagnosed.
-    if (clientName && task.name === clientName) { clientRecordIds.add(task.id); continue; }
+    // and removed these 17 rows when the bug was first diagnosed. Compared
+    // case/whitespace-insensitively — "Project based" vs "Project Based"
+    // slipped past an exact match and re-inflated Backlog by one.
+    if (clientName && task.name.trim().toLowerCase() === clientName.trim().toLowerCase()) {
+      clientRecordIds.add(task.id); continue;
+    }
 
     const row = {
       status:           task.status?.status ?? null,
