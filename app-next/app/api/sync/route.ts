@@ -129,6 +129,7 @@ export async function POST(req: Request) {
     const amField       = find('Account Manager (AM)');
     const qcField       = find('QUALITY CHECK (Somu)');
     const revisionsField = find('Revision #');
+    const publishDateField = find('Publish Date (VistaSocial)');
 
     const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
     const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
@@ -162,6 +163,14 @@ export async function POST(req: Request) {
       dueDate = isNaN(ms) ? task.due_date : new Date(ms).toISOString();
     }
 
+    // "Publish Date (VistaSocial)" is a ClickUp date field — its value is
+    // epoch ms. Never populated by this route before, so resolvePostedAt()
+    // always fell back to dateUpdated (last status-change time, not the
+    // real go-live date).
+    let vistasocialScheduledAt: Date | null = null;
+    const pubDateMs = Number(publishDateField?.value);
+    if (Number.isFinite(pubDateMs) && pubDateMs > 0) vistasocialScheduledAt = new Date(pubDateMs);
+
     const row = {
       status:           task.status?.status ?? null,
       clientId:         resolveOptId('Client Name (AM)', clientIdx),
@@ -178,6 +187,7 @@ export async function POST(req: Request) {
       revisions,
       dateUpdated:      task.date_updated ?? null,
       dueDate,
+      vistasocialScheduledAt,
       lastSyncedAt:     new Date(),
       dirty:            false,
     };
