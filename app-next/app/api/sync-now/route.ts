@@ -129,7 +129,9 @@ export async function POST() {
       const clientField = (task.custom_fields ?? []).find((f: any) => f.name === 'Client Name (AM)');
       const clientIdx = typeof clientField?.value === 'number' ? clientField.value : null;
       const clientName = resolveOpt('Client Name (AM)', clientIdx);
-      if (clientName && task.name === clientName) { clientRecordIds.add(task.id); return false; }
+      if (clientName && task.name.trim().toLowerCase() === clientName.trim().toLowerCase()) {
+        clientRecordIds.add(task.id); return false;
+      }
       return true;
     }).map((task: any) => {
       const fields = task.custom_fields ?? [];

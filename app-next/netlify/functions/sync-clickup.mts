@@ -36,13 +36,6 @@ const videoCache = pgTable('video_cache', {
 
 const BASE = 'https://api.clickup.com/api/v2';
 const TERMINAL = ['Posted in Socials', 'Archived', 'Not Posted — Discarded'];
-// The synced list also holds one non-video "Client" record task per client
-// (title is just the client name — e.g. "Apex", "Ohr Sholmo"), used only to
-// carry the clickupTaskId/clickupClientOptionId onboarded into the `clients`
-// table. ClickUp's custom task type for these is 1020; without this filter
-// each one syncs in as a phantom "backlog" video, inflating every pipeline
-// count by one per client.
-const CLIENT_RECORD_TASK_TYPE = 1020;
 const DELIVERABLE_TYPE_MAP: Record<string, string> = {
   'short-form': 'short_form',
   'short form': 'short_form',
@@ -101,9 +94,7 @@ export default async function handler() {
   const db = drizzle(sql, { schema: { videoCache } });
 
   const rawTasks = await fetchAllTasksFromList(listId, token);
-  const activeTasks = rawTasks.filter((t: any) =>
-    !TERMINAL.includes(t.status?.status) && t.custom_item_id !== CLIENT_RECORD_TASK_TYPE,
-  );
+  const activeTasks = rawTasks.filter((t: any) => !TERMINAL.includes(t.status?.status));
 
   // Extract option maps once from whichever task has type_config populated for each field.
   // ClickUp only includes type_config on some tasks in the response, so we can't rely on it per-task.
@@ -193,8 +184,12 @@ export default async function handler() {
     // no real video is ever titled that. custom_item_id looked like a
     // cleaner signal but the bulk list endpoint doesn't reliably surface it,
     // so this was silently a no-op; matching on title is what actually found
-    // and removed these 17 rows when the bug was first diagnosed.
-    if (clientName && task.name === clientName) { clientRecordIds.add(task.id); continue; }
+    // and removed these 17 rows when the bug was first diagnosed. Compared
+    // case/whitespace-insensitively — "Project based" vs "Project Based"
+    // slipped past an exact match and re-inflated Backlog by one.
+    if (clientName && task.name.trim().toLowerCase() === clientName.trim().toLowerCase()) {
+      clientRecordIds.add(task.id); continue;
+    }
 
     const row = {
       status:           task.status?.status ?? null,
