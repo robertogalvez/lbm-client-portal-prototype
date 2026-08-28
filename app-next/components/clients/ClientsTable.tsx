@@ -4,14 +4,16 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
-import { ProgressBar } from '@/components/ui/Bars';
+import { CoverageBar } from '@/components/ui/Bars';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { T, MONO } from '@/components/ui/tokens';
+import { T, MONO, COVERAGE_COLORS } from '@/components/ui/tokens';
 import { colHeader, headerRow, bodyRow, emptyState } from '@/components/ui/table';
 import { TableScroll } from '@/components/ui/TableScroll';
 import type { AdminClientRow, AdminFilterTag } from '@/lib/admin-views';
+import { buildCoverageSummary } from '@/lib/admin-views';
+import type { PaceNeeded } from '@/lib/contracts';
 
-const GRID = '2.2fr 1.6fr 1.5fr 1.4fr 2.2fr';
+const GRID = '2fr 1.4fr 1.6fr 1.7fr 1.5fr 2fr';
 
 type FilterKey = 'all' | AdminFilterTag;
 
@@ -43,7 +45,84 @@ function inFlightChips(r: AdminClientRow) {
   return parts;
 }
 
-export function AccountsTab({ rows, inactiveCount }: { rows: AdminClientRow[]; inactiveCount: number }) {
+/**
+ * The actionable field, and the reason this screen does not show
+ * percent-delivered: a percentage cannot tell you whether the remainder is in
+ * production or does not exist yet, and a pace figure is meaningless without
+ * a deadline — so an expired term states the contractual problem instead.
+ */
+function paceText(pace: PaceNeeded | null, r: AdminClientRow): string {
+  if (!pace) return '—';
+  switch (pace.kind) {
+    case 'covered':
+      return r.coverage?.status === 'over'
+        ? `${r.coverage.over} over contract${r.termExpired ? ', term expired' : ''}`
+        : 'Covered — just keep it moving';
+    case 'pace':
+      return `${pace.perWeek} / week to finish on time`;
+    case 'open':
+      return `${pace.remaining} to brief · no deadline to pace against`;
+    case 'blocked':
+      return r.termExpired
+        ? `Contract ended, ${pace.remaining} still owed`
+        : `No term on file, ${pace.remaining} still owed`;
+    case 'cycle-pending':
+      // The deadline is known in length but not yet in date, so there is no
+      // pace to quote — publishing the first video is what starts the clock.
+      return `${pace.remaining} to start · ${pace.durationDays}-day clock starts at first publish`;
+  }
+}
+
+function notStartedTone(r: AdminClientRow): 'red' | 'amber' | 'green' {
+  const cov = r.coverage!;
+  if (cov.status === 'covered') return 'green';
+  if (cov.status === 'over') return 'amber';
+  return r.termExpired || r.stages.backlog === 0 ? 'red' : 'amber';
+}
+
+function SummaryBlock({ dot, label, metric, unit, reason, cta }: {
+  dot: string; label: string; metric: number; unit: string; reason: string;
+  /** Omitted when the block is at zero — a CTA with nowhere to go is worse than no CTA. */
+  cta?: { label: string; href: string };
+}) {
+  return (
+    <div style={{ flex: '1 1 240px', padding: '18px 24px 22px', borderTop: `1px solid ${T.divider}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot }} />
+        <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.ink3 }}>{label}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, margin: '12px 0 8px' }}>
+        <span style={{ fontSize: 40, fontWeight: 700, lineHeight: 0.95, letterSpacing: '-0.03em', color: T.ink }}>{metric}</span>
+        <span style={{ fontSize: 13, color: T.ink3 }}>{unit}</span>
+      </div>
+      <p style={{ fontSize: 13, color: T.ink2, lineHeight: 1.5, margin: '0 0 14px' }}>{reason}</p>
+      {cta && (
+        <Link
+          href={cta.href}
+          style={{
+            display: 'inline-block', padding: '9px 14px', borderRadius: 10,
+            background: T.ink, color: '#fff', fontSize: 12.5, fontWeight: 600, textDecoration: 'none',
+          }}
+        >
+          {cta.label}
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Screen 2 — one table answering both "which accounts are at risk?" and "do
+ * we have enough videos in motion to honour what we sold?" Used to be two
+ * tabs (Accounts / Coverage) that read the same AdminClientRow[] and mostly
+ * repeated each other — Accounts' "Contract term" badge already said what
+ * Coverage's separate "Term left" column said, just phrased differently, and
+ * Coverage's sold/delivered/in-progress rollup was a coarser view of the
+ * exact pipeline Accounts' stage chips already broke out granularly. One row
+ * now carries both altitudes instead of making you flip tabs to see if an
+ * at-risk client is also short on coverage.
+ */
+export function ClientsTable({ rows, inactiveCount }: { rows: AdminClientRow[]; inactiveCount: number }) {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [query, setQuery] = useState('');
 
@@ -63,8 +142,54 @@ export function AccountsTab({ rows, inactiveCount }: { rows: AdminClientRow[]; i
       .filter(r => !q || r.name.toLowerCase().includes(q));
   }, [rows, filter, query]);
 
+  const summary = buildCoverageSummary(rows);
+  const worstShort = summary.shortRows[0];
+  const firstCovered = summary.coveredRows[0];
+  const firstOver = summary.overRows[0];
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <Card title="Coverage right now" subtitle="Deliverables minus posted in socials minus what is already in progress" padded={false}>
+        <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+          <SummaryBlock
+            dot={T.brand}
+            label="Contracts short of coverage"
+            metric={summary.shortRows.length}
+            unit={summary.shortRows.length === 1 ? 'contract' : 'contracts'}
+            reason={
+              summary.videosNotStarted > 0
+                ? `${summary.videosNotStarted} videos are sold but not yet shot, briefed or started. This is the number that becomes a missed deadline.`
+                : 'Every live contract has its full scope either posted in socials or already in progress.'
+            }
+            cta={worstShort ? { label: 'See the gaps', href: `/admin/clients/${worstShort.periodId}` } : undefined}
+          />
+          <SummaryBlock
+            dot={COVERAGE_COLORS.delivered}
+            label="Fully covered"
+            metric={summary.coveredRows.length}
+            unit={summary.coveredRows.length === 1 ? 'contract' : 'contracts'}
+            reason={
+              firstCovered
+                ? `${firstCovered.name} — everything sold is either posted in socials or already in progress.`
+                : 'No contract is fully covered right now.'
+            }
+            cta={firstCovered ? { label: 'View', href: `/admin/clients/${firstCovered.periodId}` } : undefined}
+          />
+          <SummaryBlock
+            dot={COVERAGE_COLORS.inPipeline}
+            label="Over-committed pipeline"
+            metric={summary.videosOver}
+            unit={summary.videosOver === 1 ? 'video' : 'videos'}
+            reason={
+              firstOver
+                ? `${firstOver.name.split(' ')[0]} has ${firstOver.coverage!.over} more in flight than the contract covers — unbilled work unless the term is renewed.`
+                : 'Nothing is running beyond what its contract covers.'
+            }
+            cta={firstOver ? { label: 'Check contract', href: `/admin/clients/${firstOver.periodId}` } : undefined}
+          />
+        </div>
+      </Card>
+
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <input
           type="search"
@@ -109,12 +234,13 @@ export function AccountsTab({ rows, inactiveCount }: { rows: AdminClientRow[]; i
       </div>
 
       <Card padded={false}>
-        <TableScroll>
+        <TableScroll wide>
         <div style={{ ...headerRow(GRID), padding: '4px 24px 12px' }}>
           <span style={colHeader}>Client</span>
           <span style={colHeader}>Contract term</span>
-          <span style={colHeader}>Delivered</span>
+          <span style={colHeader}>Coverage</span>
           <span style={colHeader}>In flight</span>
+          <span style={colHeader}>Pace needed</span>
           <span style={colHeader}>What to do</span>
         </div>
 
@@ -150,15 +276,14 @@ export function AccountsTab({ rows, inactiveCount }: { rows: AdminClientRow[]; i
             <span>
               {r.coverage ? (
                 <>
-                  <span style={{ display: 'block', fontSize: 13, color: T.ink2 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: T.ink2 }}>
                     {r.coverage.delivered} of {r.coverage.sold}
-                    {r.fulfilmentPct !== null && ` · ${Math.round(r.fulfilmentPct)}%`}
+                    <StatusBadge tone={notStartedTone(r)} dot={false}>
+                      {r.coverage.status === 'short' ? `+${r.coverage.notStarted} to start` : r.coverage.status === 'over' ? `${r.coverage.over} over` : 'none'}
+                    </StatusBadge>
                   </span>
-                  <span style={{ display: 'block', marginTop: 7, maxWidth: 108 }}>
-                    <ProgressBar
-                      pct={r.fulfilmentPct ?? 0}
-                      color={(r.fulfilmentPct ?? 0) >= 30 ? '#B4762A' : T.brand}
-                    />
+                  <span style={{ display: 'block', marginTop: 7, maxWidth: 140 }}>
+                    <CoverageBar sold={r.coverage.sold} delivered={r.coverage.delivered} inPipeline={r.coverage.inPipeline} />
                   </span>
                 </>
               ) : (
@@ -173,6 +298,8 @@ export function AccountsTab({ rows, inactiveCount }: { rows: AdminClientRow[]; i
                 </span>
               ))}
             </span>
+
+            <span style={{ fontSize: 13, color: T.ink2, lineHeight: 1.45 }}>{paceText(r.pace, r)}</span>
 
             <span style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
               <span style={{ flex: 1, fontSize: 13, color: T.ink2, lineHeight: 1.45 }}>{r.nextAction}</span>

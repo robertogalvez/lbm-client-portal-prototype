@@ -10,15 +10,16 @@ import { ClientsPageClient } from './ClientsPageClient';
 export const revalidate = 60;
 
 /**
- * Screen 2 — the roster, under two tabs: Accounts ("which accounts are at
- * risk?") and Coverage ("do we have enough videos in motion to honour what we
- * sold?"). The six KPI cards this page used to open with duplicated the filter
- * chips underneath them and are gone.
+ * Screen 2 — the roster, one table answering both "which accounts are at
+ * risk?" and "do we have enough videos in motion to honour what we sold?"
+ * (used to be split across an Accounts tab and a Coverage tab that mostly
+ * repeated each other — see ClientsTable.tsx). The six KPI cards this page
+ * used to open with duplicated the filter chips underneath them and are gone.
  */
 export default async function AdminClientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; inactive?: string; client?: string }>;
+  searchParams: Promise<{ inactive?: string; client?: string }>;
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect('/login');
@@ -26,7 +27,7 @@ export default async function AdminClientsPage({
   const [caller] = await db.select({ role: authUsers.role }).from(authUsers).where(eq(authUsers.id, session.user.id)).limit(1);
   if (!caller || caller.role === 'client') redirect('/client');
 
-  const { tab = 'accounts', inactive = '', client = '' } = await searchParams;
+  const { inactive = '', client = '' } = await searchParams;
   const showInactive = inactive === '1';
 
   // The roster numbers come from the same loader the dashboard reads, so the
@@ -67,7 +68,6 @@ export default async function AdminClientsPage({
 
   return (
     <ClientsPageClient
-      tab={tab === 'coverage' ? 'coverage' : 'accounts'}
       rows={roster.rows}
       inactiveCount={roster.inactiveCount}
       showInactive={showInactive}
