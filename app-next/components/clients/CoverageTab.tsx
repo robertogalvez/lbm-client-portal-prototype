@@ -110,7 +110,7 @@ export function CoverageTab({ rows }: { rows: AdminClientRow[] }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       <Card
         title="Coverage right now"
-        subtitle="Sold minus delivered minus what is already in the pipeline"
+        subtitle="Deliverables minus posted in socials minus what is already in progress"
         padded={false}
       >
         <div style={{ display: 'flex', flexWrap: 'wrap' }}>
@@ -122,7 +122,7 @@ export function CoverageTab({ rows }: { rows: AdminClientRow[] }) {
             reason={
               summary.videosNotStarted > 0
                 ? `${summary.videosNotStarted} videos are sold but not yet shot, briefed or started. This is the number that becomes a missed deadline.`
-                : 'Every live contract has its full scope either delivered or already in the pipeline.'
+                : 'Every live contract has its full scope either posted in socials or already in progress.'
             }
             cta={worstShort ? { label: 'See the gaps', href: `/admin/clients/${worstShort.periodId}` } : undefined}
           />
@@ -133,7 +133,7 @@ export function CoverageTab({ rows }: { rows: AdminClientRow[] }) {
             unit={summary.coveredRows.length === 1 ? 'contract' : 'contracts'}
             reason={
               firstCovered
-                ? `${firstCovered.name} — everything sold is either delivered or already in the pipeline.`
+                ? `${firstCovered.name} — everything sold is either posted in socials or already in progress.`
                 : 'No contract is fully covered right now.'
             }
             cta={firstCovered ? { label: 'View', href: `/admin/clients/${firstCovered.periodId}` } : undefined}
@@ -162,9 +162,9 @@ export function CoverageTab({ rows }: { rows: AdminClientRow[] }) {
         <TableScroll wide>
         <div style={{ ...headerRow(GRID), padding: '4px 24px 12px' }}>
           <span style={colHeader}>Client / contract</span>
-          <span style={colHeader}>Sold</span>
-          <span style={colHeader}>Delivered</span>
-          <span style={colHeader}>In pipeline</span>
+          <span style={colHeader}>Deliverables</span>
+          <span style={colHeader}>Posted in socials</span>
+          <span style={colHeader}>In progress</span>
           <span style={colHeader}>Not started</span>
           <span style={colHeader}>Term left</span>
           <span style={colHeader}>Pace needed</span>

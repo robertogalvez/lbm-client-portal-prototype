@@ -29,8 +29,8 @@ export function CoverageBar({ sold, delivered, inPipeline, height = 8 }: { sold:
 
 export function CoverageLegend() {
   const items = [
-    ['Delivered', COVERAGE_COLORS.delivered],
-    ['In pipeline', COVERAGE_COLORS.inPipeline],
+    ['Posted in socials', COVERAGE_COLORS.delivered],
+    ['In progress', COVERAGE_COLORS.inPipeline],
     ['Not started', COVERAGE_COLORS.notStarted],
   ] as const;
   return (
