@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { statusColors } from '@/components/ui/StatusBadge';
+import { clientStatusLabel } from '@/lib/client-status';
 
 export interface CalTask {
   clickupTaskId: string;
@@ -38,7 +39,7 @@ function statusStyle(t: CalTask): { color: string; bg: string; label: string } {
   if (s === 'ready to be posted') return { color, bg, label: 'Ready to post' };
   if (s === 'in progress (corrections)') return { color, bg, label: 'In corrections' };
   if (t.clientApproval === 'approved') return { color: '#14805f', bg: '#e4f3ec', label: 'Approved' };
-  return { color, bg, label: t.status };
+  return { color, bg, label: clientStatusLabel(t.status) };
 }
 
 function isInProcess(t: CalTask): boolean {

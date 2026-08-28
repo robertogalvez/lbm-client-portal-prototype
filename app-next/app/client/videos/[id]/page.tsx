@@ -16,6 +16,7 @@ import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { getViewAsClient } from '@/lib/view-as';
 import { getReviewData } from '@/lib/frameio';
 import { InstagramLink } from '@/components/InstagramLink';
+import { clientStatusLabel } from '@/lib/client-status';
 import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
@@ -192,7 +193,7 @@ export default async function VideoDetailPage({ params, searchParams }: { params
 
   const statusColor = isReview ? '#b06f06' : '#54616f';
   const statusBg = isReview ? '#fbeecf' : '#eef1f4';
-  const statusLabel = isReview ? 'Awaiting your review' : task.status;
+  const statusLabel = clientStatusLabel(task.status);
 
   const shell = (
     <main className="vd-shell">

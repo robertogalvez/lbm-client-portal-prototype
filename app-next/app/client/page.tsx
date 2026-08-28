@@ -19,6 +19,7 @@ import { PriorityReorderList } from '@/components/client/PriorityReorderList';
 import { getViewAsClient } from '@/lib/view-as';
 import { getInvoicesForClient, isQuickBooksConfigured } from '@/lib/quickbooks';
 import { InstagramLink } from '@/components/InstagramLink';
+import { clientStatusLabel } from '@/lib/client-status';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -305,7 +306,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
             {inEditionTasks.length > 0 && (
               <MobileAccordion label="📹 In Progress — Edition" count={inEditionTasks.length}>
                 <div style={{ padding: '12px 0 4px' }}>
-                  <PriorityReorderList items={inEditionTasks.map(t => ({ id: t.clickupTaskId, node: <VideoRow task={t} /> }))} />
+                  <PriorityReorderList items={inEditionTasks.map(t => ({ id: t.clickupTaskId, node: <VideoRow task={t} label={clientStatusLabel(t.status)} /> }))} />
                 </div>
               </MobileAccordion>
             )}
@@ -315,7 +316,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
                   {scheduledTasks.map(t => (
                     <VideoRow key={t.clickupTaskId} task={t} showViewLink
-                      label={t.publishDate ? `Posts ${fmtDate(t.publishDate)}` : t.status}
+                      label={t.publishDate ? `Posts ${fmtDate(t.publishDate)}` : clientStatusLabel(t.status)}
                       color="#7c66c4" colorBg="#efeafa"
                     />
                   ))}
@@ -762,7 +763,7 @@ function DesktopStatusRow({ t, showViewLink }: { t: MappedTask; showViewLink?: b
         <div style={{fontWeight:600, fontSize:14}}><VideoTitle clientFacingTitle={t.clientFacingTitle} title={t.title} /></div>
       </div>
       <AdBadge deliverableType={t.deliverableType} />
-      <span style={{background:bg, color, fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>{t.status}</span>
+      <span style={{background:bg, color, fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>{clientStatusLabel(t.status)}</span>
       {t.instagramUrl && <InstagramLink url={t.instagramUrl} label="Instagram" compact />}
       {showViewLink && (
         <Link href={`/client/videos/${t.clickupTaskId}`} className="video-action-btn video-action-watch" style={{ fontSize: 12, padding: '6px 12px' }}>
@@ -837,7 +838,7 @@ function VideoRow({ task, color, colorBg, label, showViewLink }: { task: MappedT
             color: fg, background: bg, whiteSpace: 'nowrap' as const,
           }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: fg }} />
-            {label ?? task.status}
+            {label ?? clientStatusLabel(task.status)}
           </span>
           {task.instagramUrl && <InstagramLink url={task.instagramUrl} label="Instagram" compact />}
           {showViewLink && (
