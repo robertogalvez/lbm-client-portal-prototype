@@ -72,7 +72,6 @@ export function PipelineCard({ stages, stalled, posted, inFlight, stalledWithUs,
     : cleanDelta === 0
       ? 'flat vs last month'
       : `${cleanDelta > 0 ? '↑' : '↓'} ${Math.abs(cleanDelta)}pt vs last month`;
-  const missing = thisMonth.missing + lastMonth.missing;
 
   return (
     <Card
@@ -91,19 +90,6 @@ export function PipelineCard({ stages, stalled, posted, inFlight, stalledWithUs,
           }}
         >
           {unclassified} in flight with an unrecognised status — not shown in the tiles below
-        </div>
-      )}
-      {missing > 0 && (
-        <div
-          title="These posted videos have no value in ClickUp's Revision # field, so they're left out of the First-pass clean tile rather than counted as either clean or revised."
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            fontSize: 12, fontWeight: 600, color: T.warn,
-            background: '#fff6e5', borderRadius: 8, padding: '5px 10px',
-            marginBottom: 12,
-          }}
-        >
-          {missing} posted video{missing === 1 ? '' : 's'} missing a revision count — excluded from First-pass clean
         </div>
       )}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
