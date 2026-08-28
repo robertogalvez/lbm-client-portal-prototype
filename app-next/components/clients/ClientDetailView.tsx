@@ -176,10 +176,10 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 26, marginTop: 18 }}>
                   {[
-                    { n: cov.delivered, label: 'delivered', color: COVERAGE_COLORS.delivered },
-                    { n: cov.inPipeline, label: 'in pipeline', color: '#B4762A' },
+                    { n: cov.delivered, label: 'posted in socials', color: COVERAGE_COLORS.delivered },
+                    { n: cov.inPipeline, label: 'in progress', color: '#B4762A' },
                     { n: cov.status === 'over' ? cov.over : cov.notStarted, label: cov.status === 'over' ? 'over contract' : 'not started', color: T.brand },
-                    { n: cov.sold, label: 'sold', color: T.ink },
+                    { n: cov.sold, label: 'deliverables', color: T.ink },
                   ].map(s => (
                     <div key={s.label}>
                       <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: s.color }}>{s.n}</div>
