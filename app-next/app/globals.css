@@ -714,7 +714,6 @@ body {
 @media (max-width: 600px) {
   .db-page-body { padding: 18px 16px 40px; }
   .db-page-header { padding-right: 16px !important; }
-  .db-tabs-wrap { margin-left: 16px !important; margin-right: 16px !important; }
 }
 
 /* Client detail drops to one column before the rail gets too narrow to read. */

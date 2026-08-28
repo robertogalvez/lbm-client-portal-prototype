@@ -3,11 +3,9 @@
 import { useCallback, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Tabs } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
 import { T } from '@/components/ui/tokens';
-import { AccountsTab } from '@/components/clients/AccountsTab';
-import { CoverageTab } from '@/components/clients/CoverageTab';
+import { ClientsTable } from '@/components/clients/ClientsTable';
 import { ContractChannelsDrawer } from '@/components/shared/ContractChannelsDrawer';
 import type { ContractPeriodRecord } from '@/lib/contract-records';
 import type { SocialLinks } from '@/lib/socialLinks';
@@ -21,10 +19,7 @@ export interface ClientRecord {
   periods: ContractPeriodRecord[];
 }
 
-type TabKey = 'accounts' | 'coverage';
-
 interface Props {
-  tab: TabKey;
   rows: AdminClientRow[];
   inactiveCount: number;
   showInactive: boolean;
@@ -35,7 +30,7 @@ interface Props {
   error?: string | null;
 }
 
-export function ClientsPageClient({ tab, rows, inactiveCount, showInactive, clientRecords, openClientId, error }: Props) {
+export function ClientsPageClient({ rows, inactiveCount, showInactive, clientRecords, openClientId, error }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -53,7 +48,6 @@ export function ClientsPageClient({ tab, rows, inactiveCount, showInactive, clie
   }, [params, pathname, router]);
 
   const noPeriodClient = openClientId ? clientRecords.find(c => c.id === openClientId) ?? null : null;
-  const shortCount = rows.filter(r => r.coverage?.status === 'short').length;
 
   async function syncNow() {
     setSyncing(true); setSyncMsg('');
@@ -100,18 +94,6 @@ export function ClientsPageClient({ tab, rows, inactiveCount, showInactive, clie
         </div>
       )}
 
-      <div className="db-tabs-wrap" style={{ margin: '20px 34px 0' }}>
-        <Tabs
-          label="Clients views"
-          value={tab}
-          onChange={next => setParam('tab', next === 'accounts' ? null : next)}
-          tabs={[
-            { value: 'accounts', label: 'Accounts', badge: rows.length },
-            { value: 'coverage', label: 'Coverage', badge: shortCount > 0 ? `${shortCount} short` : 'covered', badgeTone: shortCount > 0 ? 'danger' : 'mute' },
-          ]}
-        />
-      </div>
-
       <div className="db-page-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         <RenewalsPanel onOpenClient={name => {
           const row = rows.find(r => r.name === name);
@@ -119,9 +101,7 @@ export function ClientsPageClient({ tab, rows, inactiveCount, showInactive, clie
           else if (row) setParam('client', row.clientId);
         }} />
 
-        {tab === 'accounts'
-          ? <AccountsTab rows={rows} inactiveCount={showInactive ? 0 : inactiveCount} />
-          : <CoverageTab rows={rows} />}
+        <ClientsTable rows={rows} inactiveCount={showInactive ? 0 : inactiveCount} />
       </div>
 
       {/* A client with no contract period has no detail page to open — the
