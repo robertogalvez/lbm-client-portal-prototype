@@ -6,11 +6,10 @@ import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
 import { CoverageBar } from '@/components/ui/Bars';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { T, MONO, COVERAGE_COLORS } from '@/components/ui/tokens';
+import { T, MONO } from '@/components/ui/tokens';
 import { colHeader, headerRow, bodyRow, emptyState } from '@/components/ui/table';
 import { TableScroll } from '@/components/ui/TableScroll';
 import type { AdminClientRow, AdminFilterTag } from '@/lib/admin-views';
-import { buildCoverageSummary } from '@/lib/admin-views';
 import type { PaceNeeded } from '@/lib/contracts';
 
 const GRID = '2fr 1.4fr 1.6fr 1.7fr 1.5fr 2fr';
@@ -80,37 +79,6 @@ function notStartedTone(r: AdminClientRow): 'red' | 'amber' | 'green' {
   return r.termExpired || r.stages.backlog === 0 ? 'red' : 'amber';
 }
 
-function SummaryBlock({ dot, label, metric, unit, reason, cta }: {
-  dot: string; label: string; metric: number; unit: string; reason: string;
-  /** Omitted when the block is at zero — a CTA with nowhere to go is worse than no CTA. */
-  cta?: { label: string; href: string };
-}) {
-  return (
-    <div style={{ flex: '1 1 240px', padding: '18px 24px 22px', borderTop: `1px solid ${T.divider}` }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot }} />
-        <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.ink3 }}>{label}</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, margin: '12px 0 8px' }}>
-        <span style={{ fontSize: 40, fontWeight: 700, lineHeight: 0.95, letterSpacing: '-0.03em', color: T.ink }}>{metric}</span>
-        <span style={{ fontSize: 13, color: T.ink3 }}>{unit}</span>
-      </div>
-      <p style={{ fontSize: 13, color: T.ink2, lineHeight: 1.5, margin: '0 0 14px' }}>{reason}</p>
-      {cta && (
-        <Link
-          href={cta.href}
-          style={{
-            display: 'inline-block', padding: '9px 14px', borderRadius: 10,
-            background: T.ink, color: '#fff', fontSize: 12.5, fontWeight: 600, textDecoration: 'none',
-          }}
-        >
-          {cta.label}
-        </Link>
-      )}
-    </div>
-  );
-}
-
 /**
  * Screen 2 — one table answering both "which accounts are at risk?" and "do
  * we have enough videos in motion to honour what we sold?" Used to be two
@@ -142,54 +110,8 @@ export function ClientsTable({ rows, inactiveCount }: { rows: AdminClientRow[]; 
       .filter(r => !q || r.name.toLowerCase().includes(q));
   }, [rows, filter, query]);
 
-  const summary = buildCoverageSummary(rows);
-  const worstShort = summary.shortRows[0];
-  const firstCovered = summary.coveredRows[0];
-  const firstOver = summary.overRows[0];
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <Card title="Coverage right now" subtitle="Deliverables minus posted in socials minus what is already in progress" padded={false}>
-        <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-          <SummaryBlock
-            dot={T.brand}
-            label="Contracts short of coverage"
-            metric={summary.shortRows.length}
-            unit={summary.shortRows.length === 1 ? 'contract' : 'contracts'}
-            reason={
-              summary.videosNotStarted > 0
-                ? `${summary.videosNotStarted} videos are sold but not yet shot, briefed or started. This is the number that becomes a missed deadline.`
-                : 'Every live contract has its full scope either posted in socials or already in progress.'
-            }
-            cta={worstShort ? { label: 'See the gaps', href: `/admin/clients/${worstShort.periodId}` } : undefined}
-          />
-          <SummaryBlock
-            dot={COVERAGE_COLORS.delivered}
-            label="Fully covered"
-            metric={summary.coveredRows.length}
-            unit={summary.coveredRows.length === 1 ? 'contract' : 'contracts'}
-            reason={
-              firstCovered
-                ? `${firstCovered.name} — everything sold is either posted in socials or already in progress.`
-                : 'No contract is fully covered right now.'
-            }
-            cta={firstCovered ? { label: 'View', href: `/admin/clients/${firstCovered.periodId}` } : undefined}
-          />
-          <SummaryBlock
-            dot={COVERAGE_COLORS.inPipeline}
-            label="Over-committed pipeline"
-            metric={summary.videosOver}
-            unit={summary.videosOver === 1 ? 'video' : 'videos'}
-            reason={
-              firstOver
-                ? `${firstOver.name.split(' ')[0]} has ${firstOver.coverage!.over} more in flight than the contract covers — unbilled work unless the term is renewed.`
-                : 'Nothing is running beyond what its contract covers.'
-            }
-            cta={firstOver ? { label: 'Check contract', href: `/admin/clients/${firstOver.periodId}` } : undefined}
-          />
-        </div>
-      </Card>
-
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <input
           type="search"
