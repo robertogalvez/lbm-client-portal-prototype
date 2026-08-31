@@ -223,7 +223,7 @@ export default async function VideoDetailPage({ params, searchParams }: { params
           <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', opacity: 0.9 }}>Review video</div>
           <div style={{ width: 36 }} />
         </div>
-        <div className="vd-player">{player}</div>
+        <div className={`vd-player${nativeReady ? '' : ' vd-player--fallback'}`}>{player}</div>
         {desktopComments && <div className="vd-desktop-comments">{desktopComments}</div>}
       </div>
 
