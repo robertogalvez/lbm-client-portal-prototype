@@ -562,7 +562,14 @@ body {
     border-bottom: 1px solid #ece4d8;
     flex-shrink: 0;
   }
-  .vd-right-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+  /* grow:0 — sized to its own content (meta + optional caption/comments),
+     not stretched to fill the sidebar. A short task (no caption, no native
+     comments) otherwise left a large dead gap between the meta text and the
+     dock below; now the dock follows right after the actual content, and
+     any leftover space falls below the dock instead, which reads as normal
+     page whitespace rather than an awkward empty middle. shrink:1 still lets
+     it scroll internally on a task with enough content to overflow. */
+  .vd-right-scroll { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
   .vd-meta { padding: 20px; }
   .vd-dock {
     padding: 16px 20px;
