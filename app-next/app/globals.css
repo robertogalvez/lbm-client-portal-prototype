@@ -535,6 +535,14 @@ body {
      the ONE thing that scrolls in this column, same shape as the mobile
      .vd-right-scroll region. */
   .vd-player { flex-shrink: 0; height: 50vh; min-height: 320px; }
+  /* Fallback (Frame.io iframe / placeholder, native player not ready): there's
+     no .vd-desktop-comments sibling to fill the rest of .vd-left in this case,
+     so the bounded 50vh height above would leave the remainder as dead black
+     space below it. Fill the whole column instead — same reasoning as
+     .vd-right-scroll's flex:0 1 auto fix, just the opposite direction (here
+     content needs to GROW to fill an empty sibling gap, not shrink to avoid
+     leaving one). */
+  .vd-player--fallback { flex: 1; height: auto; }
   .vd-native-video-wrap { position: absolute; inset: 0; background: #000; }
   .vd-native-video-wrap video { width: 100%; height: 100%; max-height: none; display: block; object-fit: contain; }
   .vd-desktop-comments {
