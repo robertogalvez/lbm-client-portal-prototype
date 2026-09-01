@@ -90,7 +90,7 @@ function notStartedTone(r: AdminClientRow): 'red' | 'amber' | 'green' {
  * now carries both altitudes instead of making you flip tabs to see if an
  * at-risk client is also short on coverage.
  */
-export function ClientsTable({ rows, inactiveCount }: { rows: AdminClientRow[]; inactiveCount: number }) {
+export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [query, setQuery] = useState('');
 
@@ -149,10 +149,6 @@ export function ClientsTable({ rows, inactiveCount }: { rows: AdminClientRow[]; 
             </button>
           );
         })}
-        <span style={{ marginLeft: 'auto', fontSize: 12.5, color: T.ink3 }}>
-          {filtered.length} of {rows.length} active
-          {inactiveCount > 0 && ` · ${inactiveCount} inactive hidden`}
-        </span>
       </div>
 
       <Card padded={false}>
