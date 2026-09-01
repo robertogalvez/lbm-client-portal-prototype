@@ -11,6 +11,8 @@ import type { AdminClientRow } from '@/lib/admin-views';
 
 const GRID = '2fr 1fr 1fr 1fr 1.1fr 1.1fr 2.2fr';
 
+type SortKey = 'name' | 'owed' | 'notStarted' | 'inFlight' | 'stalledWithUs' | 'waitingOnClient';
+
 /** The plan line under the client's name: what kind of contract, and its trouble. */
 function planLine(r: AdminClientRow): string {
   if (!r.periodId) return 'No contract yet';
@@ -41,11 +43,61 @@ const TONE_COLOR: Record<'red' | 'amber' | 'green', string> = {
 
 export function ByClientTable({ rows, inactiveCount }: { rows: AdminClientRow[]; inactiveCount: number }) {
   const [query, setQuery] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortAsc, setSortAsc] = useState(true);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortKey(key);
+      setSortAsc(true);
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return q ? rows.filter(r => r.name.toLowerCase().includes(q)) : rows;
-  }, [rows, query]);
+    const results = q ? rows.filter(r => r.name.toLowerCase().includes(q)) : rows;
+
+    results.sort((a, b) => {
+      let aVal: string | number;
+      let bVal: string | number;
+
+      switch (sortKey) {
+        case 'name':
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
+          break;
+        case 'owed':
+          aVal = owedCount(a) ?? 0;
+          bVal = owedCount(b) ?? 0;
+          break;
+        case 'notStarted':
+          aVal = a.coverage?.notStarted ?? 0;
+          bVal = b.coverage?.notStarted ?? 0;
+          break;
+        case 'inFlight':
+          aVal = a.inFlight ?? 0;
+          bVal = b.inFlight ?? 0;
+          break;
+        case 'stalledWithUs':
+          aVal = a.stalledWithUs ?? 0;
+          bVal = b.stalledWithUs ?? 0;
+          break;
+        case 'waitingOnClient':
+          aVal = a.waitingOnClient ?? 0;
+          bVal = b.waitingOnClient ?? 0;
+          break;
+      }
+
+      if (typeof aVal === 'string') {
+        return sortAsc ? aVal.localeCompare(bVal as string) : (bVal as string).localeCompare(aVal);
+      }
+      return sortAsc ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
+    });
+
+    return results;
+  }, [rows, query, sortKey, sortAsc]);
 
   return (
     <Card
@@ -68,12 +120,114 @@ export function ByClientTable({ rows, inactiveCount }: { rows: AdminClientRow[];
     >
       <TableScroll>
         <div style={{ ...headerRow(GRID), paddingTop: 4 }}>
-        <span style={colHeader}>Client</span>
-        <span style={colHeader}>Owed</span>
-        <span style={colHeader}>Not started</span>
-        <span style={colHeader}>In flight</span>
-        <span style={colHeader}>Stuck with us</span>
-        <span style={colHeader}>Waiting on client</span>
+          <button
+            type="button"
+            onClick={() => handleSort('name')}
+            style={{
+              ...colHeader,
+              cursor: 'pointer',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            Client
+            {sortKey === 'name' && <span>{sortAsc ? '↑' : '↓'}</span>}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSort('owed')}
+            style={{
+              ...colHeader,
+              cursor: 'pointer',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            Owed
+            {sortKey === 'owed' && <span>{sortAsc ? '↑' : '↓'}</span>}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSort('notStarted')}
+            style={{
+              ...colHeader,
+              cursor: 'pointer',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            Not started
+            {sortKey === 'notStarted' && <span>{sortAsc ? '↑' : '↓'}</span>}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSort('inFlight')}
+            style={{
+              ...colHeader,
+              cursor: 'pointer',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            In flight
+            {sortKey === 'inFlight' && <span>{sortAsc ? '↑' : '↓'}</span>}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSort('stalledWithUs')}
+            style={{
+              ...colHeader,
+              cursor: 'pointer',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            Stuck with us
+            {sortKey === 'stalledWithUs' && <span>{sortAsc ? '↑' : '↓'}</span>}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSort('waitingOnClient')}
+            style={{
+              ...colHeader,
+              cursor: 'pointer',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            Waiting on client
+            {sortKey === 'waitingOnClient' && <span>{sortAsc ? '↑' : '↓'}</span>}
+          </button>
           <span style={colHeader}>What to do</span>
         </div>
 
