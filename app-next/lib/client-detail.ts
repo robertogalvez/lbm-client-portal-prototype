@@ -7,7 +7,7 @@ import { db } from '@/lib/db';
 import { authUsers, clients as clientsTable, contractPeriods, contractMonths, contractPeriodClients, contractLineItems } from '@/lib/db/schema';
 import { getDashboardTasks } from '@/lib/dashboard-tasks';
 import { buildAdminRows, type AdminClientRow } from '@/lib/admin-views';
-import { norm, parseDate, POSTED, pipelineStageOf, ARCHIVED_STATUSES } from '@/lib/pipeline';
+import { norm, parseDate, POSTED, pipelineStageOf, ARCHIVED_STATUSES, deliveryCategory } from '@/lib/pipeline';
 import type { ContractJoinRow } from '@/lib/portfolio';
 import { resolvePostedAt } from '@/lib/portfolio';
 import type { ContractPeriodRecord } from '@/lib/contract-records';
@@ -211,7 +211,10 @@ export async function loadClientDetail(id: string): Promise<ClientDetailData | n
         frameLink: t.frameLink,
         clickupUrl: t.clickupTaskId ? `https://app.clickup.com/t/${t.clickupTaskId}` : null,
         waitingOnClient: s === 'for client review',
-        published: s === POSTED,
+        // Date-corrected: a "Ready to be Posted" task whose Publish Date has
+        // already passed counts as published even if ClickUp's status hasn't
+        // caught up (see lib/pipeline.ts deliveryCategory).
+        published: deliveryCategory(t.status, t.publishDate, now.getTime()) === 'posted',
         archived: ARCHIVED_STATUSES.has(s),
         rank: statusRank(t.status),
         sortKey: valid ? updated : 0,
@@ -237,8 +240,10 @@ export async function loadClientDetail(id: string): Promise<ClientDetailData | n
     const start = new Date(p.startsOn).getTime();
     const end = p.endsOn ? new Date(p.endsOn).getTime() : now.getTime();
     deliveredByPeriod[p.id] = clientTasks.filter(t => {
-      if (norm(t.status) !== POSTED) return false;
-      const postedAt = resolvePostedAt(t);
+      // Date-corrected: a "Ready to be Posted" task whose Publish Date has
+      // already passed counts as delivered too (see deliveryCategory).
+      if (deliveryCategory(t.status, t.publishDate, now.getTime()) !== 'posted') return false;
+      const postedAt = t.publishDate ? new Date(t.publishDate).getTime() : resolvePostedAt(t);
       return postedAt >= start && postedAt <= end;
     }).length;
   }
