@@ -21,7 +21,6 @@ export interface ClientRecord {
 
 interface Props {
   rows: AdminClientRow[];
-  inactiveCount: number;
   clientRecords: ClientRecord[];
   /** ?client=<id> — a row with no contract period yet opens straight into the editor. */
   openClientId: string | null;
@@ -29,7 +28,7 @@ interface Props {
   error?: string | null;
 }
 
-export function ClientsPageClient({ rows, inactiveCount, clientRecords, openClientId, error }: Props) {
+export function ClientsPageClient({ rows, clientRecords, openClientId, error }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -91,7 +90,7 @@ export function ClientsPageClient({ rows, inactiveCount, clientRecords, openClie
           else if (row) setParam('client', row.clientId);
         }} />
 
-        <ClientsTable rows={rows} inactiveCount={inactiveCount} />
+        <ClientsTable rows={rows} />
       </div>
 
       {/* A client with no contract period has no detail page to open — the

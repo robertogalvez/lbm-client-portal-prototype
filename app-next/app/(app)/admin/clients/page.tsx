@@ -68,7 +68,6 @@ export default async function AdminClientsPage({
   return (
     <ClientsPageClient
       rows={roster.rows}
-      inactiveCount={roster.inactiveCount}
       clientRecords={clientRecords}
       openClientId={client || null}
       error={roster.error}
