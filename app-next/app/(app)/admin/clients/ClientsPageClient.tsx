@@ -22,7 +22,6 @@ export interface ClientRecord {
 interface Props {
   rows: AdminClientRow[];
   inactiveCount: number;
-  showInactive: boolean;
   clientRecords: ClientRecord[];
   /** ?client=<id> — a row with no contract period yet opens straight into the editor. */
   openClientId: string | null;
@@ -30,7 +29,7 @@ interface Props {
   error?: string | null;
 }
 
-export function ClientsPageClient({ rows, inactiveCount, showInactive, clientRecords, openClientId, error }: Props) {
+export function ClientsPageClient({ rows, inactiveCount, clientRecords, openClientId, error }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -38,8 +37,8 @@ export function ClientsPageClient({ rows, inactiveCount, showInactive, clientRec
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
 
-  // Tab and the inactive filter both live in the URL, so a link to the
-  // Coverage tab is shareable and survives a reload.
+  // The client tab lives in the URL, so a link to the Coverage tab is
+  // shareable and survives a reload.
   const setParam = useCallback((key: string, value: string | null) => {
     const next = new URLSearchParams(params.toString());
     if (value === null) next.delete(key);
@@ -68,18 +67,9 @@ export function ClientsPageClient({ rows, inactiveCount, showInactive, clientRec
     <main style={{ maxWidth: 1400 }}>
       <PageHeader
         title="Clients"
-        subtitle={`${rows.length} ${showInactive ? '' : 'active '}account${rows.length === 1 ? '' : 's'} · sorted by risk, not alphabet`}
+        subtitle={`${rows.length} active account${rows.length === 1 ? '' : 's'} · sorted by risk, not alphabet`}
         actions={
           <>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: T.ink2, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={showInactive}
-                onChange={e => setParam('inactive', e.target.checked ? '1' : null)}
-                style={{ cursor: 'pointer' }}
-              />
-              Show inactive{inactiveCount > 0 ? ` (${inactiveCount})` : ''}
-            </label>
             {syncMsg && <span style={{ fontSize: 13, color: /rror|ail/.test(syncMsg) ? T.danger : T.ink2 }}>{syncMsg}</span>}
             <Button variant="outline" onClick={syncNow} disabled={syncing}>{syncing ? 'Syncing…' : 'Sync now'}</Button>
           </>
@@ -101,7 +91,7 @@ export function ClientsPageClient({ rows, inactiveCount, showInactive, clientRec
           else if (row) setParam('client', row.clientId);
         }} />
 
-        <ClientsTable rows={rows} inactiveCount={showInactive ? 0 : inactiveCount} />
+        <ClientsTable rows={rows} inactiveCount={inactiveCount} />
       </div>
 
       {/* A client with no contract period has no detail page to open — the

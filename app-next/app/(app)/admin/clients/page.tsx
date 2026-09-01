@@ -19,7 +19,7 @@ export const revalidate = 60;
 export default async function AdminClientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ inactive?: string; client?: string }>;
+  searchParams: Promise<{ client?: string }>;
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect('/login');
@@ -27,14 +27,13 @@ export default async function AdminClientsPage({
   const [caller] = await db.select({ role: authUsers.role }).from(authUsers).where(eq(authUsers.id, session.user.id)).limit(1);
   if (!caller || caller.role === 'client') redirect('/client');
 
-  const { inactive = '', client = '' } = await searchParams;
-  const showInactive = inactive === '1';
+  const { client = '' } = await searchParams;
 
   // The roster numbers come from the same loader the dashboard reads, so the
   // two screens cannot report different totals. The records below are only
   // what the contract editor needs for a client that has no period yet.
   const [roster, allClients, allPeriods, allPeriodClients] = await Promise.all([
-    loadAdminRoster({ includeInactive: showInactive }),
+    loadAdminRoster(),
     db.select().from(clients).orderBy(clients.createdAt),
     db.select().from(contractPeriods),
     db.select().from(contractPeriodClients),
@@ -70,7 +69,6 @@ export default async function AdminClientsPage({
     <ClientsPageClient
       rows={roster.rows}
       inactiveCount={roster.inactiveCount}
-      showInactive={showInactive}
       clientRecords={clientRecords}
       openClientId={client || null}
       error={roster.error}

@@ -44,9 +44,8 @@ export default async function DashboardPage() {
     );
   }
 
-  // Inactive clients are always hidden here and counted in the table footer —
-  // the global "Show inactive" toggle lived on this page but nobody flipped it
-  // daily, so it moved to Clients where the roster is the subject.
+  // Only Active clients show up anywhere in the portal — Paused and Churned
+  // ones are always hidden here and counted in the table footer instead.
   const { rows, totals, inactiveCount, firstPass, error } = await loadAdminRoster();
 
   return (

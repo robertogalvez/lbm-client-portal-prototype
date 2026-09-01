@@ -18,14 +18,20 @@ import { buildFirstPassStats, type FirstPassStats } from '@/lib/revisions';
 export interface AdminRoster {
   rows: AdminClientRow[];
   totals: AdminTotals;
-  /** Clients hidden because ClickUp marks them Inactive — surfaced as "N inactive hidden". */
+  /** Clients hidden because ClickUp doesn't mark them Active (Paused, Churned, or unset) — surfaced as "N inactive hidden". */
   inactiveCount: number;
   /** Studio-wide, not per-client — computed over every posted task regardless of client status. */
   firstPass: FirstPassStats;
   error?: string | null;
 }
 
-export async function loadAdminRoster(opts: { includeInactive?: boolean } = {}): Promise<AdminRoster> {
+// The Master Clients List in ClickUp only carries Active, Paused, and
+// Churned clients now — the portal only ever shows Active ones.
+function isActive(status: string | null): boolean {
+  return (status ?? '').trim().toLowerCase() === 'active';
+}
+
+export async function loadAdminRoster(): Promise<AdminRoster> {
   const [allClients, portalUsers, allPeriodClients, allPeriods, taskResult] = await Promise.all([
     db.select().from(clientsTable).orderBy(clientsTable.createdAt),
     db.select({ clientName: authUsers.clientName }).from(authUsers).where(eq(authUsers.role, 'client')),
@@ -34,12 +40,12 @@ export async function loadAdminRoster(opts: { includeInactive?: boolean } = {}):
     getDashboardTasks(),
   ]);
 
-  const inactive = allClients.filter(c => c.clientStatus === 'Inactive');
-  const visibleClients = opts.includeInactive ? allClients : allClients.filter(c => c.clientStatus !== 'Inactive');
+  const inactive = allClients.filter(c => !isActive(c.clientStatus));
+  const visibleClients = allClients.filter(c => isActive(c.clientStatus));
   const inactiveNames = new Set(inactive.map(c => norm(c.name)));
 
   let allTasks = taskResult.tasks;
-  if (!opts.includeInactive && inactiveNames.size > 0) {
+  if (inactiveNames.size > 0) {
     allTasks = allTasks.filter(t => !t.clientName || !inactiveNames.has(norm(t.clientName)));
   }
 
