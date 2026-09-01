@@ -81,7 +81,7 @@ function isCalendarEligible(t: CalTask): boolean {
 export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
   const tasks = allTasks.filter(isCalendarEligible);
   const now = new Date();
-  const [view, setView] = useState<'month' | 'list'>('month');
+  const [view, setView] = useState<'month' | 'list'>('list');
   const [current, setCurrent] = useState({ year: now.getFullYear(), month: now.getMonth() });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
