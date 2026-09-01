@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { statusColors } from '@/components/ui/StatusBadge';
 import { clientStatusLabel } from '@/lib/client-status';
+import { deliveryCategory } from '@/lib/pipeline';
 
 export interface CalTask {
   clickupTaskId: string;
@@ -33,10 +34,16 @@ function displayTitle(clientFacingTitle: string | null, title: string, maxLength
 // everywhere else).
 function statusStyle(t: CalTask): { color: string; bg: string; label: string } {
   const s = norm(t.status);
+  // "Ready to be Posted" / "Posted in Socials" go by deliveryCategory (Publish
+  // Date vs. now), not the raw status, so both the label and the color match
+  // whether the video has actually gone live yet — see lib/pipeline.ts.
+  if (s === 'posted in socials' || s === 'ready to be posted') {
+    const isPosted = deliveryCategory(t.status, t.publishDate) === 'posted';
+    const { color, bg } = statusColors(isPosted ? 'posted in socials' : 'ready to be posted');
+    return { color, bg, label: isPosted ? 'Posted' : 'Ready to post' };
+  }
   const { color, bg } = statusColors(t.status);
-  if (s === 'posted in socials') return { color, bg, label: 'Posted' };
   if (s === 'for client review') return { color, bg, label: 'Awaiting review' };
-  if (s === 'ready to be posted') return { color, bg, label: 'Ready to post' };
   if (s === 'in progress (corrections)') return { color, bg, label: 'In corrections' };
   if (t.clientApproval === 'approved') return { color: '#14805f', bg: '#e4f3ec', label: 'Approved' };
   return { color, bg, label: clientStatusLabel(t.status) };
@@ -114,7 +121,7 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
   const upcomingTasks = tasks
     .filter(t => {
       const displayDate = getDisplayDate(t);
-      return displayDate && new Date(displayDate).getTime() > now.getTime() && norm(t.status) !== 'posted in socials';
+      return displayDate && new Date(displayDate).getTime() > now.getTime() && deliveryCategory(t.status, t.publishDate) !== 'posted';
     })
     .sort((a, b) => new Date(getDisplayDate(a)!).getTime() - new Date(getDisplayDate(b)!).getTime())
     .slice(0, 6);
@@ -165,7 +172,7 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
                   const { color, bg, label } = statusStyle(t);
                   const displayDate = getDisplayDate(t)!;
                   const due = new Date(displayDate);
-                  const overdue = due.getTime() < now.getTime() && norm(t.status) !== 'posted in socials';
+                  const overdue = due.getTime() < now.getTime() && deliveryCategory(t.status, t.publishDate) !== 'posted';
                   return (
                     <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}?from=calendar`} style={{ textDecoration: 'none', color: 'inherit' }}>
                       <div style={{ background: '#fff', border: '1px solid #ece4d8', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>

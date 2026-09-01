@@ -8,6 +8,8 @@ import { getTasksFromList } from '@/lib/clickup';
 import type { MappedTask } from '@/lib/clickup';
 import { AmPicker } from '@/components/am/AmPicker';
 import { InstagramLink } from '@/components/InstagramLink';
+import { deliveryCategory } from '@/lib/pipeline';
+import { resolvePostedAt } from '@/lib/portfolio';
 
 export const dynamic = 'force-dynamic';
 
@@ -141,8 +143,12 @@ export default async function AmPage() {
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
   const weekEnd = now + 7 * DAY_MS;
 
-  const POSTED_NORM = 'posted in socials';
-  const activeTasks = amTasks.filter(t => norm(t.status) !== POSTED_NORM);
+  // "Posted" is driven by deliveryCategory (Publish Date vs. now), not the
+  // raw status — see lib/pipeline.ts.
+  function isPosted(t: MappedTask) {
+    return deliveryCategory(t.status, t.publishDate) === 'posted';
+  }
+  const activeTasks = amTasks.filter(t => !isPosted(t));
 
   // KPIs
   const activeClients = new Set(activeTasks.map(t => t.clientName).filter(Boolean)).size;
@@ -166,11 +172,12 @@ export default async function AmPage() {
     }
     const cd = clientMap.get(cn)!;
     const ns = norm(t.status);
-    const pk = ns;
+    const category = deliveryCategory(t.status, t.publishDate);
+    const pk = category === 'scheduled' ? 'ready to be posted' : category === 'posted' ? 'posted in socials' : ns;
     cd.pipeline[pk] = (cd.pipeline[pk] ?? 0) + 1;
 
-    if (ns !== POSTED_NORM) cd.active++;
-    if (ns === POSTED_NORM && t.dateUpdated && new Date(t.dateUpdated).getTime() >= monthStart) cd.postedThisMonth++;
+    if (category !== 'posted') cd.active++;
+    if (category === 'posted' && resolvePostedAt(t) >= monthStart) cd.postedThisMonth++;
     if (ns === 'for client review') {
       cd.inReview++;
       const age = now - new Date(t.dateUpdated).getTime();
@@ -194,8 +201,8 @@ export default async function AmPage() {
 
   // Recently posted — surfaces the captured Instagram link to the AM
   const recentlyPosted = amTasks
-    .filter(t => norm(t.status) === POSTED_NORM)
-    .sort((a, b) => (Number(b.dateUpdated) || 0) - (Number(a.dateUpdated) || 0))
+    .filter(isPosted)
+    .sort((a, b) => resolvePostedAt(b) - resolvePostedAt(a))
     .slice(0, 10);
 
   return (

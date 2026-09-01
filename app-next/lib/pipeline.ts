@@ -72,6 +72,33 @@ export function pipelineStageOf(normStatus: string): PipelineStage | null {
   return null; // POSTED — the caller handles it, it is the one date-scoped stage
 }
 
+export type DeliveryCategory = 'scheduled' | 'posted';
+
+// "Scheduled to be posted" (has a Publish Date but hasn't reached it yet) vs
+// "Posted in Socials" (reached its Publish Date and is live) — the single
+// definition every surface (dashboard, AM view, client portal, calendar)
+// should use, driven by the actual Publish Date (VistaSocial) wherever one is
+// set rather than by which of the two ClickUp statuses a task currently sits
+// at:
+//   - A "Ready to be Posted" task whose Publish Date has already passed
+//     reads as posted even if ClickUp's status hasn't caught up (e.g. the
+//     publish automation stalled).
+//   - A "Posted in Socials" task queued for a future date still reads as
+//     scheduled — our own pipeline (lib/publish/publish-video.ts) flips the
+//     status the moment Vista Social scheduling *succeeds*, which can be for
+//     a future time, not the moment the post actually goes live.
+// Falls back to the raw status when no Publish Date is set at all. Returns
+// null for any status outside this pair — it has nothing to say about a
+// video still in editing/QC/review.
+export function deliveryCategory(status: string, publishDate: string | null, now = Date.now()): DeliveryCategory | null {
+  const s = norm(status);
+  if (s !== 'ready to be posted' && s !== POSTED) return null;
+  if (publishDate) {
+    return new Date(publishDate).getTime() <= now ? 'posted' : 'scheduled';
+  }
+  return s === POSTED ? 'posted' : 'scheduled';
+}
+
 export interface StageBuckets {
   counts: PipelineStageCounts;
   stalled: PipelineStageCounts;
@@ -118,16 +145,22 @@ export function buildStageBuckets(
 
     if (ARCHIVED_STATUSES.has(status)) continue;
 
-    if (status === POSTED) {
-      const postedAt = resolvePostedAt(t);
-      if (postedAt <= now) {
+    if (status === POSTED || status === 'ready to be posted') {
+      // deliveryCategory is guaranteed non-null here — status is always one
+      // of the two it recognizes. Handles both directions: a POSTED task
+      // queued for a future date still reads as in-flight, and a READY task
+      // whose date has already passed reads as posted even though ClickUp's
+      // own status hasn't caught up (e.g. the publish automation stalled).
+      if (deliveryCategory(t.status, t.publishDate, now) === 'posted') {
+        // Publish Date if present — resolvePostedAt's dateUpdated fallback is
+        // only reachable for a task already at POSTED with no Publish Date,
+        // matching its prior behavior exactly.
+        const postedAt = t.publishDate ? new Date(t.publishDate).getTime() : resolvePostedAt(t);
         (Object.keys(postedCutoffs) as PipelinePeriod[]).forEach(p => {
           if (postedAt >= postedCutoffs[p]) posted[p]++;
         });
         continue;
       }
-      // Queued into VistaSocial with a future publish date: not live yet, so
-      // it still reads as in-flight rather than vanishing from the board.
       counts.ready++;
       if (now - parseDate(t.dateUpdated) > STALL_MS) stalled.ready++;
       continue;

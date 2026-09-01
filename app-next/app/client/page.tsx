@@ -20,6 +20,7 @@ import { getViewAsClient } from '@/lib/view-as';
 import { getInvoicesForClient, isQuickBooksConfigured } from '@/lib/quickbooks';
 import { InstagramLink } from '@/components/InstagramLink';
 import { clientStatusLabel } from '@/lib/client-status';
+import { deliveryCategory } from '@/lib/pipeline';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -152,35 +153,46 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
 
   const clientTasks = allTasks.filter(t => t.clientName === clientName);
   const reviewTasks = clientTasks.filter(t => norm(t.status) === 'for client review');
-  // Keep postedTasks for the stats banner (monthly delivery counts)
-  const postedTasks = clientTasks.filter(t => norm(t.status) === 'posted in socials');
 
   // ── Display groups (mutually exclusive, priority-ordered) ─────────────────
-  // 1. Posted + Archived — sorted newest first
+  // 1. Posted + Archived — sorted newest first. "Posted" is driven by
+  // deliveryCategory (Publish Date vs. now), not the raw status, so a
+  // "Ready to be Posted" task whose date already passed shows here even if
+  // ClickUp's status hasn't caught up, and a "Posted in Socials" task queued
+  // for a future date does not.
   const postedAndArchivedTasks = clientTasks
-    .filter(t => ['posted in socials', 'archived'].includes(norm(t.status)))
+    .filter(t => {
+      const s = norm(t.status);
+      if (s === 'archived') return true;
+      if (s === 'posted in socials' || s === 'ready to be posted') return deliveryCategory(t.status, t.publishDate) === 'posted';
+      return false;
+    })
     .sort((a, b) => {
       const dateA = a.publishDate ? new Date(a.publishDate).getTime() : (Number(a.dateUpdated) || 0);
       const dateB = b.publishDate ? new Date(b.publishDate).getTime() : (Number(b.dateUpdated) || 0);
       return dateB - dateA;
     });
+  const postedAndArchivedIds = new Set(postedAndArchivedTasks.map(t => t.clickupTaskId));
+  // Keep postedTasks for the stats banner (monthly delivery counts) — excludes archived.
+  const postedTasks = postedAndArchivedTasks.filter(t => norm(t.status) !== 'archived');
 
-  // 2. Scheduled — non-review, non-posted tasks that have a publish date set
+  // 2. Scheduled — non-review, non-posted/archived tasks that have a publish date set
   const scheduledTasks = clientTasks
     .filter(t => {
       const s = norm(t.status);
-      return t.publishDate !== null && s !== 'for client review' && !['posted in socials', 'archived'].includes(s);
+      if (s === 'for client review' || postedAndArchivedIds.has(t.clickupTaskId)) return false;
+      return t.publishDate !== null;
     })
     .sort((a, b) => new Date(a.publishDate!).getTime() - new Date(b.publishDate!).getTime());
   const scheduledIds = new Set(scheduledTasks.map(t => t.clickupTaskId));
 
-  // 3. In Progress - Edition: all active production statuses (excluding scheduled)
+  // 3. In Progress - Edition: all active production statuses (excluding scheduled/posted)
   const IN_PROD_STATUSES = new Set([
     'in progress (editor)', 'in progress (corrections)', 'in tc/qc (somu)',
     'on its way', 'ready to be posted', 'approved · fixes pending',
   ]);
   const inEditionTasks = clientTasks
-    .filter(t => IN_PROD_STATUSES.has(norm(t.status)) && !scheduledIds.has(t.clickupTaskId))
+    .filter(t => IN_PROD_STATUSES.has(norm(t.status)) && !scheduledIds.has(t.clickupTaskId) && !postedAndArchivedIds.has(t.clickupTaskId))
     // Unranked videos (no explicit client priority yet) sort after ranked
     // ones and keep their relative order (stable sort) — nothing jumps
     // around just because one video got a rank.
