@@ -81,6 +81,20 @@ function notStartedTone(r: AdminClientRow): 'red' | 'amber' | 'green' {
   return r.termExpired || r.stages.backlog === 0 ? 'red' : 'amber';
 }
 
+function getPaceSortValue(pace: PaceNeeded | null): number {
+  if (!pace) return 0;
+  switch (pace.kind) {
+    case 'pace':
+      return pace.perWeek;
+    case 'open':
+    case 'blocked':
+    case 'cycle-pending':
+      return pace.remaining;
+    case 'covered':
+      return 0;
+  }
+}
+
 /**
  * Screen 2 — one table answering both "which accounts are at risk?" and "do
  * we have enough videos in motion to honour what we sold?" Used to be two
@@ -147,8 +161,8 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
           break;
         }
         case 'paceNeeded':
-          aVal = a.pace?.perWeek ?? (a.pace?.remaining ?? 0);
-          bVal = b.pace?.perWeek ?? (b.pace?.remaining ?? 0);
+          aVal = getPaceSortValue(a.pace);
+          bVal = getPaceSortValue(b.pace);
           break;
       }
 
