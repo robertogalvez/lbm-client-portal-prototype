@@ -140,6 +140,8 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
           <button type="button" aria-label="Next week" onClick={() => setWeekOffset(w => w + 1)} style={navBtn}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="m9 18 6-6-6-6" /></svg>
           </button>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <ViewToggle view={view} setView={setView} />
         </div>
         {withDate.length === 0 ? (
@@ -173,7 +175,7 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
                           <div style={{ fontSize: 10, fontWeight: 600, color: '#9d9488', textTransform: 'uppercase' }}>{due.toLocaleString('en-US', { month: 'short' })}</div>
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#221e18', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#221e18', lineHeight: 1.25, display: '-webkit-box', WebkitBoxOrient: 'vertical', overflow: 'hidden', WebkitLineClamp: 2 }} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title, 80)}</div>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color, background: outlined ? 'transparent' : bg, padding: '2px 6px', border: outlined ? `1.5px solid ${color}` : 'none', borderRadius: 5, marginTop: 3 }}>
                             {!outlined && <span style={{ width: 5, height: 5, borderRadius: '50%', background: color }} />}{label}
                           </span>
