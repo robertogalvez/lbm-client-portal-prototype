@@ -32,7 +32,7 @@ function displayTitle(clientFacingTitle: string | null, title: string, maxLength
 // everywhere — this used to be a separate hand-rolled map here that had
 // drifted out of sync (e.g. "ready to be posted" was blue here, green
 // everywhere else).
-function statusStyle(t: CalTask): { color: string; bg: string; label: string } {
+function statusStyle(t: CalTask): { color: string; bg: string; label: string; outlined?: boolean } {
   const s = norm(t.status);
   // "Ready to be Posted" / "Posted in Socials" go by deliveryCategory (Publish
   // Date vs. now), not the raw status, so both the label and the color match
@@ -40,7 +40,7 @@ function statusStyle(t: CalTask): { color: string; bg: string; label: string } {
   if (s === 'posted in socials' || s === 'ready to be posted') {
     const isPosted = deliveryCategory(t.status, t.publishDate) === 'posted';
     const { color, bg } = statusColors(isPosted ? 'posted in socials' : 'ready to be posted');
-    return { color, bg, label: isPosted ? 'Posted' : 'Ready to post' };
+    return { color, bg, label: isPosted ? 'Posted' : 'Ready to post', outlined: !isPosted };
   }
   const { color, bg } = statusColors(t.status);
   if (s === 'for client review') return { color, bg, label: 'Awaiting review' };
@@ -169,7 +169,7 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
               <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{wLabel}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {wt.map(t => {
-                  const { color, bg, label } = statusStyle(t);
+                  const { color, bg, label, outlined } = statusStyle(t);
                   const displayDate = getDisplayDate(t)!;
                   const due = new Date(displayDate);
                   const overdue = due.getTime() < now.getTime() && deliveryCategory(t.status, t.publishDate) !== 'posted';
@@ -182,8 +182,8 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, color: '#221e18', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color, background: bg, padding: '2px 6px', borderRadius: 5, marginTop: 3 }}>
-                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: color }} />{label}
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color, background: outlined ? 'transparent' : bg, padding: '2px 6px', border: outlined ? `1.5px solid ${color}` : 'none', borderRadius: 5, marginTop: 3 }}>
+                            {!outlined && <span style={{ width: 5, height: 5, borderRadius: '50%', background: color }} />}{label}
                           </span>
                           {/* Not an <a>/<button>: this sits inside the card's own
                               link, and nesting either is invalid HTML. Reaching it
@@ -265,10 +265,10 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
                   </div>
                   <div style={{ overflow: 'hidden' }}>
                     {cell.tasks.slice(0, 2).map(t => {
-                      const { color, bg } = statusStyle(t);
+                      const { color, bg, outlined } = statusStyle(t);
                       return (
                         <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}?from=calendar`} style={{ textDecoration: 'none', color: 'inherit' }} onClick={e => e.stopPropagation()}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color, background: bg, padding: '1px 3px', borderRadius: 3, marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }} title={t.clientFacingTitle || t.title}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color, background: outlined ? 'transparent' : bg, border: outlined ? `1px solid ${color}` : 'none', padding: '1px 3px', borderRadius: 3, marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }} title={t.clientFacingTitle || t.title}>
                             {displayTitle(t.clientFacingTitle, t.title, 30)}
                           </div>
                         </a>
@@ -292,14 +292,14 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
               {selectedTasks.length === 0 ? (
                 <div style={{ fontSize: 12, color: '#9d9488', marginTop: 6 }}>No videos scheduled for this day.</div>
               ) : selectedTasks.map(t => {
-                const { color, bg, label } = statusStyle(t);
+                const { color, bg, label, outlined } = statusStyle(t);
                 return (
                   <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}?from=calendar`} style={{ textDecoration: 'none', color: 'inherit' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid #f0e8df' }}>
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                      {!outlined && <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12.5, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
-                        <span style={{ fontSize: 10.5, fontWeight: 700, color, background: bg, padding: '1px 6px', borderRadius: 5 }}>{label}</span>
+                        <span style={{ fontSize: 10.5, fontWeight: 700, color, background: outlined ? 'transparent' : bg, border: outlined ? `1px solid ${color}` : 'none', padding: '1px 6px', borderRadius: 5 }}>{label}</span>
                         {/* See the note on the week-view copy above: nested inside
                             the card link, so it cannot be an anchor. */}
                         {isInProcess(t) && t.rawDriveLink && (
@@ -326,7 +326,7 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
             {upcomingTasks.length === 0 ? (
               <div style={{ fontSize: 12, color: '#9d9488' }}>No upcoming videos.</div>
             ) : upcomingTasks.map(t => {
-              const { color, bg, label } = statusStyle(t);
+              const { color, bg, label, outlined } = statusStyle(t);
               const displayDate = getDisplayDate(t)!;
               const due = new Date(displayDate);
               return (
@@ -338,8 +338,8 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 12, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color, background: bg, padding: '1px 5px', borderRadius: 4, marginTop: 2 }}>
-                        <span style={{ width: 4, height: 4, borderRadius: '50%', background: color }} />{label}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color, background: outlined ? 'transparent' : bg, border: outlined ? `1px solid ${color}` : 'none', padding: '1px 5px', borderRadius: 4, marginTop: 2 }}>
+                        {!outlined && <span style={{ width: 4, height: 4, borderRadius: '50%', background: color }} />}{label}
                       </span>
                     </div>
                   </div>
