@@ -146,8 +146,8 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
         </div>
         {withDate.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9d9488' }}>
-            <div style={{ fontSize: 28, marginBottom: 8 }}>📅</div>
-            <p style={{ fontSize: 13, margin: 0 }}>No scheduled videos yet.</p>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 28, height: 28, marginBottom: 8, marginLeft: 'auto', marginRight: 'auto', color: '#9d9488' }}><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M16 2v4M8 2v4M4 10h16"/></svg>
+            <p style={{ fontSize: 13, margin: 0 }}><strong style={{ color: '#221e18' }}>Nothing scheduled this week</strong> — we'll post here as videos are approved.</p>
           </div>
         ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
