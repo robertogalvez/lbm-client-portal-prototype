@@ -14,6 +14,8 @@ import type { PaceNeeded } from '@/lib/contracts';
 
 const GRID = '2fr 1.4fr 1.6fr 1.7fr 1.5fr 2fr';
 
+type SortKey = 'name' | 'contractTerm' | 'coverage' | 'inFlight' | 'paceNeeded';
+
 type FilterKey = 'all' | AdminFilterTag;
 
 const FILTERS: { key: FilterKey; label: string }[] = [
@@ -93,6 +95,17 @@ function notStartedTone(r: AdminClientRow): 'red' | 'amber' | 'green' {
 export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [query, setQuery] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortAsc, setSortAsc] = useState(true);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortKey(key);
+      setSortAsc(true);
+    }
+  };
 
   const counts = useMemo(() => ({
     all: rows.length,
@@ -105,10 +118,48 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
   // filter anything. They filter now, and the count on the right follows them.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return rows
+    const results = rows
       .filter(r => filter === 'all' || r.filterTags.includes(filter))
       .filter(r => !q || r.name.toLowerCase().includes(q));
-  }, [rows, filter, query]);
+
+    results.sort((a, b) => {
+      let aVal: string | number;
+      let bVal: string | number;
+
+      switch (sortKey) {
+        case 'name':
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
+          break;
+        case 'contractTerm':
+          aVal = a.termText?.toLowerCase() ?? '';
+          bVal = b.termText?.toLowerCase() ?? '';
+          break;
+        case 'coverage':
+          aVal = a.coverage?.delivered ?? 0;
+          bVal = b.coverage?.delivered ?? 0;
+          break;
+        case 'inFlight': {
+          const aFlight = a.stages.review + a.stages.editing + a.stages.qc + a.stages.backlog + a.stages.ready;
+          const bFlight = b.stages.review + b.stages.editing + b.stages.qc + b.stages.backlog + b.stages.ready;
+          aVal = aFlight;
+          bVal = bFlight;
+          break;
+        }
+        case 'paceNeeded':
+          aVal = a.pace?.perWeek ?? (a.pace?.remaining ?? 0);
+          bVal = b.pace?.perWeek ?? (b.pace?.remaining ?? 0);
+          break;
+      }
+
+      if (typeof aVal === 'string') {
+        return sortAsc ? aVal.localeCompare(bVal as string) : (bVal as string).localeCompare(aVal);
+      }
+      return sortAsc ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
+    });
+
+    return results;
+  }, [rows, filter, query, sortKey, sortAsc]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -154,11 +205,96 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
       <Card padded={false}>
         <TableScroll wide>
         <div style={{ ...headerRow(GRID), padding: '4px 24px 12px' }}>
-          <span style={colHeader}>Client</span>
-          <span style={colHeader}>Contract term</span>
-          <span style={colHeader}>Coverage</span>
-          <span style={colHeader}>In flight</span>
-          <span style={colHeader}>Pace needed</span>
+          <button
+            type="button"
+            onClick={() => handleSort('name')}
+            style={{
+              ...colHeader,
+              cursor: 'pointer',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            Client
+            {sortKey === 'name' && <span>{sortAsc ? '↑' : '↓'}</span>}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSort('contractTerm')}
+            style={{
+              ...colHeader,
+              cursor: 'pointer',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            Contract term
+            {sortKey === 'contractTerm' && <span>{sortAsc ? '↑' : '↓'}</span>}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSort('coverage')}
+            style={{
+              ...colHeader,
+              cursor: 'pointer',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            Coverage
+            {sortKey === 'coverage' && <span>{sortAsc ? '↑' : '↓'}</span>}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSort('inFlight')}
+            style={{
+              ...colHeader,
+              cursor: 'pointer',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            In flight
+            {sortKey === 'inFlight' && <span>{sortAsc ? '↑' : '↓'}</span>}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSort('paceNeeded')}
+            style={{
+              ...colHeader,
+              cursor: 'pointer',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            Pace needed
+            {sortKey === 'paceNeeded' && <span>{sortAsc ? '↑' : '↓'}</span>}
+          </button>
           <span style={colHeader}>What to do</span>
         </div>
 
