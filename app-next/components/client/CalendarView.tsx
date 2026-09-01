@@ -14,7 +14,6 @@ export interface CalTask {
   dateUpdated: string;
   clientApproval: string | null;
   frameLink: string | null;
-  rawDriveLink: string | null;
   publishDate: string | null;
 }
 
@@ -43,15 +42,8 @@ function statusStyle(t: CalTask): { color: string; bg: string; label: string; ou
     return { color, bg, label: isPosted ? 'Posted' : 'Ready to post', outlined: !isPosted };
   }
   const { color, bg } = statusColors(t.status);
-  if (s === 'for client review') return { color, bg, label: 'Awaiting review' };
-  if (s === 'in progress (corrections)') return { color, bg, label: 'In corrections' };
   if (t.clientApproval === 'approved') return { color: '#14805f', bg: '#e4f3ec', label: 'Approved' };
   return { color, bg, label: clientStatusLabel(t.status) };
-}
-
-function isInProcess(t: CalTask): boolean {
-  const s = norm(t.status);
-  return !['posted in socials', 'for client review', 'ready to be posted'].includes(s) && t.clientApproval !== 'approved';
 }
 
 // "Ready to be Posted" and "Posted in Socials" are scheduling/publishing
@@ -148,12 +140,14 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
           <button type="button" aria-label="Next week" onClick={() => setWeekOffset(w => w + 1)} style={navBtn}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="m9 18 6-6-6-6" /></svg>
           </button>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <ViewToggle view={view} setView={setView} />
         </div>
         {withDate.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9d9488' }}>
-            <div style={{ fontSize: 28, marginBottom: 8 }}>📅</div>
-            <p style={{ fontSize: 13, margin: 0 }}>No scheduled videos yet.</p>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 28, height: 28, marginBottom: 8, marginLeft: 'auto', marginRight: 'auto', color: '#9d9488' }}><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M16 2v4M8 2v4M4 10h16"/></svg>
+            <p style={{ fontSize: 13, margin: 0 }}><strong style={{ color: '#221e18' }}>Nothing scheduled this week</strong> — we'll post here as videos are approved.</p>
           </div>
         ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -181,22 +175,10 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
                           <div style={{ fontSize: 10, fontWeight: 600, color: '#9d9488', textTransform: 'uppercase' }}>{due.toLocaleString('en-US', { month: 'short' })}</div>
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#221e18', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#221e18', lineHeight: 1.25, display: '-webkit-box', WebkitBoxOrient: 'vertical', overflow: 'hidden', WebkitLineClamp: 2 }} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title, 80)}</div>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color, background: outlined ? 'transparent' : bg, padding: '2px 6px', border: outlined ? `1.5px solid ${color}` : 'none', borderRadius: 5, marginTop: 3 }}>
                             {!outlined && <span style={{ width: 5, height: 5, borderRadius: '50%', background: color }} />}{label}
                           </span>
-                          {/* Not an <a>/<button>: this sits inside the card's own
-                              link, and nesting either is invalid HTML. Reaching it
-                              by keyboard needs the card layout changed so this is
-                              a sibling of that link rather than a child. */}
-                          {isInProcess(t) && t.rawDriveLink && (
-                            <span
-                              onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(t.rawDriveLink!, '_blank', 'noopener,noreferrer'); }}
-                              style={{ display: 'block', marginTop: 3, fontSize: 10.5, fontWeight: 600, color: '#0f6fec', cursor: 'pointer' }}
-                            >
-                              Raw footage ↗
-                            </span>
-                          )}
                         </div>
                       </div>
                     </a>
@@ -253,7 +235,7 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
                   // onto the date number as its own control.
                   onClick={() => setSelectedDay(isSelected ? null : cell.key)}
                   style={{
-                    minHeight: 70, padding: '4px 4px 2px', borderRadius: 8, cursor: 'pointer',
+                    minHeight: 46, padding: '4px 4px 2px', borderRadius: 8, cursor: 'pointer',
                     background: cell.isToday ? '#221e18' : isSelected ? '#fff1e8' : cell.isCurrentMonth ? '#fff' : '#faf6f0',
                     border: `1px solid ${isSelected ? '#FF6000' : '#ece4d8'}`,
                     transition: 'background 100ms',
@@ -263,24 +245,33 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
                   <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 2, color: cell.isToday ? '#fff' : cell.isCurrentMonth ? '#221e18' : '#c4bbb0' }}>
                     {cell.date.getDate()}
                   </div>
-                  <div style={{ overflow: 'hidden' }}>
-                    {cell.tasks.slice(0, 2).map(t => {
-                      const { color, bg, outlined } = statusStyle(t);
+                  <div style={{ display: 'flex', gap: 3, marginTop: 3, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {cell.tasks.slice(0, 3).map(t => {
+                      const { color, outlined } = statusStyle(t);
+                      const markColor = cell.isToday ? '#6fcfae' : color;
                       return (
-                        <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}?from=calendar`} style={{ textDecoration: 'none', color: 'inherit' }} onClick={e => e.stopPropagation()}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color, background: outlined ? 'transparent' : bg, border: outlined ? `1px solid ${color}` : 'none', padding: '1px 3px', borderRadius: 3, marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }} title={t.clientFacingTitle || t.title}>
-                            {displayTitle(t.clientFacingTitle, t.title, 30)}
-                          </div>
-                        </a>
+                        <span key={t.clickupTaskId} style={{ width: 6, height: 6, borderRadius: '50%', background: outlined ? 'transparent' : markColor, border: outlined ? `1.5px solid ${markColor}` : 'none', flexShrink: 0 }} />
                       );
                     })}
-                    {cell.tasks.length > 2 && (
-                      <div style={{ fontSize: 11, color: '#9d9488', fontWeight: 600 }}>+{cell.tasks.length - 2}</div>
+                    {cell.tasks.length > 3 && (
+                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, fontWeight: 700, color: '#B23E00' }}>+{cell.tasks.length - 3}</span>
                     )}
                   </div>
                 </div>
               );
             })}
+          </div>
+
+          {/* Legend */}
+          <div style={{ display: 'flex', gap: 16, fontSize: 11, fontWeight: 600, color: '#6c6357', marginTop: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#14805f' }} />
+              Posted
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', border: '1.5px solid #14805f', background: 'transparent' }} />
+              Scheduled
+            </div>
           </div>
 
           {/* Selected day detail */}
@@ -295,21 +286,11 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
                 const { color, bg, label, outlined } = statusStyle(t);
                 return (
                   <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}?from=calendar`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid #f0e8df' }}>
-                      {!outlined && <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 0', borderTop: '1px solid #f0e8df' }}>
+                      {!outlined && <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0, marginTop: 2 }} />}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
+                        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#221e18', display: '-webkit-box', WebkitBoxOrient: 'vertical', overflow: 'hidden', WebkitLineClamp: 2, lineHeight: 1.3 }} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title, 80)}</div>
                         <span style={{ fontSize: 10.5, fontWeight: 700, color, background: outlined ? 'transparent' : bg, border: outlined ? `1px solid ${color}` : 'none', padding: '1px 6px', borderRadius: 5 }}>{label}</span>
-                        {/* See the note on the week-view copy above: nested inside
-                            the card link, so it cannot be an anchor. */}
-                        {isInProcess(t) && t.rawDriveLink && (
-                          <span
-                            onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(t.rawDriveLink!, '_blank', 'noopener,noreferrer'); }}
-                            style={{ display: 'block', marginTop: 3, fontSize: 10.5, fontWeight: 600, color: '#0f6fec', cursor: 'pointer' }}
-                          >
-                            Raw footage ↗
-                          </span>
-                        )}
                       </div>
                     </div>
                   </a>
