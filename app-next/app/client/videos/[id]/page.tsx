@@ -244,9 +244,16 @@ export default async function VideoDetailPage({ params, searchParams }: { params
 
           {task.caption && (
             <div style={{ padding: '0 16px 12px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Caption</div>
+              {/* Contrast fixed per a client accessibility report: the label
+                  was #9d9488 on this background (~2.7:1, fails WCAG AA
+                  outright) and the caption body was #6c6357 (~5.3:1, barely
+                  clears AA's 4.5:1 floor for small text). Both now sit well
+                  above 7:1 (AAA) — #221e18 is the app's primary ink color,
+                  used elsewhere for headings. Also bumped the body text size
+                  and weight slightly for legibility. */}
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#4a4038', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Caption</div>
               <div style={{ background: '#f7f2ea', borderRadius: 10, padding: '10px 12px' }}>
-                <p style={{ fontSize: 13, color: '#6c6357', lineHeight: 1.5, margin: 0 }}>{task.caption}</p>
+                <p style={{ fontSize: 14, fontWeight: 500, color: '#221e18', lineHeight: 1.6, margin: 0 }}>{task.caption}</p>
               </div>
             </div>
           )}
