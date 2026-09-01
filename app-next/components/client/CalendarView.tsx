@@ -235,7 +235,7 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
                   // onto the date number as its own control.
                   onClick={() => setSelectedDay(isSelected ? null : cell.key)}
                   style={{
-                    minHeight: 70, padding: '4px 4px 2px', borderRadius: 8, cursor: 'pointer',
+                    minHeight: 46, padding: '4px 4px 2px', borderRadius: 8, cursor: 'pointer',
                     background: cell.isToday ? '#221e18' : isSelected ? '#fff1e8' : cell.isCurrentMonth ? '#fff' : '#faf6f0',
                     border: `1px solid ${isSelected ? '#FF6000' : '#ece4d8'}`,
                     transition: 'background 100ms',
@@ -245,24 +245,33 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
                   <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 2, color: cell.isToday ? '#fff' : cell.isCurrentMonth ? '#221e18' : '#c4bbb0' }}>
                     {cell.date.getDate()}
                   </div>
-                  <div style={{ overflow: 'hidden' }}>
-                    {cell.tasks.slice(0, 2).map(t => {
-                      const { color, bg, outlined } = statusStyle(t);
+                  <div style={{ display: 'flex', gap: 3, marginTop: 3, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {cell.tasks.slice(0, 3).map(t => {
+                      const { color, outlined } = statusStyle(t);
+                      const markColor = cell.isToday ? '#6fcfae' : color;
                       return (
-                        <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}?from=calendar`} style={{ textDecoration: 'none', color: 'inherit' }} onClick={e => e.stopPropagation()}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color, background: outlined ? 'transparent' : bg, border: outlined ? `1px solid ${color}` : 'none', padding: '1px 3px', borderRadius: 3, marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }} title={t.clientFacingTitle || t.title}>
-                            {displayTitle(t.clientFacingTitle, t.title, 30)}
-                          </div>
-                        </a>
+                        <span key={t.clickupTaskId} style={{ width: 6, height: 6, borderRadius: '50%', background: outlined ? 'transparent' : markColor, border: outlined ? `1.5px solid ${markColor}` : 'none', flexShrink: 0 }} />
                       );
                     })}
-                    {cell.tasks.length > 2 && (
-                      <div style={{ fontSize: 11, color: '#9d9488', fontWeight: 600 }}>+{cell.tasks.length - 2}</div>
+                    {cell.tasks.length > 3 && (
+                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, fontWeight: 700, color: '#B23E00' }}>+{cell.tasks.length - 3}</span>
                     )}
                   </div>
                 </div>
               );
             })}
+          </div>
+
+          {/* Legend */}
+          <div style={{ display: 'flex', gap: 16, fontSize: 11, fontWeight: 600, color: '#6c6357', marginTop: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#14805f' }} />
+              Posted
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', border: '1.5px solid #14805f', background: 'transparent' }} />
+              Scheduled
+            </div>
           </div>
 
           {/* Selected day detail */}
@@ -277,10 +286,10 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
                 const { color, bg, label, outlined } = statusStyle(t);
                 return (
                   <a key={t.clickupTaskId} href={`/client/videos/${t.clickupTaskId}?from=calendar`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid #f0e8df' }}>
-                      {!outlined && <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 0', borderTop: '1px solid #f0e8df' }}>
+                      {!outlined && <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0, marginTop: 2 }} />}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
+                        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#221e18', display: '-webkit-box', WebkitBoxOrient: 'vertical', overflow: 'hidden', WebkitLineClamp: 2, lineHeight: 1.3 }} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title, 80)}</div>
                         <span style={{ fontSize: 10.5, fontWeight: 700, color, background: outlined ? 'transparent' : bg, border: outlined ? `1px solid ${color}` : 'none', padding: '1px 6px', borderRadius: 5 }}>{label}</span>
                       </div>
                     </div>
