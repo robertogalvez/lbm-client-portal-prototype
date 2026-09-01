@@ -14,7 +14,6 @@ export interface CalTask {
   dateUpdated: string;
   clientApproval: string | null;
   frameLink: string | null;
-  rawDriveLink: string | null;
   publishDate: string | null;
 }
 
@@ -43,15 +42,8 @@ function statusStyle(t: CalTask): { color: string; bg: string; label: string; ou
     return { color, bg, label: isPosted ? 'Posted' : 'Ready to post', outlined: !isPosted };
   }
   const { color, bg } = statusColors(t.status);
-  if (s === 'for client review') return { color, bg, label: 'Awaiting review' };
-  if (s === 'in progress (corrections)') return { color, bg, label: 'In corrections' };
   if (t.clientApproval === 'approved') return { color: '#14805f', bg: '#e4f3ec', label: 'Approved' };
   return { color, bg, label: clientStatusLabel(t.status) };
-}
-
-function isInProcess(t: CalTask): boolean {
-  const s = norm(t.status);
-  return !['posted in socials', 'for client review', 'ready to be posted'].includes(s) && t.clientApproval !== 'approved';
 }
 
 // "Ready to be Posted" and "Posted in Socials" are scheduling/publishing
@@ -185,18 +177,6 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color, background: outlined ? 'transparent' : bg, padding: '2px 6px', border: outlined ? `1.5px solid ${color}` : 'none', borderRadius: 5, marginTop: 3 }}>
                             {!outlined && <span style={{ width: 5, height: 5, borderRadius: '50%', background: color }} />}{label}
                           </span>
-                          {/* Not an <a>/<button>: this sits inside the card's own
-                              link, and nesting either is invalid HTML. Reaching it
-                              by keyboard needs the card layout changed so this is
-                              a sibling of that link rather than a child. */}
-                          {isInProcess(t) && t.rawDriveLink && (
-                            <span
-                              onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(t.rawDriveLink!, '_blank', 'noopener,noreferrer'); }}
-                              style={{ display: 'block', marginTop: 3, fontSize: 10.5, fontWeight: 600, color: '#0f6fec', cursor: 'pointer' }}
-                            >
-                              Raw footage ↗
-                            </span>
-                          )}
                         </div>
                       </div>
                     </a>
@@ -300,16 +280,6 @@ export function CalendarView({ tasks: allTasks }: { tasks: CalTask[] }) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12.5, fontWeight: 600, color: '#221e18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
                         <span style={{ fontSize: 10.5, fontWeight: 700, color, background: outlined ? 'transparent' : bg, border: outlined ? `1px solid ${color}` : 'none', padding: '1px 6px', borderRadius: 5 }}>{label}</span>
-                        {/* See the note on the week-view copy above: nested inside
-                            the card link, so it cannot be an anchor. */}
-                        {isInProcess(t) && t.rawDriveLink && (
-                          <span
-                            onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(t.rawDriveLink!, '_blank', 'noopener,noreferrer'); }}
-                            style={{ display: 'block', marginTop: 3, fontSize: 10.5, fontWeight: 600, color: '#0f6fec', cursor: 'pointer' }}
-                          >
-                            Raw footage ↗
-                          </span>
-                        )}
                       </div>
                     </div>
                   </a>
