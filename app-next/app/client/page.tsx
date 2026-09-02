@@ -217,7 +217,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   // 3. In Progress - Edition: all active production statuses (excluding scheduled/posted/approved/rejected)
   const IN_PROD_STATUSES = new Set([
     'in progress (editor)', 'in progress (corrections)', 'in tc/qc (somu)',
-    'on its way', 'ready to be posted', 'approved · fixes pending',
+    'on its way', 'approved · fixes pending',
   ]);
   const inEditionTasks = clientTasks
     .filter(t => IN_PROD_STATUSES.has(norm(t.status)) && !scheduledIds.has(t.clickupTaskId) && !postedAndArchivedIds.has(t.clickupTaskId) && !approvedIds.has(t.clickupTaskId) && !rejectedIds.has(t.clickupTaskId))
