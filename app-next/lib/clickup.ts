@@ -11,8 +11,9 @@ function headers() {
 // via revalidateTag('clickup-tasks') — see app/api/client/approve/route.ts.
 // Without that, a task the client just decided on could keep reading back
 // its pre-decision status for up to the full revalidate window.
+// Set to 0 (no caching) so calendar sees publish dates as soon as the AM updates ClickUp.
 async function get(path: string) {
-  const res = await fetch(`${BASE}${path}`, { headers: headers(), next: { revalidate: 60, tags: ['clickup-tasks'] } });
+  const res = await fetch(`${BASE}${path}`, { headers: headers(), next: { revalidate: 0, tags: ['clickup-tasks'] } });
   if (!res.ok) throw new Error(`ClickUp ${res.status}: ${path}`);
   return res.json();
 }
