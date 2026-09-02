@@ -48,11 +48,12 @@ function statusStyle(t: CalTask): { color: string; bg: string; label: string; ou
 
 // "Ready to be Posted" and "Posted in Socials" are scheduling/publishing
 // stages — the date that belongs on the calendar for those is the actual
-// scheduled/posted date ("Publish Date (VistaSocial)"), not the editing
-// due date or whenever the ClickUp task last happened to be touched.
+// scheduled/posted date ("Publish Date (VistaSocial)"). Videos without a
+// publish date don't show on the calendar (it's a publishing schedule, not
+// a task tracker). For other statuses, use the due date.
 function getDisplayDate(t: CalTask): string | null {
   const s = norm(t.status);
-  if (s === 'ready to be posted' || s === 'posted in socials') return t.publishDate ?? t.dueDate;
+  if (s === 'ready to be posted' || s === 'posted in socials') return t.publishDate;
   return t.dueDate;
 }
 
