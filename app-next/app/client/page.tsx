@@ -186,13 +186,41 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     .sort((a, b) => new Date(a.publishDate!).getTime() - new Date(b.publishDate!).getTime());
   const scheduledIds = new Set(scheduledTasks.map(t => t.clickupTaskId));
 
-  // 3. In Progress - Edition: all active production statuses (excluding scheduled/posted)
+  // 2.5. Approved — videos that client approved and are ready to move to posting
+  const approvedTasks = clientTasks
+    .filter(t => {
+      const s = norm(t.status);
+      if (s === 'for client review' || scheduledIds.has(t.clickupTaskId) || postedAndArchivedIds.has(t.clickupTaskId)) return false;
+      return t.clientApproval && norm(t.clientApproval).includes('approv') && !norm(t.clientApproval).includes('changes');
+    })
+    .sort((a, b) => {
+      const dateA = Number(a.dateUpdated) || 0;
+      const dateB = Number(b.dateUpdated) || 0;
+      return dateB - dateA;
+    });
+  const approvedIds = new Set(approvedTasks.map(t => t.clickupTaskId));
+
+  // 2.7. Rejected — videos client sent back for changes
+  const rejectedTasks = clientTasks
+    .filter(t => {
+      const s = norm(t.status);
+      if (s === 'for client review' || scheduledIds.has(t.clickupTaskId) || postedAndArchivedIds.has(t.clickupTaskId) || approvedIds.has(t.clickupTaskId)) return false;
+      return t.clientApproval && norm(t.clientApproval).includes('change');
+    })
+    .sort((a, b) => {
+      const dateA = Number(a.dateUpdated) || 0;
+      const dateB = Number(b.dateUpdated) || 0;
+      return dateB - dateA;
+    });
+  const rejectedIds = new Set(rejectedTasks.map(t => t.clickupTaskId));
+
+  // 3. In Progress - Edition: all active production statuses (excluding scheduled/posted/approved/rejected)
   const IN_PROD_STATUSES = new Set([
     'in progress (editor)', 'in progress (corrections)', 'in tc/qc (somu)',
-    'on its way', 'ready to be posted', 'approved · fixes pending',
+    'on its way', 'approved · fixes pending',
   ]);
   const inEditionTasks = clientTasks
-    .filter(t => IN_PROD_STATUSES.has(norm(t.status)) && !scheduledIds.has(t.clickupTaskId) && !postedAndArchivedIds.has(t.clickupTaskId))
+    .filter(t => IN_PROD_STATUSES.has(norm(t.status)) && !scheduledIds.has(t.clickupTaskId) && !postedAndArchivedIds.has(t.clickupTaskId) && !approvedIds.has(t.clickupTaskId) && !rejectedIds.has(t.clickupTaskId))
     // Unranked videos (no explicit client priority yet) sort after ranked
     // ones and keep their relative order (stable sort) — nothing jumps
     // around just because one video got a rank.
@@ -313,6 +341,32 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                   <VideoReviewCard key={t.clickupTaskId} task={t} thumbnail={thumbnails[t.clickupTaskId] ?? null} />
                 ))}
               </div>
+            )}
+
+            {approvedTasks.length > 0 && (
+              <MobileAccordion label="✅ Approved" count={approvedTasks.length}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
+                  {approvedTasks.map(t => (
+                    <VideoRow key={t.clickupTaskId} task={t} showViewLink
+                      label="Approved — ready to post"
+                      color="#14805f" colorBg="#e4f3ec"
+                    />
+                  ))}
+                </div>
+              </MobileAccordion>
+            )}
+
+            {rejectedTasks.length > 0 && (
+              <MobileAccordion label="🔄 Needs Corrections" count={rejectedTasks.length}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
+                  {rejectedTasks.map(t => (
+                    <VideoRow key={t.clickupTaskId} task={t} showViewLink
+                      label="Changes requested — in editing"
+                      color="#b06f06" colorBg="#fbeecf"
+                    />
+                  ))}
+                </div>
+              </MobileAccordion>
             )}
 
             {inEditionTasks.length > 0 && (
@@ -553,6 +607,36 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                   {reviewTasks.map(t => <DesktopVideoCard key={t.clickupTaskId} t={t} />)}
                 </div>
               </section>
+            )}
+
+            {approvedTasks.length > 0 && (
+              <DesktopAccordion label="✅ Approved" count={approvedTasks.length} style={{marginBottom:16}}>
+                {approvedTasks.map(t => (
+                  <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
+                    <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:600, fontSize:14}} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
+                    </div>
+                    <span style={{background:'#e4f3ec', color:'#14805f', fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>Approved — ready to post</span>
+                    <Link href={`/client/videos/${t.clickupTaskId}`} style={{fontSize:12, color:'#FF6000', textDecoration:'none', fontWeight:600}}>View →</Link>
+                  </div>
+                ))}
+              </DesktopAccordion>
+            )}
+
+            {rejectedTasks.length > 0 && (
+              <DesktopAccordion label="🔄 Needs Corrections" count={rejectedTasks.length} style={{marginBottom:16}}>
+                {rejectedTasks.map(t => (
+                  <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
+                    <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:600, fontSize:14}} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
+                    </div>
+                    <span style={{background:'#fbeecf', color:'#b06f06', fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>Changes requested — in editing</span>
+                    <Link href={`/client/videos/${t.clickupTaskId}`} style={{fontSize:12, color:'#FF6000', textDecoration:'none', fontWeight:600}}>View →</Link>
+                  </div>
+                ))}
+              </DesktopAccordion>
             )}
 
             {inEditionTasks.length > 0 && (
