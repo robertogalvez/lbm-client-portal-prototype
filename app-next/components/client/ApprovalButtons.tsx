@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useVideoDecision } from './VideoDecisionContext';
-import { useVideoPlayerOptional } from './VideoPlayerContext';
 
 interface Props {
   taskId: string;
@@ -33,10 +32,6 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
   const [sendBackWarningAck, setSendBackWarningAck] = useState(false);
   const inFlight = useRef(false);
   const { markDecided } = useVideoDecision();
-  const player = useVideoPlayerOptional();
-  const comments = player?.comments ?? [];
-
-  const hasNotes = comments.length > 0;
 
   // Dismissal (scrim tap, Back, Escape) is not a decision — the selection and
   // any typed text stay exactly as they were (Amendment A §3.3). Only the
@@ -223,7 +218,7 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
       );
     }
 
-    const isEmptySendBack = selectedOption === 'changes' && !hasNotes && !feedback.trim();
+    const isEmptySendBack = selectedOption === 'changes' && !feedback.trim();
 
     function handleConfirm() {
       if (!selectedOption) return;
@@ -253,11 +248,9 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
           <div className="ab-picker-handle" aria-hidden="true" />
           {error && <div style={{ fontSize: 12, color: '#cf3f36' }}>{error}</div>}
           <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#221e18' }}>Finish your review</p>
-          {hasNotes && (
-            <p style={{ margin: '0 0 4px', fontSize: 12, color: '#6c6357' }}>
-              Your {comments.length} timestamped note{comments.length !== 1 ? 's' : ''} {comments.length !== 1 ? 'are' : 'is'} included with every option below.
-            </p>
-          )}
+          <p style={{ margin: '0 0 4px', fontSize: 12, color: '#6c6357' }}>
+            Your Frame.io comments are included with your decision.
+          </p>
 
           <OptionRow
             value="approve" titleColor="#221e18" selectedColor="#14805f"
@@ -350,11 +343,9 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
           <path d="m9 18 6-6-6-6" />
         </svg>
       </button>
-      {hasNotes && (
-        <p style={{ margin: '8px 0 0', textAlign: 'center', fontSize: 11, color: '#9d9488', fontWeight: 600 }}>
-          {comments.length} {comments.length === 1 ? 'note' : 'notes'} will be sent with your decision
-        </p>
-      )}
+      <p style={{ margin: '8px 0 0', textAlign: 'center', fontSize: 11, color: '#9d9488', fontWeight: 600 }}>
+        Your team is notified either way
+      </p>
     </div>
   );
 }
