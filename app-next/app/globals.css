@@ -260,7 +260,10 @@ body {
   flex-direction: column;
 }
 .vd-left-header { display: none; }
-.vd-right { display: none; }
+/* .vd-right holds the dock (approval buttons / fixes-in-progress) on mobile
+   too — only its meta/caption scroll region is desktop-only, since that
+   content already lives in the mobile tabs. */
+.vd-right { display: flex; flex-direction: column; flex-shrink: 0; }
 .vd-right-header { display: none; }
 .vd-mobile-header {
   display: flex;
@@ -356,7 +359,9 @@ body {
   gap: 10px;
 }
 
-.vd-right-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+/* Meta/caption scroll region is desktop-only — mobile shows that content in
+   the tabs instead, and .vd-right on mobile should only hold the dock. */
+.vd-right-scroll { display: none; }
 .vd-meta { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
 .vd-meta-hide-mobile { display: none; }
 @media (min-width: 900px) and (pointer: fine) {
@@ -618,7 +623,7 @@ body {
      any leftover space falls below the dock instead, which reads as normal
      page whitespace rather than an awkward empty middle. shrink:1 still lets
      it scroll internally on a task with enough content to overflow. */
-  .vd-right-scroll { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+  .vd-right-scroll { display: flex; flex-direction: column; flex: 0 1 auto; min-height: 0; overflow-y: auto; }
   .vd-meta { padding: 20px; }
   .vd-desktop-caption { display: block; }
   .vd-dock {
