@@ -166,8 +166,12 @@ export function buildAdminRows(
       ? termLabel(term, p.state)
       : { text: 'No contract yet', tone: 'slate' as const };
 
-    const cov = p ? coverage({ sold: p.contractedTotal, delivered, inPipeline: buckets.inFlight }) : null;
-    const fulfilmentFrac = p ? fulfilment(delivered, p.contractedTotal) : null;
+    // Sold includes what this contract carried in from a prior period it
+    // renewed (§ renewal carry-in) — that shortfall is still owed, not a
+    // separate debt the coverage bar leaves out.
+    const soldTotal = p ? p.contractedTotal + p.carriedIn : 0;
+    const cov = p ? coverage({ sold: soldTotal, delivered, inPipeline: buckets.inFlight }) : null;
+    const fulfilmentFrac = p ? fulfilment(delivered, soldTotal) : null;
 
     const base = {
       id: p ? p.id : c.clientId,

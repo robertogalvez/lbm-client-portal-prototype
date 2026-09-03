@@ -67,6 +67,7 @@ export async function loadAdminRoster(): Promise<AdminRoster> {
       endsOn: current.endsOn,
       model: current.model,
       contractedTotal: current.contractedTotal,
+      carriedIn: current.carriedIn ?? 0,
       state: current.state,
       cycleDurationDays: current.cycleDurationDays,
       cycleAnchorDate: current.cycleAnchorDate,

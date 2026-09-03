@@ -46,6 +46,8 @@ export interface ContractJoinRow {
   endsOn: string | null;
   model: string;
   contractedTotal: number;
+  /** Shortfall carried in from a prior contract this one renewed — owed on top of contractedTotal, not instead of it. */
+  carriedIn: number;
   state: ContractPeriod['state'];
   // Rolling-cycle mode: the term runs from the first published video, not
   // from endsOn. Null on an ordinary fixed-date contract.
