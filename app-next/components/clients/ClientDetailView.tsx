@@ -17,6 +17,8 @@ import { PLATFORMS } from '@/lib/socialLinks';
 import { fmtCalendarDate } from '@/lib/calendar-date';
 import type { ClientDetailData, LedgerRow, PortalUser } from '@/lib/client-detail';
 
+const ALL_STATUSES = '__all__';
+
 const TONE_COLOR: Record<LedgerRow['tone'], string> = {
   ok: T.ok, warn: '#B4762A', danger: '#B23A0C', info: T.info, mute: T.ink3,
 };
@@ -70,12 +72,18 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
     () => initial.ledger.some(r => !r.archived && inScope(r, 'waiting')) ? 'waiting' : 'all',
   );
   const [showArchived, setShowArchived] = useState(false);
+  const [statusFilter, setStatusFilter] = useState(ALL_STATUSES);
   const [page, setPage] = useState(0);
   const [syncOpen, setSyncOpen] = useState(false);
 
   const { row, displayName, ledger, portal } = data;
   const cov = row.coverage;
   const firstName = displayName.split(' ')[0];
+
+  // Distinct ClickUp statuses present on this account, in pipeline order
+  // (the ledger is already sorted that way) — lets an admin see every video
+  // sitting on one exact status, not just the coarse waiting/all/published split.
+  const statusOptions = [...new Set(ledger.map(r => r.status))];
 
   const refresh = useCallback(async () => {
     const res = await fetch(`/api/dashboard/client-detail?id=${row.periodId}`);
@@ -84,7 +92,9 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
   }, [row.periodId, router]);
 
   const archivedCount = ledger.filter(r => r.archived).length;
-  const scoped = ledger.filter(r => (showArchived || !r.archived) && inScope(r, scope));
+  const scoped = ledger.filter(r =>
+    (showArchived || !r.archived) && inScope(r, scope) && (statusFilter === ALL_STATUSES || r.status === statusFilter),
+  );
   const pageCount = Math.max(1, Math.ceil(scoped.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
   const visibleLedger = scoped.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
@@ -208,6 +218,19 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
               action={
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'flex-end' }}>
                   <SegmentedControl label="Ledger scope" options={LEDGER_SCOPES} value={scope} onChange={changeScope} />
+                  <select
+                    aria-label="Filter by ClickUp status"
+                    value={statusFilter}
+                    onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
+                    style={{
+                      padding: '6px 10px', borderRadius: 7, border: `1px solid ${T.lineStrong}`,
+                      background: T.surface, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 500,
+                      color: T.ink2, cursor: 'pointer',
+                    }}
+                  >
+                    <option value={ALL_STATUSES}>All statuses</option>
+                    {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
                   {archivedCount > 0 && (
                     <button
                       type="button"
