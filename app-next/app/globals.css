@@ -245,13 +245,22 @@ body {
 .video-action-raw { color: #6c6357; }
 .video-action-raw:hover { border-color: #9d9488; background: #f7f2ea; }
 
-/* Video detail — mobile app shell: the whole screen is locked to viewport
-   height (no page scroll). Header and video are fixed-size chrome; only
-   .vd-right-scroll (meta + comments) scrolls, with the approve/reject dock
-   pinned below it — one bounded scroll region instead of two stacked ones. */
-.vd-left { display: flex; flex-direction: column; flex-shrink: 0; }
+/* Video detail — mobile: locked to viewport height with dvh.
+   Tabs (Video | Caption) sit between header and content; the active tab
+   fills remaining height. The dock is fixed below both tabs. */
+.vd-shell {
+  height: 100dvh;
+  overflow: hidden;
+  background: #faf6f0;
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  color: #221e18;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+}
 .vd-left-header { display: none; }
-.vd-right { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.vd-right { display: none; }
 .vd-right-header { display: none; }
 .vd-mobile-header {
   display: flex;
@@ -264,47 +273,79 @@ body {
   flex-shrink: 0;
 }
 
-.vd-shell {
-  height: 100vh; /* fallback for browsers without dvh support */
-  height: 100dvh; /* actual visible viewport — 100vh overshoots on mobile
-                     Chrome/Safari when the address bar is expanded, clipping
-                     the bottom of the page (the approval dock) off-screen */
-  overflow: hidden;
-  background: #faf6f0;
-  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
-  color: #221e18;
-  font-size: 15px;
-  -webkit-font-smoothing: antialiased;
+/* Tab bar — mobile only */
+.vd-tabs {
   display: flex;
-  flex-direction: column;
+  flex-shrink: 0;
+  background: #fff;
+  border-bottom: 1px solid #ece4d8;
 }
-.vd-player { flex-shrink: 0; position: relative; background: #1a1e24; min-height: 220px; }
+.vd-tab {
+  flex: 1;
+  padding: 10px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #9d9488;
+  background: none;
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: color .15s;
+}
+.vd-tab-active {
+  color: #FF6000;
+  border-bottom-color: #FF6000;
+  font-weight: 700;
+}
+.vd-unseen-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #b06f06;
+  flex-shrink: 0;
+}
+
+/* Tab panels — mobile: active fills remaining space */
+.vd-tab-panel { display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+.vd-tab-panel-active { display: flex; }
+
+/* Video panel fills all available height */
+.vd-video-panel { position: relative; }
+.vd-player {
+  flex: 1;
+  position: relative;
+  background: #1a1e24;
+  min-height: 0;
+}
 .vd-player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; display: block; }
-/* Mobile only, and only while showing the Frame.io iframe fallback (native
-   player not ready) — Frame.io's own embedded review UI (video + its own
-   comment panel) needs real room to be usable at all; the native player has
-   its own intrinsic sizing and isn't affected by this since it doesn't use
-   this class. Still leaves room below for the always-visible approval dock. */
-.vd-player--fallback { min-height: 60vh; min-height: 60dvh; }
-/* Native <video> player — mobile: natural aspect-ratio sizing in normal document
-   flow (a video has real intrinsic dimensions, so it doesn't need an
-   absolute-fill box the way the iframe fallback does). */
-.vd-native-video-wrap { position: relative; background: #000; flex-shrink: 0; }
-.vd-native-video-wrap video { width: 100%; max-height: 42vh; max-height: 42dvh; display: block; object-fit: contain; }
 
-/* Comments render once grouped with the video (desktop) and once grouped
-   with the meta panel (mobile) — only one is ever visible per breakpoint. */
-.vd-desktop-comments { display: none; }
-.vd-mobile-comments { display: block; padding: 0 16px 4px; }
-
-.vd-right-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
-.vd-meta { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
-/* Title + status pill duplicate the mobile header below 900px — hidden there,
-   restored (as transparent layout, not a box) once the header disappears. */
-.vd-meta-hide-mobile { display: none; }
-@media (min-width: 900px) and (pointer: fine) {
-  .vd-meta-hide-mobile { display: contents; }
+/* Frame.io link strip — mobile only, inside the Video tab */
+.vd-frameio-strip {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  background: #faf6f0;
+  border-bottom: 1px solid #ece4d8;
 }
+/* On desktop the Open in Frame.io link lives in the meta panel instead */
+.vd-open-frameio-desktop { display: none; }
+
+/* Caption panel — scrollable on mobile */
+.vd-caption-panel { overflow-y: auto; }
+.vd-caption-card {
+  background: #faf6f0;
+  border-radius: 12px;
+  padding: 0;
+}
+
+/* Desktop caption card — hidden on mobile (tabs handle it) */
+.vd-desktop-caption { display: none; }
+
+/* Dock — fixed at bottom, visible on all tabs */
 .vd-dock {
   flex-shrink: 0;
   background: #fff;
@@ -313,6 +354,13 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.vd-right-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+.vd-meta { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.vd-meta-hide-mobile { display: none; }
+@media (min-width: 900px) and (pointer: fine) {
+  .vd-meta-hide-mobile { display: contents; }
 }
 
 /* Outcome picker — bottom sheet below 900px, centred modal at/above it. */
@@ -502,7 +550,8 @@ body {
   .cal-sidebar { display: block; width: 280px; flex-shrink: 0; }
 }
 
-/* Video detail — desktop two-column (aligned with .client-desktop's 900px + pointer:fine switch) */
+/* Video detail — desktop two-column: video fills left, right rail has
+   meta + caption + dock. No tabs at desktop width. */
 @media (min-width: 900px) and (pointer: fine) {
   .vd-shell {
     flex-direction: row;
@@ -511,14 +560,28 @@ body {
     overflow: hidden;
   }
   .vd-mobile-header { display: none !important; }
-  .vd-left {
+  .vd-tabs { display: none !important; }
+  .vd-frameio-strip { display: none; }
+  .vd-open-frameio-desktop { display: inline-flex !important; }
+
+  /* All tab panels visible on desktop — no tab switching */
+  .vd-tab-panel {
+    display: flex !important;
     flex: 1;
-    display: flex;
-    flex-direction: column;
+    min-height: 0;
     min-width: 0;
     background: #111;
     position: relative;
   }
+  /* Caption tab panel hidden on desktop — caption lives in the rail */
+  .vd-caption-panel { display: none !important; }
+
+  .vd-video-panel {
+    flex: 1;
+    min-width: 0;
+  }
+  .vd-player { flex: 1; min-height: 0; }
+
   .vd-left-header {
     display: flex;
     align-items: center;
@@ -530,36 +593,14 @@ body {
     top: 0; left: 0; right: 0;
     z-index: 10;
   }
-  /* Video gets a bounded height instead of filling the whole left column —
-     the comments feed below it (.vd-desktop-comments) takes the rest and is
-     the ONE thing that scrolls in this column, same shape as the mobile
-     .vd-right-scroll region. */
-  .vd-player { flex-shrink: 0; height: 50vh; min-height: 320px; }
-  /* Fallback (Frame.io iframe / placeholder, native player not ready): there's
-     no .vd-desktop-comments sibling to fill the rest of .vd-left in this case,
-     so the bounded 50vh height above would leave the remainder as dead black
-     space below it. Fill the whole column instead — same reasoning as
-     .vd-right-scroll's flex:0 1 auto fix, just the opposite direction (here
-     content needs to GROW to fill an empty sibling gap, not shrink to avoid
-     leaving one). */
-  .vd-player--fallback { flex: 1; height: auto; }
-  .vd-native-video-wrap { position: absolute; inset: 0; background: #000; }
-  .vd-native-video-wrap video { width: 100%; height: 100%; max-height: none; display: block; object-fit: contain; }
-  .vd-desktop-comments {
-    display: block;
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    background: #faf6f0;
-    padding: 16px 20px 20px;
-  }
-  .vd-mobile-comments { display: none; }
+
+
   .vd-right {
-    width: 380px;
+    display: flex;
+    width: 392px;
     flex-shrink: 0;
     background: #faf6f0;
     border-left: 1px solid #ece4d8;
-    display: flex;
     flex-direction: column;
   }
   .vd-right-header {
@@ -579,6 +620,7 @@ body {
      it scroll internally on a task with enough content to overflow. */
   .vd-right-scroll { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
   .vd-meta { padding: 20px; }
+  .vd-desktop-caption { display: block; }
   .vd-dock {
     padding: 16px 20px;
     border-top: 1px solid #ece4d8;

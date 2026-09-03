@@ -195,7 +195,11 @@ export async function POST(req: Request) {
         "created_at"     timestamp DEFAULT now(),
         "executed"       boolean NOT NULL DEFAULT false
       )`,
-      // Contract redesign PR 1 — additive only, contractPeriods.clientId stays.
+      sql`CREATE TABLE IF NOT EXISTS "frameio_comment_authors" (
+        "frameio_comment_id" varchar(100) PRIMARY KEY NOT NULL,
+        "author_name"        text NOT NULL,
+        "created_at"         timestamp DEFAULT now()
+      )`,
       sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS clickup_client_option_id varchar(100) UNIQUE`,
       sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS renewed_from_period_id uuid UNIQUE REFERENCES "contract_periods"("id")`,
       sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS data_quality_flag text`,
@@ -218,11 +222,6 @@ export async function POST(req: Request) {
         UNIQUE ("period_id", "deliverable_type")
       )`,
       sql`ALTER TABLE contract_months ADD COLUMN IF NOT EXISTS line_item_id uuid REFERENCES "contract_line_items"("id") ON DELETE CASCADE`,
-      // Old (period_id, month) uniqueness no longer fits now that a period
-      // can have multiple deviation rows per month (one aggregate + one per
-      // line item) — replaced by (period_id, line_item_id, month) below, plus
-      // a partial index for the aggregate case since NULL never conflicts
-      // with NULL in a plain unique constraint.
       sql`ALTER TABLE contract_months DROP CONSTRAINT IF EXISTS contract_months_period_id_month_key`,
       sql`DO $$
         BEGIN
@@ -236,7 +235,6 @@ export async function POST(req: Request) {
         END $$`,
       sql`CREATE UNIQUE INDEX IF NOT EXISTS "contract_months_aggregate_unique_idx"
         ON "contract_months" ("period_id", "month") WHERE "line_item_id" IS NULL`,
-      // Contract redesign PR 3 (Amendment B) — rolling-cycle renewal fields.
       sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS cycle_duration_days integer`,
       sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS cycle_anchor_date date`,
     ]);

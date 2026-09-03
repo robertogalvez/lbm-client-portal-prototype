@@ -6,15 +6,11 @@ import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getTasksFromList } from '@/lib/clickup';
 import { ApprovalButtons } from '@/components/client/ApprovalButtons';
-import { VideoElement } from '@/components/client/VideoElement';
-import { CommentComposer } from '@/components/client/CommentComposer';
-import { CommentFeed } from '@/components/client/CommentFeed';
-import { MediaGate } from '@/components/client/MediaGate';
+import { ReviewTabs, TabPanel } from '@/components/client/ReviewTabs';
+import { CaptionCard } from '@/components/client/CaptionCard';
 import { VideoDecisionProvider } from '@/components/client/VideoDecisionContext';
-import { VideoPlayerProvider } from '@/components/client/VideoPlayerContext';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { getViewAsClient } from '@/lib/view-as';
-import { getReviewData } from '@/lib/frameio';
 import { InstagramLink } from '@/components/InstagramLink';
 import { clientStatusLabel } from '@/lib/client-status';
 import Link from 'next/link';
@@ -33,14 +29,10 @@ function daysWaiting(dateUpdated: string) {
   return d === 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d}d ago`;
 }
 
-// Convert a Frame.io share URL to an embeddable URL
 function toFrameioEmbedUrl(url: string): string {
-  // Handles: https://f.io/xxxxx or https://app.frame.io/reviews/xxxxx or https://on.frame.io/...
-  // Frame.io embed format: https://app.frame.io/reviews/{token}/embed
   if (!url) return '';
   const cleaned = url.trim();
   if (cleaned.includes('/embed')) return cleaned;
-  // Short links (f.io) — pass through; the iframe will follow the redirect
   return `${cleaned.replace(/\/$/, '')}`;
 }
 
@@ -88,34 +80,12 @@ export default async function VideoDetailPage({ params, searchParams }: { params
 
   const normStatus = task.status.toLowerCase().replace(/\s+/g, ' ').trim();
   const isReview = normStatus.includes('client review');
-  // "Approve — apply my notes first" and "Send back for changes" share the
-  // same ClickUp status (in progress · corrections) — CLIENT APPROVAL is what
-  // tells them apart, so the held/fix-checklist view keys off that instead.
   const isHeld = (task.clientApproval ?? '').toLowerCase().trim() === 'approved with comments';
   const embedUrl = task.frameLink ? toFrameioEmbedUrl(task.frameLink) : null;
-
-  // Native player + past comments load while a decision is pending, AND for
-  // any task that already has one (approved/changes requested) — a decided
-  // video keeps its native, identity-prompt-free player and comment history
-  // forever, it just loses the composer/approval dock (see VideoDecisionContext,
-  // ApprovalButtons). Everything else (video not yet at review) keeps the
-  // cheap, API-call-free iframe/placeholder path below. Frame.io errors here
-  // (not configured, asset not transcoded yet, etc.) fall back to that path too.
-  let reviewData: Awaited<ReturnType<typeof getReviewData>> | null = null;
-  if ((isReview || !!task.clientApproval) && task.frameLink) {
-    try {
-      reviewData = await getReviewData(task.frameLink);
-    } catch {
-      reviewData = null;
-    }
-  }
+  const hasCaption = !!task.caption;
 
   const metaPanel = (
     <>
-      {/* Status + open link — the status pill duplicates the mobile header
-          below 900px (see .vd-mobile-header), so only the pill is hidden
-          there via .vd-meta-hide-mobile; the Frame.io link stays visible
-          at every width. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
         <div className="vd-meta-hide-mobile">
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 9, color: isReview ? '#b06f06' : '#54616f', background: isReview ? '#fbeecf' : '#eef1f4' }}>
@@ -124,17 +94,15 @@ export default async function VideoDetailPage({ params, searchParams }: { params
           </span>
         </div>
         {task.frameLink && (
-          <a href={task.frameLink} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: '#6c6357', textDecoration: 'none' }}>
+          <a href={task.frameLink} target="_blank" rel="noopener noreferrer" className="vd-open-frameio-desktop" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: '#6c6357', textDecoration: 'none' }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:13,height:13}}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             Open in Frame.io
           </a>
         )}
       </div>
-      {/* Title — same duplicate-with-mobile-header reasoning as the pill above. */}
       <div className="vd-meta-hide-mobile">
-        <h1 style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.2, margin: 0 }}>{task.title}</h1>
+        <h1 style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.2, margin: 0 }}>{task.clientFacingTitle || task.title}</h1>
       </div>
-      {/* Meta */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#6c6357', fontWeight: 500, flexWrap: 'wrap' as const }}>
         <span>{daysWaiting(task.dateUpdated)}</span>
         {task.dueDate && (<><span style={{ width: 3, height: 3, borderRadius: '50%', background: '#9d9488' }} /><span>Due {fmtDate(task.dueDate)}</span></>)}
@@ -146,15 +114,10 @@ export default async function VideoDetailPage({ params, searchParams }: { params
           <InstagramLink url={task.instagramUrl} style={{ marginLeft: 'auto' }} />
         </div>
       )}
-
     </>
   );
 
-  const nativeReady = !!(reviewData?.ready && reviewData.downloadUrl);
-
-  const player = nativeReady ? (
-    <VideoElement src={reviewData!.downloadUrl!} />
-  ) : embedUrl ? (
+  const player = embedUrl ? (
     <iframe src={embedUrl} style={{ width: '100%', height: '100%', border: 'none', display: 'block', position: 'absolute', inset: 0 }} allow="fullscreen; picture-in-picture" allowFullScreen />
   ) : (
     <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'linear-gradient(135deg, #2c3540, #4a5562)' }}>
@@ -163,25 +126,6 @@ export default async function VideoDetailPage({ params, searchParams }: { params
       </div>
       <div style={{ fontSize: 13, color: 'rgba(255,255,255,.5)', textAlign: 'center', padding: '0 24px' }}>No video link attached yet</div>
     </div>
-  );
-
-  // Comment composer + feed need to render in a different DOM slot per
-  // breakpoint (desktop: grouped with the video; mobile: grouped with the
-  // meta panel), but must exist as exactly ONE mounted instance — two
-  // CSS-toggled copies were two live components (two textareas, two
-  // autofocus races). MediaGate mounts only the slot matching the current
-  // viewport, client-side, so the other is never in the tree.
-  const commentsContent = nativeReady ? (
-    <>
-      {isReview && <CommentComposer />}
-      <CommentFeed />
-    </>
-  ) : null;
-  const desktopComments = commentsContent && (
-    <MediaGate query="(min-width: 900px)">{commentsContent}</MediaGate>
-  );
-  const mobileComments = commentsContent && (
-    <MediaGate query="(max-width: 899.98px)">{commentsContent}</MediaGate>
   );
 
   const backHref = from === 'calendar' ? '/client?tab=calendar' : '/client';
@@ -197,9 +141,7 @@ export default async function VideoDetailPage({ params, searchParams }: { params
 
   const shell = (
     <main className="vd-shell">
-      {/* Mobile-only header — compact title + status, always visible (this is
-          the fix for the title getting buried under a growing comment list:
-          it now lives in fixed chrome, not in the scrollable content). */}
+      {/* Mobile-only header */}
       <div className="vd-mobile-header">
         <Link href={backHref} style={{ width: 36, height: 36, borderRadius: 10, background: '#fff', border: '1px solid #ece4d8', display: 'grid', placeItems: 'center', color: '#221e18', textDecoration: 'none', flexShrink: 0 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{width:18,height:18}}><path d="m15 18-6-6 6-6"/></svg>
@@ -216,25 +158,40 @@ export default async function VideoDetailPage({ params, searchParams }: { params
         <div style={{ width: 36, flexShrink: 0 }} />
       </div>
 
-      {/* Left: video, plus (desktop-only) comments grouped with it */}
-      <div className="vd-left">
-        <div className="vd-left-header">
-          {backLink}
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', opacity: 0.9 }}>Review video</div>
-          <div style={{ width: 36 }} />
-        </div>
-        <div className={`vd-player${nativeReady ? '' : ' vd-player--fallback'}`}>{player}</div>
-        {desktopComments && <div className="vd-desktop-comments">{desktopComments}</div>}
-      </div>
+      <ReviewTabs hasCaption={hasCaption}>
+        {/* Video tab panel (or the only content when no caption) */}
+        <TabPanel tab="video" className="vd-video-panel">
+          {/* Desktop back/title overlay — positioned absolute over the video */}
+          <div className="vd-left-header">
+            {backLink}
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', opacity: 0.9 }}>Review video</div>
+            <div style={{ width: 36 }} />
+          </div>
+          {/* Mobile: Open in Frame.io link inside the video tab */}
+          {task.frameLink && (
+            <div className="vd-frameio-strip">
+              <a href={task.frameLink} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: '#6c6357', textDecoration: 'none' }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:13,height:13}}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                Open in Frame.io
+              </a>
+            </div>
+          )}
+          <div className="vd-player">{player}</div>
+        </TabPanel>
 
-      {/* Right: meta + approval, plus (mobile-only) comments grouped with meta.
-          This whole column is the ONE scrollable region on mobile now. */}
+        {/* Caption tab panel — mobile only, desktop shows it in the rail */}
+        {hasCaption && (
+          <TabPanel tab="caption" className="vd-caption-panel">
+            <div style={{ padding: '16px' }}>
+              <CaptionCard caption={task.caption!} />
+            </div>
+          </TabPanel>
+        )}
+      </ReviewTabs>
+
+      {/* Right rail: meta + caption (desktop) + dock */}
       <div className="vd-right">
         <div className="vd-right-header">
-          {/* Back lives on .vd-left-header at this breakpoint (desktop) —
-              exactly one visible back affordance per breakpoint (mobile
-              header owns it below 900px). This row keeps the breadcrumb
-              text, not a second back link. */}
           <span style={{ fontSize: 12, color: '#9d9488', fontWeight: 500 }}>{from === 'calendar' ? 'Calendar' : 'Reviews'}</span>
           <span style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>Details</span>
         </div>
@@ -242,35 +199,21 @@ export default async function VideoDetailPage({ params, searchParams }: { params
         <div className="vd-right-scroll">
           <div className="vd-meta">{metaPanel}</div>
 
-          {task.caption && (
-            <div style={{ padding: '0 16px 12px' }}>
-              {/* Contrast fixed per a client accessibility report: the label
-                  was #9d9488 on this background (~2.7:1, fails WCAG AA
-                  outright) and the caption body was #6c6357 (~5.3:1, barely
-                  clears AA's 4.5:1 floor for small text). Both now sit well
-                  above 7:1 (AAA) — #221e18 is the app's primary ink color,
-                  used elsewhere for headings. Also bumped the body text size
-                  and weight slightly for legibility. */}
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#4a4038', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Caption</div>
-              <div style={{ background: '#f7f2ea', borderRadius: 10, padding: '10px 12px' }}>
-                <p style={{ fontSize: 14, fontWeight: 500, color: '#221e18', lineHeight: 1.6, margin: 0 }}>{task.caption}</p>
-              </div>
+          {/* Desktop caption card — hidden on mobile (caption tab handles it) */}
+          {hasCaption && (
+            <div className="vd-desktop-caption" style={{ padding: '0 20px 16px' }}>
+              <CaptionCard caption={task.caption!} />
             </div>
           )}
-
-          {mobileComments && <div className="vd-mobile-comments">{mobileComments}</div>}
         </div>
 
         {isReview && (
           <div className="vd-dock">
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 4 }}>Finish your review</div>
             <ApprovalButtons taskId={task.clickupTaskId} currentApproval={task.clientApproval} />
           </div>
         )}
 
-        {/* Held state (approved with comments): the client already decided —
-            no verdict buttons, just the fix checklist's progress. Re-showing
-            Approve/Request changes here would invite a second decision on an
-            already-decided video. */}
         {isHeld && (
           <div className="vd-dock">
             <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Fixes in progress</div>
@@ -297,6 +240,7 @@ export default async function VideoDetailPage({ params, searchParams }: { params
           </div>
         )}
       </div>
+
     </main>
   );
 
@@ -304,11 +248,7 @@ export default async function VideoDetailPage({ params, searchParams }: { params
     <>
     {viewAsClient && <ViewAsBanner clientName={viewAsClient.name} />}
     <VideoDecisionProvider initialDecided={!!task.clientApproval}>
-      {nativeReady ? (
-        <VideoPlayerProvider taskId={task.clickupTaskId} fileId={reviewData!.fileId} initialComments={reviewData!.comments}>
-          {shell}
-        </VideoPlayerProvider>
-      ) : shell}
+      {shell}
     </VideoDecisionProvider>
     </>
   );

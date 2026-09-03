@@ -18,7 +18,7 @@
 // Never throws: comment capture must not break the approval write.
 
 import { db } from '@/lib/db';
-import { frameioSyncedComments } from '@/lib/db/schema';
+import { frameioSyncedComments, frameioCommentAuthors } from '@/lib/db/schema';
 import { inArray } from 'drizzle-orm';
 import { resolveFileId, listComments, isConfigured, type FrameioComment } from '@/lib/frameio';
 import { withRealAuthors } from '@/lib/comment-authors';
@@ -40,18 +40,16 @@ export interface ExtraNote {
   text: string;
 }
 
-// ClickUp's task comment field (comment_text) is plain text — no markdown
-// rendering, so "bolding" a name means giving it its own line + uppercase
-// instead of **name**, which would just show literal asterisks. The comment
-// itself is always posted under the shared CLICKUP_API_TOKEN account (there's
-// no per-portal-user ClickUp auth, and client contacts are Guests with no API
-// access of their own) — this is the only place the real commenter's name is
-// visible in ClickUp, so it needs to stand out, not just be a text prefix.
-function formatBatchForClickUp(comments: FrameioComment[], extraNote?: ExtraNote): string {
+function formatBatchForClickUp(
+  comments: FrameioComment[],
+  extraNote: ExtraNote | undefined,
+  realAuthorNames: Map<string, string>,
+): string {
   const blocks = comments.map(c => {
     const at = c.timestampLabel ? ` — [at ${c.timestampLabel}]` : '';
     const text = c.text.trim() || '(annotation without text)';
-    return `👤 ${(c.authorName ?? 'Client').toUpperCase()}${at}\n${text}`;
+    const authorName = realAuthorNames.get(c.id) ?? c.authorName ?? 'Client';
+    return `👤 ${authorName.toUpperCase()}${at}\n${text}`;
   });
   if (extraNote?.text.trim()) {
     blocks.push(`👤 ${extraNote.authorName.toUpperCase()}\n${extraNote.text.trim()}`);
@@ -67,7 +65,7 @@ export async function syncFrameioComments(taskId: string, frameLink: string, ext
   try {
     if (!isConfigured()) {
       if (hasExtraNote) {
-        await postComment(taskId, formatBatchForClickUp([], extraNote), false);
+        await postComment(taskId, formatBatchForClickUp([], extraNote, new Map()), false);
         return { ok: true, posted: 1, alreadySynced: 0 };
       }
       return { ok: false, posted: 0, alreadySynced: 0, error: 'Frame.io is not configured' };
@@ -110,8 +108,16 @@ export async function syncFrameioComments(taskId: string, frameLink: string, ext
       return { ok: true, posted: 0, alreadySynced: seen.size };
     }
 
+    const authorRows = claimed.length > 0
+      ? await db
+          .select({ id: frameioCommentAuthors.frameioCommentId, name: frameioCommentAuthors.authorName })
+          .from(frameioCommentAuthors)
+          .where(inArray(frameioCommentAuthors.frameioCommentId, claimed.map(c => c.id)))
+      : [];
+    const realAuthorNames = new Map(authorRows.map(r => [r.id, r.name]));
+
     try {
-      await postComment(taskId, formatBatchForClickUp(claimed, extraNote), false);
+      await postComment(taskId, formatBatchForClickUp(claimed, extraNote, realAuthorNames), false);
     } catch (e) {
       // Release the whole batch's claims so a future run retries instead of
       // losing them forever (the ledger would otherwise say "synced" for
