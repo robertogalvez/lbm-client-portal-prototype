@@ -183,6 +183,7 @@ export async function loadClientDetail(id: string): Promise<ClientDetailData | n
     endsOn: period.endsOn,
     model: period.model,
     contractedTotal: period.contractedTotal,
+    carriedIn: period.carriedIn ?? 0,
     state: period.state,
     cycleDurationDays: period.cycleDurationDays,
     cycleAnchorDate: period.cycleAnchorDate,
