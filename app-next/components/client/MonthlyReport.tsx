@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { resolveMonthAgreement, fulfilment, beyondContract, type MonthAgreement } from '@/lib/contracts';
+import { resolveMonthAgreement, fulfilment, beyondContract, resolveCurrentPeriod, findPeriodCoveringMonth, type MonthAgreement } from '@/lib/contracts';
 import type { ContractPeriod, ContractMonth } from '@/lib/db/schema';
 
 // One task belonging to this client, as read from video_cache/ClickUp.
@@ -57,22 +57,6 @@ function monthLabel(key: string): string {
   return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
-function findPeriodForMonth(periods: ContractPeriod[], month: string): ContractPeriod | null {
-  const [y, m] = month.split('-').map(Number);
-  const monthStart = new Date(y, m - 1, 1).getTime();
-  const monthEnd = new Date(y, m, 0).getTime();
-  return periods.find(p => {
-    const starts = new Date(p.startsOn).getTime();
-    const ends = p.endsOn ? new Date(p.endsOn).getTime() : Infinity;
-    return starts <= monthEnd && ends >= monthStart;
-  }) ?? null;
-}
-
-function currentPeriod(periods: ContractPeriod[]): ContractPeriod | null {
-  const active = periods.find(p => p.state === 'active' || p.state === 'extended');
-  return active ?? periods[periods.length - 1] ?? null;
-}
-
 function StatCard({ label, value, color }: { label: string; value: number; color?: string }) {
   return (
     <div style={{ border: `1px solid ${LINE}`, borderRadius: 12, padding: '14px 16px', background: SURFACE, breakInside: 'avoid' }}>
@@ -110,8 +94,8 @@ export function MonthlyReport({ clientName, periods, monthRows, tasks }: Props) 
   const [month, setMonth] = useState<string>('all');
 
   const isMonthScoped = month !== 'all';
-  const activePeriod = currentPeriod(periods);
-  const scopedPeriod = isMonthScoped ? findPeriodForMonth(periods, month) : activePeriod;
+  const activePeriod = resolveCurrentPeriod(periods, new Date()) ?? periods[periods.length - 1] ?? null;
+  const scopedPeriod = isMonthScoped ? (findPeriodCoveringMonth(periods, month)[0] ?? null) : activePeriod;
 
   const monthRow = scopedPeriod ? monthRows.find(r => r.periodId === scopedPeriod.id && r.month === month) ?? null : null;
   const agreement: MonthAgreement | null = isMonthScoped && scopedPeriod ? resolveMonthAgreement(scopedPeriod, monthRow, month) : null;
@@ -131,7 +115,7 @@ export function MonthlyReport({ clientName, periods, monthRows, tasks }: Props) 
 
   const pendingReview = scopedTasks.filter(t => norm(t.status) === 'for client review').length;
   const editing = scopedTasks.filter(t => EDITING_STATUSES.has(norm(t.status))).length;
-  const onHold = 0; // no live "on hold" ClickUp status exists today (see DashboardTabs.tsx)
+  const onHold = 0; // no live "on hold" ClickUp status exists today
 
   const contracted = isMonthScoped ? (agreement && agreement.kind !== 'none' ? agreement.quota : null) : (activePeriod?.contractedTotal ?? null);
   const fulfilmentFrac = contracted !== null ? fulfilment(published, contracted) : null;

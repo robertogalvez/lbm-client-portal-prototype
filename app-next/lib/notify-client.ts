@@ -70,3 +70,30 @@ export async function notifyClientReviewReady(notice: ReviewReadyNotice): Promis
     console.error('[notifyClientReviewReady] failed:', e);
   }
 }
+
+export interface ReportReadyNotice {
+  clientName: string;
+  portalOrigin: string;
+}
+
+// Texts a client once their new monthly report is available — same SMS-only
+// preference (notifySms + whatsappNumber) as the review-ready notice above.
+// Never throws: called from a scheduled reminder, a failure here must not
+// break the rest of that run.
+export async function notifyClientReportReady(notice: ReportReadyNotice): Promise<void> {
+  try {
+    if (!isSmsConfigured()) return;
+
+    const [client] = await db
+      .select({ whatsappNumber: clients.whatsappNumber, notifySms: clients.notifySms })
+      .from(clients)
+      .where(eq(clients.name, notice.clientName))
+      .limit(1);
+    if (!client || !client.notifySms || !client.whatsappNumber) return;
+
+    const reportUrl = `${notice.portalOrigin}/client?tab=report`;
+    await sendSms({ to: client.whatsappNumber, body: `LBM Portal: your new monthly report is ready. ${reportUrl}` });
+  } catch (e) {
+    console.error('[notifyClientReportReady] failed:', e);
+  }
+}

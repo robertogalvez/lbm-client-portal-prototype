@@ -21,6 +21,7 @@ import { db } from '@/lib/db';
 import { frameioSyncedComments, frameioCommentAuthors } from '@/lib/db/schema';
 import { inArray } from 'drizzle-orm';
 import { resolveFileId, listComments, isConfigured, type FrameioComment } from '@/lib/frameio';
+import { withRealAuthors } from '@/lib/comment-authors';
 import { postComment } from '@/lib/clickup-write';
 
 export interface CommentSyncResult {
@@ -44,23 +45,19 @@ function formatBatchForClickUp(
   extraNote: ExtraNote | undefined,
   realAuthorNames: Map<string, string>,
 ): string {
-  const lines = comments.map(c => {
-    const at = c.timestampLabel ? `[at ${c.timestampLabel}] ` : '';
+  const blocks = comments.map(c => {
+    const at = c.timestampLabel ? ` — [at ${c.timestampLabel}]` : '';
     const text = c.text.trim() || '(annotation without text)';
-    // Frame.io's own `owner` on API-created comments is empty (every write
-    // is attributed to the service account, not the client), so prefer the
-    // real client name we recorded at post time; only fall back to
-    // Frame.io's field (or "Client") for comments predating that ledger.
     const authorName = realAuthorNames.get(c.id) ?? c.authorName ?? 'Client';
-    return `${at}${authorName}: ${text}`;
+    return `👤 ${authorName.toUpperCase()}${at}\n${text}`;
   });
   if (extraNote?.text.trim()) {
-    lines.push(`${extraNote.authorName}: ${extraNote.text.trim()}`);
+    blocks.push(`👤 ${extraNote.authorName.toUpperCase()}\n${extraNote.text.trim()}`);
   }
-  const header = lines.length === 1
+  const header = blocks.length === 1
     ? '🎬 Client feedback:'
-    : `🎬 Client feedback (${lines.length} comments):`;
-  return [header, ...lines].join('\n');
+    : `🎬 Client feedback (${blocks.length} comments):`;
+  return [header, ...blocks].join('\n\n');
 }
 
 export async function syncFrameioComments(taskId: string, frameLink: string, extraNote?: ExtraNote): Promise<CommentSyncResult> {
@@ -75,7 +72,7 @@ export async function syncFrameioComments(taskId: string, frameLink: string, ext
     }
 
     const fileId = await resolveFileId(frameLink);
-    const comments = await listComments(fileId);
+    const comments = await withRealAuthors(await listComments(fileId));
 
     const existing = comments.length > 0
       ? await db

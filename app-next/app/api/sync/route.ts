@@ -129,6 +129,7 @@ export async function POST(req: Request) {
     const amField       = find('Account Manager (AM)');
     const qcField       = find('QUALITY CHECK (Somu)');
     const revisionsField = find('Revision #');
+    const publishDateField = find('Publish Date (VistaSocial)');
 
     const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
     const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
@@ -141,6 +142,12 @@ export async function POST(req: Request) {
     const editorName = (task.assignees as { username?: string }[])?.[0]?.username ?? null;
     const clientName   = resolveOpt('Client Name (AM)', clientIdx);
     const qualityCheck = resolveOpt('QUALITY CHECK (Somu)', qcIdx);
+
+    // The synced list/folder also holds one non-video "Client" record task
+    // per client, whose title is always exactly the client's own name (e.g.
+    // task "Apex" with Client Name (AM) = Apex). No real video is ever
+    // titled that. Excluded here the same way as netlify/functions/sync-clickup.mts.
+    if (clientName && task.name.trim().toLowerCase() === clientName.trim().toLowerCase()) { skipped++; continue; }
 
     let revisions: number | null = null;
     if (typeof revisionsField?.value === 'number') {
@@ -155,6 +162,14 @@ export async function POST(req: Request) {
       const ms = Number(task.due_date);
       dueDate = isNaN(ms) ? task.due_date : new Date(ms).toISOString();
     }
+
+    // "Publish Date (VistaSocial)" is a ClickUp date field — its value is
+    // epoch ms. Never populated by this route before, so resolvePostedAt()
+    // always fell back to dateUpdated (last status-change time, not the
+    // real go-live date).
+    let vistasocialScheduledAt: Date | null = null;
+    const pubDateMs = Number(publishDateField?.value);
+    if (Number.isFinite(pubDateMs) && pubDateMs > 0) vistasocialScheduledAt = new Date(pubDateMs);
 
     const row = {
       status:           task.status?.status ?? null,
@@ -172,6 +187,7 @@ export async function POST(req: Request) {
       revisions,
       dateUpdated:      task.date_updated ?? null,
       dueDate,
+      vistasocialScheduledAt,
       lastSyncedAt:     new Date(),
       dirty:            false,
     };

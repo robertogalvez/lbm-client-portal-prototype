@@ -556,6 +556,7 @@ body {
   .vd-shell {
     flex-direction: row;
     height: 100vh;
+    height: 100dvh;
     overflow: hidden;
   }
   .vd-mobile-header { display: none !important; }
@@ -593,6 +594,7 @@ body {
     z-index: 10;
   }
 
+
   .vd-right {
     display: flex;
     width: 392px;
@@ -609,7 +611,14 @@ body {
     border-bottom: 1px solid #ece4d8;
     flex-shrink: 0;
   }
-  .vd-right-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+  /* grow:0 — sized to its own content (meta + optional caption/comments),
+     not stretched to fill the sidebar. A short task (no caption, no native
+     comments) otherwise left a large dead gap between the meta text and the
+     dock below; now the dock follows right after the actual content, and
+     any leftover space falls below the dock instead, which reads as normal
+     page whitespace rather than an awkward empty middle. shrink:1 still lets
+     it scroll internally on a task with enough content to overflow. */
+  .vd-right-scroll { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
   .vd-meta { padding: 20px; }
   .vd-desktop-caption { display: block; }
   .vd-dock {
@@ -745,6 +754,40 @@ body {
 
 /* Topbar — push right of hamburger button on narrow screens */
 .db-topbar { }
+
+/* Whole-row links in the admin tables. The row is an <a> so it is keyboard
+   reachable and opens in a new tab like any other link; this just gives it
+   the hover the old div-with-onClick rows had. */
+.db-row-link:hover { background: #f5f7f9; }
+.db-row-link:focus-visible { outline: 2px solid #FF6000; outline-offset: -2px; }
+
+/* Admin page header — same hamburger clearance as .db-topbar, for the four
+   simplified admin screens whose <main> owns its own padding. */
+@media (max-width: 860px) {
+  .db-page-header { padding-left: 62px !important; }
+}
+
+/* The admin tables are column-dense by design (five to seven columns of
+   numbers that only mean something side by side). Below their natural width
+   they scroll horizontally inside the card rather than crushing every column
+   to two characters. */
+.db-table-scroll { overflow-x: auto; }
+.db-table-scroll > * { min-width: 860px; }
+.db-table-scroll-wide > * { min-width: 1000px; }
+
+/* The admin screens' content padding. 34px of gutter each side is right on a
+   desktop and wasteful on a phone, where it eats a fifth of the width. */
+.db-page-body { padding: 22px 34px 44px; }
+@media (max-width: 600px) {
+  .db-page-body { padding: 18px 16px 40px; }
+  .db-page-header { padding-right: 16px !important; }
+}
+
+/* Client detail drops to one column before the rail gets too narrow to read. */
+.db-detail-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 1080px) {
+  .db-detail-grid { grid-template-columns: minmax(0, 1fr); }
+}
 @media (max-width: 860px) {
   .db-topbar { padding-left: 62px !important; }
   /* Dashboard topbar's inline tab row/toggle don't fit alongside the title

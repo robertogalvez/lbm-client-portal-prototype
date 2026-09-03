@@ -30,6 +30,7 @@ const videoCache = pgTable('video_cache', {
   isYoutube:         boolean('is_youtube').default(false),
   dateUpdated:       text('date_updated'),
   dueDate:           text('due_date'),
+  vistasocialScheduledAt: timestamp('vistasocial_scheduled_at'),
   lastSyncedAt:      timestamp('last_synced_at').defaultNow(),
   dirty:             boolean('dirty').default(false),
 });
@@ -126,6 +127,7 @@ export default async function handler() {
 
   let skipped = 0;
   const rows: (typeof videoCache.$inferInsert)[] = [];
+  const clientRecordIds = new Set<string>();
 
   for (const task of activeTasks) {
     if (dirtyIds.has(task.id)) { skipped++; continue; }
@@ -145,6 +147,7 @@ export default async function handler() {
     const instagramField = find('Instagram URL');
     const amField       = find('Account Manager (AM)');
     const qcField       = find('QUALITY CHECK (Somu)');
+    const publishDateField = find('Publish Date (VistaSocial)');
 
     const clientIdx   = typeof clientField?.value === 'number' ? clientField.value : null;
     const levelIdx    = typeof levelField?.value === 'number' ? levelField.value : null;
@@ -173,8 +176,30 @@ export default async function handler() {
       dueDate = isNaN(ms) ? task.due_date : new Date(ms).toISOString();
     }
 
+    // "Publish Date (VistaSocial)" is a ClickUp date field — its value is
+    // epoch ms. Never populated by this sync before, so resolvePostedAt()
+    // always fell back to dateUpdated (last status-change time, not the
+    // real go-live date).
+    let vistasocialScheduledAt: Date | null = null;
+    const pubDateMs = Number(publishDateField?.value);
+    if (Number.isFinite(pubDateMs) && pubDateMs > 0) vistasocialScheduledAt = new Date(pubDateMs);
+
     const clientName   = resolveByName('Client Name (AM)', clientIdx);
     const qualityCheck = resolveByName('QUALITY CHECK (Somu)', qcIdx);
+
+    // The synced list also holds one non-video "Client" record task per
+    // client, used only to carry the clickupTaskId/clickupClientOptionId
+    // onboarded into the `clients` table. Its title is always exactly the
+    // client's own name (e.g. task "Apex" with Client Name (AM) = Apex) —
+    // no real video is ever titled that. custom_item_id looked like a
+    // cleaner signal but the bulk list endpoint doesn't reliably surface it,
+    // so this was silently a no-op; matching on title is what actually found
+    // and removed these 17 rows when the bug was first diagnosed. Compared
+    // case/whitespace-insensitively — "Project based" vs "Project Based"
+    // slipped past an exact match and re-inflated Backlog by one.
+    if (clientName && task.name.trim().toLowerCase() === clientName.trim().toLowerCase()) {
+      clientRecordIds.add(task.id); continue;
+    }
 
     const row = {
       status:           task.status?.status ?? null,
@@ -195,6 +220,7 @@ export default async function handler() {
       isYoutube,
       dateUpdated:      task.date_updated ?? null,
       dueDate,
+      vistasocialScheduledAt,
       lastSyncedAt:     new Date(),
       dirty:            false,
     };
@@ -225,6 +251,7 @@ export default async function handler() {
     isYoutube:        excluded('is_youtube'),
     dateUpdated:      excluded('date_updated'),
     dueDate:          excluded('due_date'),
+    vistasocialScheduledAt: excluded('vistasocial_scheduled_at'),
     lastSyncedAt:     excluded('last_synced_at'),
     dirty:            excluded('dirty'),
   };
@@ -236,8 +263,13 @@ export default async function handler() {
   }
   const synced = rows.length;
 
-  // Delete rows that no longer exist in ClickUp (webhook may have missed deletions)
-  const allClickupIds = rawTasks.map((t: any) => t.id as string);
+  // Delete rows that no longer exist in ClickUp (webhook may have missed
+  // deletions) or belong to a per-client record task (see above) — the
+  // latter still exist in ClickUp so they'd otherwise never be seen as
+  // orphaned, leaving any already-synced phantom row stuck forever.
+  const allClickupIds = rawTasks
+    .map((t: any) => t.id as string)
+    .filter(id => !clientRecordIds.has(id));
   let deleted = 0;
   if (allClickupIds.length > 0) {
     const result = await db.delete(videoCache)
@@ -245,7 +277,7 @@ export default async function handler() {
     deleted = result.rowCount ?? 0;
   }
 
-  console.log(`ClickUp sync complete: ${synced} synced, ${skipped} skipped (dirty), ${deleted} deleted (orphans)`);
+  console.log(`ClickUp sync complete: ${synced} synced, ${skipped} skipped (dirty), ${clientRecordIds.size} client-record tasks excluded, ${deleted} deleted (orphans)`);
   return new Response(JSON.stringify({ synced, skipped, deleted, total: activeTasks.length }), {
     headers: { 'Content-Type': 'application/json' },
   });

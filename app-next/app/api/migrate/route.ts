@@ -145,6 +145,18 @@ export async function POST(req: Request) {
       sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS deliverable_type varchar(20) NOT NULL DEFAULT 'short_form'`,
       sql`UPDATE video_cache SET deliverable_type = 'youtube' WHERE is_youtube = true AND deliverable_type = 'short_form'`,
       sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS social_links jsonb`,
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS last_report_notified_month varchar(7)`,
+      sql`CREATE TABLE IF NOT EXISTS "video_priorities" (
+        "clickup_task_id" varchar(50) PRIMARY KEY NOT NULL,
+        "client_name"     varchar(255) NOT NULL,
+        "rank"            integer NOT NULL,
+        "updated_at"      timestamp DEFAULT now() NOT NULL
+      )`,
+      sql`CREATE TABLE IF NOT EXISTS "frameio_comment_authors" (
+        "frameio_comment_id" varchar(100) PRIMARY KEY NOT NULL,
+        "author_name"        text NOT NULL,
+        "created_at"         timestamp DEFAULT now()
+      )`,
       sql`CREATE TABLE IF NOT EXISTS "contract_periods" (
         "id"                uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
         "client_id"         uuid NOT NULL REFERENCES "clients"("id") ON DELETE CASCADE,
@@ -188,6 +200,43 @@ export async function POST(req: Request) {
         "author_name"        text NOT NULL,
         "created_at"         timestamp DEFAULT now()
       )`,
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS clickup_client_option_id varchar(100) UNIQUE`,
+      sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS renewed_from_period_id uuid UNIQUE REFERENCES "contract_periods"("id")`,
+      sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS data_quality_flag text`,
+      sql`CREATE TABLE IF NOT EXISTS "contract_period_clients" (
+        "id"          uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "period_id"   uuid NOT NULL REFERENCES "contract_periods"("id") ON DELETE CASCADE,
+        "client_id"   uuid NOT NULL REFERENCES "clients"("id") ON DELETE CASCADE,
+        "created_at"  timestamp DEFAULT now(),
+        UNIQUE ("period_id", "client_id")
+      )`,
+      sql`CREATE INDEX IF NOT EXISTS "contract_period_clients_client_idx" ON "contract_period_clients" ("client_id")`,
+      sql`CREATE TABLE IF NOT EXISTS "contract_line_items" (
+        "id"                uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "period_id"         uuid NOT NULL REFERENCES "contract_periods"("id") ON DELETE CASCADE,
+        "deliverable_type"  varchar(40) NOT NULL,
+        "contracted_total"  integer NOT NULL,
+        "monthly_quota"     integer,
+        "carried_in"        integer DEFAULT 0,
+        "created_at"        timestamp DEFAULT now(),
+        UNIQUE ("period_id", "deliverable_type")
+      )`,
+      sql`ALTER TABLE contract_months ADD COLUMN IF NOT EXISTS line_item_id uuid REFERENCES "contract_line_items"("id") ON DELETE CASCADE`,
+      sql`ALTER TABLE contract_months DROP CONSTRAINT IF EXISTS contract_months_period_id_month_key`,
+      sql`DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint WHERE conname = 'contract_months_period_id_line_item_id_month_unique'
+          ) THEN
+            ALTER TABLE contract_months
+              ADD CONSTRAINT contract_months_period_id_line_item_id_month_unique
+              UNIQUE ("period_id", "line_item_id", "month");
+          END IF;
+        END $$`,
+      sql`CREATE UNIQUE INDEX IF NOT EXISTS "contract_months_aggregate_unique_idx"
+        ON "contract_months" ("period_id", "month") WHERE "line_item_id" IS NULL`,
+      sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS cycle_duration_days integer`,
+      sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS cycle_anchor_date date`,
     ]);
 
     const rows = await sql`

@@ -2,12 +2,12 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { authUsers, clients, contractPeriods, contractMonths } from '@/lib/db/schema';
+import { authUsers, clients, contractPeriods, contractPeriodClients, contractMonths, videoPriorities } from '@/lib/db/schema';
 import { eq, inArray } from 'drizzle-orm';
-import { getTasksFromList, getClientQuotas } from '@/lib/clickup';
+import { getTasksFromList } from '@/lib/clickup';
 import { getThumbnailUrl } from '@/lib/frameio';
 import { statusColors } from '@/components/ui/StatusBadge';
-import type { MappedTask, ClientQuota } from '@/lib/clickup';
+import type { MappedTask } from '@/lib/clickup';
 import { NotificationBell } from '@/components/client/NotificationBell';
 import { LogoutButton } from '@/components/client/LogoutButton';
 import { CalendarView } from '@/components/client/CalendarView';
@@ -15,9 +15,12 @@ import { InvoicesView } from '@/components/client/InvoicesView';
 import { MonthlyReport } from '@/components/client/MonthlyReport';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { BannerStats } from '@/components/client/BannerStats';
+import { PriorityReorderList } from '@/components/client/PriorityReorderList';
 import { getViewAsClient } from '@/lib/view-as';
 import { getInvoicesForClient, isQuickBooksConfigured } from '@/lib/quickbooks';
 import { InstagramLink } from '@/components/InstagramLink';
+import { clientStatusLabel } from '@/lib/client-status';
+import { deliveryCategory } from '@/lib/pipeline';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -38,6 +41,34 @@ function fmtDate(iso: string | null) {
 
 function initials(name: string) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+// The client-facing name is what the client actually recognizes; the task
+// name is LBM's internal label for the same video. Show both — friendly
+// name first, internal name underneath — so the client can match what we
+// call it against what they asked for. Falls back to the internal name
+// alone when no client-facing name has been set, rather than duplicating it.
+function VideoTitle({ clientFacingTitle, title }: { clientFacingTitle: string | null; title: string }) {
+  if (!clientFacingTitle) return <>{title}</>;
+  return (
+    <span style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <span>{clientFacingTitle}</span>
+      <span style={{ fontSize: '0.78em', fontWeight: 500, color: '#9d9488' }}>{title}</span>
+    </span>
+  );
+}
+
+function AdBadge({ deliverableType }: { deliverableType: MappedTask['deliverableType'] }) {
+  if (deliverableType !== 'ad') return null;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 7,
+      color: '#7c3aed', background: '#f1e9fe', whiteSpace: 'nowrap' as const,
+    }}>
+      Ad
+    </span>
+  );
 }
 
 
@@ -74,28 +105,36 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     );
   }
 
-  const [tasksResult, quotasResult, [clientRecord]] = await Promise.all([
+  const [tasksResult, [clientRecord], priorityRows] = await Promise.all([
     getTasksFromList(process.env.CLICKUP_LIST_ID!, false).then(
       value => ({ value, error: null as string | null }),
       (e: unknown) => ({ value: [] as MappedTask[], error: e instanceof Error ? e.message : 'Unknown error' }),
     ),
-    getClientQuotas().then(
-      value => ({ value, error: null as string | null }),
-      (e: unknown) => ({ value: [] as ClientQuota[], error: e instanceof Error ? e.message : 'Unknown error' }),
-    ),
     db.select({ id: clients.id, showCalendar: clients.showCalendar, showInvoices: clients.showInvoices, showReport: clients.showReport }).from(clients).where(eq(clients.name, clientName)).limit(1),
+    db.select({ clickupTaskId: videoPriorities.clickupTaskId, rank: videoPriorities.rank }).from(videoPriorities).where(eq(videoPriorities.clientName, clientName)),
   ]);
   const allTasks = tasksResult.value;
-  const clientQuotas = quotasResult.value;
-  const fetchError = tasksResult.error ?? quotasResult.error;
+  const fetchError = tasksResult.error;
   const showCalendar = clientRecord?.showCalendar ?? false;
+  const priorityRank = new Map(priorityRows.map(r => [r.clickupTaskId, r.rank]));
 
   // Report contract data (§5.6/§7.1) — every period on file for this client
-  // plus their deviation-only contract_months rows, so the report's month
-  // selector can resolve the right agreement for whichever month is chosen,
-  // the same way the dashboard's month mode does.
+  // (including a joint contract they're part of, via contract_period_clients
+  // — falling back to the legacy direct clientId column for any period PR 1's
+  // backfill hasn't reached) plus their deviation-only contract_months rows,
+  // so the report's month selector can resolve the right agreement for
+  // whichever month is chosen, the same way the dashboard's month mode does.
   const reportPeriods = clientRecord?.id
-    ? await db.select().from(contractPeriods).where(eq(contractPeriods.clientId, clientRecord.id)).orderBy(contractPeriods.startsOn)
+    ? await (async () => {
+        const [viaJoin, viaLegacyColumn] = await Promise.all([
+          db.select({ periodId: contractPeriodClients.periodId }).from(contractPeriodClients).where(eq(contractPeriodClients.clientId, clientRecord.id)),
+          db.select({ id: contractPeriods.id }).from(contractPeriods).where(eq(contractPeriods.clientId, clientRecord.id)),
+        ]);
+        const periodIds = [...new Set([...viaJoin.map(r => r.periodId), ...viaLegacyColumn.map(r => r.id)])];
+        return periodIds.length > 0
+          ? db.select().from(contractPeriods).where(inArray(contractPeriods.id, periodIds)).orderBy(contractPeriods.startsOn)
+          : [];
+      })()
     : [];
   const reportMonthRows = reportPeriods.length > 0
     ? await db.select().from(contractMonths).where(inArray(contractMonths.periodId, reportPeriods.map(p => p.id)))
@@ -106,9 +145,6 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   const showInvoices = (clientRecord?.showInvoices ?? false) && quickbooksConnected;
   const showReport = clientRecord?.showReport ?? false;
 
-  const clientQuota = clientQuotas.find(q => q.name === clientName);
-  const agreedReels = clientQuota?.reelsPerMonth ?? 0;
-  const agreedYoutube = clientQuota?.ytPerMonth ?? 0;
   const clientInvoices = showInvoices ? await getInvoicesForClient(clientName) : [];
   const effectiveTab =
     (tab === 'invoices' && !showInvoices) || (tab === 'calendar' && !showCalendar) || (tab === 'report' && !showReport)
@@ -117,56 +153,79 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
 
   const clientTasks = allTasks.filter(t => t.clientName === clientName);
   const reviewTasks = clientTasks.filter(t => norm(t.status) === 'for client review');
-  // Keep postedTasks for the stats banner (monthly delivery counts)
-  const postedTasks = clientTasks.filter(t => norm(t.status) === 'posted in socials');
 
   // ── Display groups (mutually exclusive, priority-ordered) ─────────────────
-  // 1. Posted + Archived — sorted newest first
+  // 1. Posted + Archived — sorted newest first. "Posted" is driven by
+  // deliveryCategory (Publish Date vs. now), not the raw status, so a
+  // "Ready to be Posted" task whose date already passed shows here even if
+  // ClickUp's status hasn't caught up, and a "Posted in Socials" task queued
+  // for a future date does not.
   const postedAndArchivedTasks = clientTasks
-    .filter(t => ['posted in socials', 'archived'].includes(norm(t.status)))
+    .filter(t => {
+      const s = norm(t.status);
+      if (s === 'archived') return true;
+      if (s === 'posted in socials' || s === 'ready to be posted') return deliveryCategory(t.status, t.publishDate) === 'posted';
+      return false;
+    })
     .sort((a, b) => {
       const dateA = a.publishDate ? new Date(a.publishDate).getTime() : (Number(a.dateUpdated) || 0);
       const dateB = b.publishDate ? new Date(b.publishDate).getTime() : (Number(b.dateUpdated) || 0);
       return dateB - dateA;
     });
+  const postedAndArchivedIds = new Set(postedAndArchivedTasks.map(t => t.clickupTaskId));
+  // Keep postedTasks for the stats banner (monthly delivery counts) — excludes archived.
+  const postedTasks = postedAndArchivedTasks.filter(t => norm(t.status) !== 'archived');
 
-  // 2. Scheduled — non-review, non-posted tasks that have a publish date set
+  // 2. Scheduled — non-review, non-posted/archived tasks that have a publish date set
   const scheduledTasks = clientTasks
     .filter(t => {
       const s = norm(t.status);
-      return t.publishDate !== null && s !== 'for client review' && !['posted in socials', 'archived'].includes(s);
+      if (s === 'for client review' || postedAndArchivedIds.has(t.clickupTaskId)) return false;
+      return t.publishDate !== null;
     })
     .sort((a, b) => new Date(a.publishDate!).getTime() - new Date(b.publishDate!).getTime());
   const scheduledIds = new Set(scheduledTasks.map(t => t.clickupTaskId));
 
-  // 3. In Progress - Edition: all active production statuses (excluding scheduled)
+  // 2.5. Approved — videos that client approved and are ready to move to posting
+  const approvedTasks = clientTasks
+    .filter(t => {
+      const s = norm(t.status);
+      if (s === 'for client review' || scheduledIds.has(t.clickupTaskId) || postedAndArchivedIds.has(t.clickupTaskId)) return false;
+      return t.clientApproval && norm(t.clientApproval).includes('approv') && !norm(t.clientApproval).includes('changes');
+    })
+    .sort((a, b) => {
+      const dateA = Number(a.dateUpdated) || 0;
+      const dateB = Number(b.dateUpdated) || 0;
+      return dateB - dateA;
+    });
+  const approvedIds = new Set(approvedTasks.map(t => t.clickupTaskId));
+
+  // 2.7. Rejected — videos client sent back for changes
+  const rejectedTasks = clientTasks
+    .filter(t => {
+      const s = norm(t.status);
+      if (s === 'for client review' || scheduledIds.has(t.clickupTaskId) || postedAndArchivedIds.has(t.clickupTaskId) || approvedIds.has(t.clickupTaskId)) return false;
+      return t.clientApproval && norm(t.clientApproval).includes('change');
+    })
+    .sort((a, b) => {
+      const dateA = Number(a.dateUpdated) || 0;
+      const dateB = Number(b.dateUpdated) || 0;
+      return dateB - dateA;
+    });
+  const rejectedIds = new Set(rejectedTasks.map(t => t.clickupTaskId));
+
+  // 3. In Progress - Edition: all active production statuses (excluding scheduled/posted/approved/rejected)
   const IN_PROD_STATUSES = new Set([
     'in progress (editor)', 'in progress (corrections)', 'in tc/qc (somu)',
-    'on its way', 'ready to be posted', 'approved · fixes pending',
+    'on its way', 'approved · fixes pending',
   ]);
-  const inEditionTasks = clientTasks.filter(t =>
-    IN_PROD_STATUSES.has(norm(t.status)) && !scheduledIds.has(t.clickupTaskId)
-  );
+  const inEditionTasks = clientTasks
+    .filter(t => IN_PROD_STATUSES.has(norm(t.status)) && !scheduledIds.has(t.clickupTaskId) && !postedAndArchivedIds.has(t.clickupTaskId) && !approvedIds.has(t.clickupTaskId) && !rejectedIds.has(t.clickupTaskId))
+    // Unranked videos (no explicit client priority yet) sort after ranked
+    // ones and keep their relative order (stable sort) — nothing jumps
+    // around just because one video got a rank.
+    .sort((a, b) => (priorityRank.get(a.clickupTaskId) ?? Infinity) - (priorityRank.get(b.clickupTaskId) ?? Infinity));
 
-  // 4. Not Ready / Backlog: everything else
-  const backlogTasks = clientTasks.filter(t => {
-    const s = norm(t.status);
-    return s !== 'for client review'
-      && !IN_PROD_STATUSES.has(s)
-      && !['posted in socials', 'archived'].includes(s)
-      && !scheduledIds.has(t.clickupTaskId);
-  });
-  const monthStart  = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-  const deliveredReels = postedTasks.filter(t => {
-    const ts = Number(t.dateUpdated);
-    const date = isNaN(ts) ? new Date(t.dateUpdated) : new Date(ts);
-    return date.getTime() >= monthStart && !t.isYoutube;
-  }).length;
-  const deliveredYoutube = postedTasks.filter(t => {
-    const ts = Number(t.dateUpdated);
-    const date = isNaN(ts) ? new Date(t.dateUpdated) : new Date(ts);
-    return date.getTime() >= monthStart && t.isYoutube;
-  }).length;
   const displayName = (name ?? clientName).split(' ')[0];
   const pct = clientTasks.length > 0 ? Math.round((postedTasks.length / clientTasks.length) * 100) : 0;
 
@@ -201,7 +260,10 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
           )}
         </div>
         <div style={{padding:16}}>
-          <div style={{fontWeight:700, fontSize:15, marginBottom:12, lineHeight:1.3}}>{t.clientFacingTitle || t.title}</div>
+          <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8, marginBottom:12}}>
+            <div style={{fontWeight:700, fontSize:15, lineHeight:1.3}}><VideoTitle clientFacingTitle={t.clientFacingTitle} title={t.title} /></div>
+            <AdBadge deliverableType={t.deliverableType} />
+          </div>
           <div style={{background:'#fef3c7', color:'#92400e', textAlign:'center', padding:'6px', borderRadius:8, fontSize:12, fontWeight:600, marginBottom:12}}>⏳ Awaiting your review</div>
           <a href={`/client/videos/${t.clickupTaskId}`} style={{display:'block', textAlign:'center', padding:'10px', background:'#f97316', color:'#fff', borderRadius:10, fontWeight:600, fontSize:14, textDecoration:'none'}}>Watch &amp; review</a>
         </div>
@@ -230,7 +292,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                 Dashboard
               </Link>
             )}
-            <NotificationBell tasks={reviewTasks.map(t => ({ clickupTaskId: t.clickupTaskId, title: t.title, dateUpdated: t.dateUpdated }))} />
+            <NotificationBell tasks={reviewTasks.map(t => ({ clickupTaskId: t.clickupTaskId, title: t.title, clientFacingTitle: t.clientFacingTitle, dateUpdated: t.dateUpdated }))} />
           </div>
         </div>
 
@@ -257,11 +319,6 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                 </div>
               </div>
             </div>
-            {/* Agreed vs Delivered (this month) */}
-            <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'rgba(255,255,255,.8)', flexWrap: 'wrap' }}>
-              <div>Reels - Agreed: <span style={{ fontWeight: 700 }}>{agreedReels}</span> | Delivered: <span style={{ fontWeight: 700 }}>{deliveredReels}</span></div>
-              <div>YT - Agreed: <span style={{ fontWeight: 700 }}>{agreedYoutube}</span> | Delivered: <span style={{ fontWeight: 700 }}>{deliveredYoutube}</span></div>
-            </div>
           </div>
 
           {fetchError && (
@@ -286,10 +343,36 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               </div>
             )}
 
+            {approvedTasks.length > 0 && (
+              <MobileAccordion label="✅ Approved" count={approvedTasks.length}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
+                  {approvedTasks.map(t => (
+                    <VideoRow key={t.clickupTaskId} task={t} showViewLink
+                      label="Approved — ready to post"
+                      color="#14805f" colorBg="#e4f3ec"
+                    />
+                  ))}
+                </div>
+              </MobileAccordion>
+            )}
+
+            {rejectedTasks.length > 0 && (
+              <MobileAccordion label="🔄 Needs Corrections" count={rejectedTasks.length}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
+                  {rejectedTasks.map(t => (
+                    <VideoRow key={t.clickupTaskId} task={t} showViewLink
+                      label="Changes requested — in editing"
+                      color="#b06f06" colorBg="#fbeecf"
+                    />
+                  ))}
+                </div>
+              </MobileAccordion>
+            )}
+
             {inEditionTasks.length > 0 && (
               <MobileAccordion label="📹 In Progress — Edition" count={inEditionTasks.length}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
-                  {inEditionTasks.map(t => <VideoRow key={t.clickupTaskId} task={t} />)}
+                <div style={{ padding: '12px 0 4px' }}>
+                  <PriorityReorderList items={inEditionTasks.map(t => ({ id: t.clickupTaskId, node: <VideoRow task={t} label={clientStatusLabel(t.status)} /> }))} />
                 </div>
               </MobileAccordion>
             )}
@@ -299,18 +382,10 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
                   {scheduledTasks.map(t => (
                     <VideoRow key={t.clickupTaskId} task={t} showViewLink
-                      label={t.publishDate ? `Posts ${fmtDate(t.publishDate)}` : t.status}
+                      label={t.publishDate ? `Posts ${fmtDate(t.publishDate)}` : clientStatusLabel(t.status)}
                       color="#7c66c4" colorBg="#efeafa"
                     />
                   ))}
-                </div>
-              </MobileAccordion>
-            )}
-
-            {backlogTasks.length > 0 && (
-              <MobileAccordion label="⏸ Not Ready / Backlog" count={backlogTasks.length}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
-                  {backlogTasks.map(t => <VideoRow key={t.clickupTaskId} task={t} />)}
                 </div>
               </MobileAccordion>
             )}
@@ -449,7 +524,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                 Dashboard
               </Link>
             )}
-            <NotificationBell tasks={reviewTasks.map(t => ({ clickupTaskId: t.clickupTaskId, title: t.title, dateUpdated: t.dateUpdated }))} />
+            <NotificationBell tasks={reviewTasks.map(t => ({ clickupTaskId: t.clickupTaskId, title: t.title, clientFacingTitle: t.clientFacingTitle, dateUpdated: t.dateUpdated }))} />
             <span className="cd-client-name">{clientName} / Client workspace</span>
             <div className="cd-avatar">{initials(name ?? clientName ?? 'C')}</div>
           </div>
@@ -507,18 +582,13 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               },
               {
                 label:'In production',
-                count: inProgress.length,
-                reelCount: inProgress.filter(t => !t.isYoutube).length,
-                youtubeCount: inProgress.filter(t => t.isYoutube).length,
+                count: inEditionTasks.length,
+                reelCount: inEditionTasks.filter(t => !t.isYoutube).length,
+                youtubeCount: inEditionTasks.filter(t => t.isYoutube).length,
                 color:'#60a5fa',
-                tasks: inProgress,
+                tasks: inEditionTasks,
               },
             ]} />
-          </div>
-          {/* Agreed vs Delivered (this month) — same monthly quota pacing shown on mobile */}
-          <div style={{display:'flex', gap:24, fontSize:13, color:'rgba(255,255,255,.7)', flexWrap:'wrap', borderTop:'1px solid rgba(255,255,255,.1)', paddingTop:14}}>
-            <div>Reels - Agreed: <span style={{fontWeight:700, color:'#fff'}}>{agreedReels}</span> | Delivered: <span style={{fontWeight:700, color:'#fff'}}>{deliveredReels}</span></div>
-            <div>YT - Agreed: <span style={{fontWeight:700, color:'#fff'}}>{agreedYoutube}</span> | Delivered: <span style={{fontWeight:700, color:'#fff'}}>{deliveredYoutube}</span></div>
           </div>
         </div>
 
@@ -539,9 +609,39 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               </section>
             )}
 
+            {approvedTasks.length > 0 && (
+              <DesktopAccordion label="✅ Approved" count={approvedTasks.length} style={{marginBottom:16}}>
+                {approvedTasks.map(t => (
+                  <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
+                    <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:600, fontSize:14}} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
+                    </div>
+                    <span style={{background:'#e4f3ec', color:'#14805f', fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>Approved — ready to post</span>
+                    <Link href={`/client/videos/${t.clickupTaskId}`} style={{fontSize:12, color:'#FF6000', textDecoration:'none', fontWeight:600}}>View →</Link>
+                  </div>
+                ))}
+              </DesktopAccordion>
+            )}
+
+            {rejectedTasks.length > 0 && (
+              <DesktopAccordion label="🔄 Needs Corrections" count={rejectedTasks.length} style={{marginBottom:16}}>
+                {rejectedTasks.map(t => (
+                  <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
+                    <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:600, fontSize:14}} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
+                    </div>
+                    <span style={{background:'#fbeecf', color:'#b06f06', fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>Changes requested — in editing</span>
+                    <Link href={`/client/videos/${t.clickupTaskId}`} style={{fontSize:12, color:'#FF6000', textDecoration:'none', fontWeight:600}}>View →</Link>
+                  </div>
+                ))}
+              </DesktopAccordion>
+            )}
+
             {inEditionTasks.length > 0 && (
               <DesktopAccordion label="📹 In Progress — Edition" count={inEditionTasks.length} style={{marginBottom:16}}>
-                {inEditionTasks.map(t => <DesktopStatusRow key={t.clickupTaskId} t={t} />)}
+                <PriorityReorderList items={inEditionTasks.map(t => ({ id: t.clickupTaskId, node: <DesktopStatusRow t={t} /> }))} />
               </DesktopAccordion>
             )}
 
@@ -557,12 +657,6 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                     <Link href={`/client/videos/${t.clickupTaskId}`} style={{fontSize:12, color:'#FF6000', textDecoration:'none', fontWeight:600}}>View →</Link>
                   </div>
                 ))}
-              </DesktopAccordion>
-            )}
-
-            {backlogTasks.length > 0 && (
-              <DesktopAccordion label="⏸ Not Ready / Backlog" count={backlogTasks.length} style={{marginBottom:16}}>
-                {backlogTasks.map(t => <DesktopStatusRow key={t.clickupTaskId} t={t} />)}
               </DesktopAccordion>
             )}
 
@@ -703,8 +797,11 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
 
       {/* Body */}
       <div style={{ padding: '13px 15px 15px', display: 'flex', flexDirection: 'column', gap: 11 }}>
-        <div style={{ fontSize: 15.5, fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.25 }}>
-          {task.clientFacingTitle || task.title}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ fontSize: 15.5, fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.25 }}>
+            <VideoTitle clientFacingTitle={task.clientFacingTitle} title={task.title} />
+          </div>
+          <AdBadge deliverableType={task.deliverableType} />
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const, fontSize: 12, color: '#9d9488', fontWeight: 500 }}>
@@ -759,9 +856,10 @@ function DesktopStatusRow({ t, showViewLink }: { t: MappedTask; showViewLink?: b
     <div style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
       <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
       <div style={{flex:1}}>
-        <div style={{fontWeight:600, fontSize:14}} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
+        <div style={{fontWeight:600, fontSize:14}}><VideoTitle clientFacingTitle={t.clientFacingTitle} title={t.title} /></div>
       </div>
-      <span style={{background:bg, color, fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>{t.status}</span>
+      <AdBadge deliverableType={t.deliverableType} />
+      <span style={{background:bg, color, fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>{clientStatusLabel(t.status)}</span>
       {t.instagramUrl && <InstagramLink url={t.instagramUrl} label="Instagram" compact />}
       {showViewLink && (
         <Link href={`/client/videos/${t.clickupTaskId}`} className="video-action-btn video-action-watch" style={{ fontSize: 12, padding: '6px 12px' }}>
@@ -826,16 +924,17 @@ function VideoRow({ task, color, colorBg, label, showViewLink }: { task: MappedT
         {/* Full title on its own line — nothing else competes with it for
             width, so long titles wrap instead of getting cut off. */}
         <div style={{ fontSize: 13.5, fontWeight: 700, lineHeight: 1.3 }}>
-          {task.clientFacingTitle || task.title}
+          <VideoTitle clientFacingTitle={task.clientFacingTitle} title={task.title} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
+          <AdBadge deliverableType={task.deliverableType} />
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 5,
             fontSize: 12, fontWeight: 700, padding: '5px 9px', borderRadius: 9,
             color: fg, background: bg, whiteSpace: 'nowrap' as const,
           }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: fg }} />
-            {label ?? task.status}
+            {label ?? clientStatusLabel(task.status)}
           </span>
           {task.instagramUrl && <InstagramLink url={task.instagramUrl} label="Instagram" compact />}
           {showViewLink && (

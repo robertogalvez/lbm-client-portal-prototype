@@ -7,8 +7,13 @@ function headers() {
   };
 }
 
+// Tagged so a client decision (approve/changes) can bust this cache on write
+// via revalidateTag('clickup-tasks') — see app/api/client/approve/route.ts.
+// Without that, a task the client just decided on could keep reading back
+// its pre-decision status for up to the full revalidate window.
+// Set to 0 (no caching) so calendar sees publish dates as soon as the AM updates ClickUp.
 async function get(path: string) {
-  const res = await fetch(`${BASE}${path}`, { headers: headers(), next: { revalidate: 60 } });
+  const res = await fetch(`${BASE}${path}`, { headers: headers(), next: { revalidate: 0, tags: ['clickup-tasks'] } });
   if (!res.ok) throw new Error(`ClickUp ${res.status}: ${path}`);
   return res.json();
 }
@@ -301,6 +306,11 @@ export interface MasterClientRecord {
   vistaSocialProfileIds: string | null;
   clientStatus: string;
   monthlyQuota: number;
+  // The option-id of this client's own "Client Name (AM)" dropdown value —
+  // the same id video tasks carry as MappedTask.clientOptionId. Lets task↔
+  // client matching join on a stable ID instead of the name string (see
+  // contract redesign PR 2).
+  clickupClientOptionId: string | null;
 }
 
 // Build the shared option list for a dropdown field — ClickUp only includes
@@ -317,11 +327,15 @@ function buildFieldOptions(tasks: ClickUpTask[], fieldName: string): { id: strin
 // Name (AM)" dropdown value on that task — NOT the task's own title, which is
 // often a different, more casual label (e.g. task "Sebas Legacy" vs. dropdown
 // value "Sebastian Velasquez", which is what tags that client's videos).
-function resolveClientNameAM(task: ClickUpTask, sharedOptions: { id: string; name: string }[]): string | null {
+function resolveClientNameAMOption(task: ClickUpTask, sharedOptions: { id: string; name: string }[]): { id: string; name: string } | null {
   const field = findField(task, 'Client Name (AM)');
   const idx = typeof field?.value === 'number' ? field.value : null;
   if (idx === null) return null;
-  return field?.type_config?.options?.[idx]?.name ?? sharedOptions[idx]?.name ?? null;
+  return field?.type_config?.options?.[idx] ?? sharedOptions[idx] ?? null;
+}
+
+function resolveClientNameAM(task: ClickUpTask, sharedOptions: { id: string; name: string }[]): string | null {
+  return resolveClientNameAMOption(task, sharedOptions)?.name ?? null;
 }
 
 // Tasks in the Master Clients List with no "Client Status" set are placeholder/
@@ -347,6 +361,8 @@ export async function getMasterClientRecords(): Promise<{ records: MasterClientR
 
     if (!clientStatus) { skipped.push(t.name); continue; }
 
+    const clientNameOption = resolveClientNameAMOption(t, clientNameOptions);
+
     const contactNameField  = findField(t, 'Full Name');
     const contactEmailField = findField(t, 'Contact Email Address');
     const phoneField        = findField(t, 'Phone Number');
@@ -360,7 +376,8 @@ export async function getMasterClientRecords(): Promise<{ records: MasterClientR
 
     records.push({
       clickupTaskId:  t.id,
-      name:           resolveClientNameAM(t, clientNameOptions) ?? t.name,
+      name:           clientNameOption?.name ?? t.name,
+      clickupClientOptionId: clientNameOption?.id ?? null,
       contactName:    typeof contactNameField?.value === 'string' ? contactNameField.value : null,
       contactEmail:   typeof contactEmailField?.value === 'string' ? contactEmailField.value : null,
       whatsappNumber: typeof phoneField?.value === 'string' ? phoneField.value : null,

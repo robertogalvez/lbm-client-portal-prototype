@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import Link from 'next/link';
 import { useVideoDecision } from './VideoDecisionContext';
 
 interface Props {
@@ -94,21 +95,37 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
     const approved = result?.toLowerCase().includes('approv') && !result?.toLowerCase().includes('changes');
     const changed = result?.toLowerCase().includes('change');
     return (
-      <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: 7,
-        padding: '10px 14px', borderRadius: 13,
-        background: approved ? '#e4f3ec' : changed ? '#fbe7e2' : '#f4f6f8',
-        fontSize: 14, fontWeight: 700,
-        color: approved ? '#14805f' : changed ? '#cf3f36' : '#8b97a4',
-      }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
-          {approved
-            ? <path d="M20 6 9 17l-5-5" />
-            : changed
-            ? <><path d="M18 6 6 18" /><path d="M6 6l12 12" /></>
-            : <circle cx="12" cy="12" r="9" />}
-        </svg>
-        {result || 'Pending'}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 7,
+          padding: '10px 14px', borderRadius: 13,
+          background: approved ? '#e4f3ec' : changed ? '#fbe7e2' : '#f4f6f8',
+          fontSize: 14, fontWeight: 700,
+          color: approved ? '#14805f' : changed ? '#cf3f36' : '#8b97a4',
+        }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
+            {approved
+              ? <path d="M20 6 9 17l-5-5" />
+              : changed
+              ? <><path d="M18 6 6 18" /><path d="M6 6l12 12" /></>
+              : <circle cx="12" cy="12" r="9" />}
+          </svg>
+          {result || 'Pending'}
+        </div>
+        {/* The decision is final and this dock has nothing left to do —
+            without an explicit way out, the client is left staring at a
+            badge with no next step. */}
+        <Link href="/client" style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+          width: '100%', minHeight: 48, padding: '11px 14px', borderRadius: 13,
+          border: '1px solid #ece4d8', background: '#fff', color: '#221e18',
+          fontWeight: 700, fontSize: 14, textDecoration: 'none', fontFamily: 'inherit',
+        }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+          Back to Dashboard
+        </Link>
       </div>
     );
   }

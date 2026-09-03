@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { videoCache, clients } from '@/lib/db/schema';
 import { mapTask } from '@/lib/clickup';
-import { publishVideo } from '@/lib/publish/publish-video';
+import { publishVideo, autoPublishEnabled } from '@/lib/publish/publish-video';
 import { notifyClientReviewReady } from '@/lib/notify-client';
 import { eq } from 'drizzle-orm';
 import * as clickupWrite from '@/lib/clickup-write';
@@ -197,7 +197,7 @@ export async function POST(req: Request) {
   const posted = findRaw('Posted Status');
   const postedName = typeof posted?.value === 'number' ? posted?.type_config?.options?.[posted.value]?.name : null;
   const doNotPost = postedName ? /do not post/i.test(postedName) : false;
-  if (nativeStatus === 'ready to be posted' && isReady && !doNotPost) {
+  if (autoPublishEnabled() && nativeStatus === 'ready to be posted' && isReady && !doNotPost) {
     try {
       await publishVideo(task_id);
     } catch (e) {

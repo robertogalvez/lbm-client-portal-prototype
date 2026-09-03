@@ -1,40 +1,52 @@
 import { NextResponse } from 'next/server';
-import { headers } from 'next/headers';
-import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { authUsers, clients, contractPeriods, contractMonths } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
-import { getClientQuotas } from '@/lib/clickup';
+import { authUsers, clients, contractPeriods, contractPeriodClients, contractLineItems, contractMonths } from '@/lib/db/schema';
+import { eq, inArray } from 'drizzle-orm';
+import { requireAdmin } from '@/lib/require-admin';
 
 export async function GET() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const gate = await requireAdmin();
+  if (gate instanceof NextResponse) return gate;
 
-  const caller = await db.select({ role: authUsers.role }).from(authUsers).where(eq(authUsers.id, session.user.id)).limit(1);
-  if (caller[0]?.role === 'client') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-
-  // Independent of each other, so one round-trip of wall time instead of three.
+  // Independent of each other, so one round-trip of wall time instead of several.
   // portalUsers is the linked-portal-user count per client, matched by name.
-  const [allClients, quotas, portalUsers, allPeriods, allMonths] = await Promise.all([
+  const [allClients, portalUsers, allPeriodClients, allPeriods] = await Promise.all([
     db.select().from(clients).orderBy(clients.createdAt),
-    getClientQuotas(),
     db
       .select({ clientName: authUsers.clientName, email: authUsers.email, name: authUsers.name, id: authUsers.id, emailVerified: authUsers.emailVerified })
       .from(authUsers)
       .where(eq(authUsers.role, 'client')),
+    db.select().from(contractPeriodClients),
     db.select().from(contractPeriods),
-    db.select().from(contractMonths),
   ]);
 
+  const periodIds = allPeriods.map(p => p.id);
+  const [allMonths, allLineItems] = periodIds.length > 0
+    ? await Promise.all([
+        db.select().from(contractMonths).where(inArray(contractMonths.periodId, periodIds)),
+        db.select().from(contractLineItems).where(inArray(contractLineItems.periodId, periodIds)),
+      ])
+    : [[], []];
+
   const result = allClients.map(c => {
-    const quota = quotas.find(q => q.name === c.name);
+    // A period belongs to this client if the new join table says so, falling
+    // back to the old direct clientId column for any period PR 1's backfill
+    // hasn't reached yet (shouldn't happen post-backfill, but never silently
+    // drop a period rather than assume the backfill definitely ran).
+    const periodIdsForClient = new Set([
+      ...allPeriodClients.filter(pc => pc.clientId === c.id).map(pc => pc.periodId),
+      ...allPeriods.filter(p => p.clientId === c.id).map(p => p.id),
+    ]);
     const periods = allPeriods
-      .filter(p => p.clientId === c.id)
-      .map(p => ({ ...p, months: allMonths.filter(m => m.periodId === p.id) }));
+      .filter(p => periodIdsForClient.has(p.id))
+      .map(p => ({
+        ...p,
+        months: allMonths.filter(m => m.periodId === p.id),
+        lineItems: allLineItems.filter(li => li.periodId === p.id),
+        clientIds: allPeriodClients.filter(pc => pc.periodId === p.id).map(pc => pc.clientId),
+      }));
     return {
       ...c,
-      monthlyReels: quota?.reelsPerMonth ?? 0,
-      monthlyYoutube: quota?.ytPerMonth ?? 0,
       portalUsers: portalUsers.filter(u => u.clientName === c.name),
       periods,
     };

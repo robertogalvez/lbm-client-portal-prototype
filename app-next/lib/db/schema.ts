@@ -1,4 +1,4 @@
-import { pgTable, varchar, text, timestamp, boolean, uuid, integer, jsonb, date } from 'drizzle-orm/pg-core';
+import { pgTable, varchar, text, timestamp, boolean, uuid, integer, jsonb, date, unique, type AnyPgColumn } from 'drizzle-orm/pg-core';
 
 // ── BetterAuth tables ────────────────────────────────────────────────────────
 
@@ -100,6 +100,16 @@ export const clients = pgTable('clients', {
   // 'website'), each an optional { handle, url } pair. Not ClickUp-owned;
   // AMs enter this directly, same as brandingConfig.
   socialLinks:       jsonb('social_links'),
+  // 'YYYY-MM' of the last month this client was SMS'd that their monthly
+  // report is ready — guards the scheduled reminder (see
+  // app/api/reminders/new-report) to fire at most once per month per client.
+  lastReportNotifiedMonth: varchar('last_report_notified_month', { length: 7 }),
+  // The option-id of this client's entry in ClickUp's "Client Name (AM)"
+  // dropdown field — the same id MappedTask.clientOptionId already carries.
+  // Lets task↔client matching join on a stable ID instead of normalized
+  // name text. Backfilled by the existing client sync; null until then, in
+  // which case matching falls back to name (never "show nothing").
+  clickupClientOptionId: varchar('clickup_client_option_id', { length: 100 }).unique(),
 });
 
 export const videoCache = pgTable('video_cache', {
@@ -164,11 +174,63 @@ export const contractPeriods = pgTable('contract_periods', {
   carriedIn:        integer('carried_in').default(0),
   notes:            text('notes'),
   createdAt:        timestamp('created_at').defaultNow(),
+  // Points at the contract this one renews. unique() because a contract
+  // renews exactly once in this schema — a second renewal attempt is a
+  // manual DB intervention, not a supported case.
+  renewedFromPeriodId: uuid('renewed_from_period_id').unique()
+    .references((): AnyPgColumn => contractPeriods.id),
+  // Structured flag (not free text) for the seeded-data migration cases
+  // already known to be problematic (e.g. Adam's ledger dates running past
+  // contract end, Volvi's unreconciled total, Saeed's conflicting source
+  // sheets) — surfaced to admins rather than silently carried forward.
+  dataQualityFlag:  text('data_quality_flag'),
+  // Rolling-cycle mode (Amendment B): null = traditional fixed-date contract
+  // (startsOn/endsOn govern it directly, as above). A value (e.g. 30) means
+  // this period's quota window is measured from cycleAnchorDate, not
+  // startsOn — see cycleAnchorDate below. Mutually exclusive with contract
+  // line items: a rolling-cycle period always uses the aggregate
+  // contractedTotal/monthlyQuota, never a per-deliverable-type breakdown.
+  cycleDurationDays: integer('cycle_duration_days'),
+  // Set exactly once, the first time a video is detected published on/after
+  // startsOn — never recomputed afterward, even if publish dates are later
+  // reordered. Null while the cycle is still waiting for its first
+  // publish (no quota is counted yet). The cycle's real end date is always
+  // cycleAnchorDate + cycleDurationDays, never endsOn, once this is set.
+  cycleAnchorDate:  date('cycle_anchor_date'),
 });
 
+// Many-to-many period↔client join — almost always exactly one row per
+// period (the normal case), more than one for joint contracts (e.g.
+// "Jay & Kristina Rodriguez").
+export const contractPeriodClients = pgTable('contract_period_clients', {
+  id:        uuid('id').defaultRandom().primaryKey(),
+  periodId:  uuid('period_id').notNull().references(() => contractPeriods.id, { onDelete: 'cascade' }),
+  clientId:  uuid('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  unique().on(t.periodId, t.clientId),
+]);
+
+// One row per contracted deliverable type (e.g. 48 short-form + 6 youtube +
+// 8 ads for the same contract) — deliverableType is free text, not
+// restricted to the live pipeline's enum, since a contract can scope types
+// (e.g. "website") that the pipeline never counts.
+export const contractLineItems = pgTable('contract_line_items', {
+  id:              uuid('id').defaultRandom().primaryKey(),
+  periodId:        uuid('period_id').notNull().references(() => contractPeriods.id, { onDelete: 'cascade' }),
+  deliverableType: varchar('deliverable_type', { length: 40 }).notNull(),
+  contractedTotal: integer('contracted_total').notNull(),
+  monthlyQuota:    integer('monthly_quota'),
+  carriedIn:       integer('carried_in').default(0),
+  createdAt:       timestamp('created_at').defaultNow(),
+}, (t) => [
+  unique().on(t.periodId, t.deliverableType),
+]);
+
 // Deviation-only: a row exists only when a month departs from the
-// standing agreement (contractPeriods.monthlyQuota). No row means the
-// standard agreement ran that month.
+// standing agreement (contractPeriods.monthlyQuota, or a line item's
+// monthlyQuota when lineItemId is set). No row means the standard
+// agreement ran that month.
 export const contractMonths = pgTable('contract_months', {
   id:             uuid('id').defaultRandom().primaryKey(),
   periodId:       uuid('period_id').notNull().references(() => contractPeriods.id, { onDelete: 'cascade' }),
@@ -178,7 +240,16 @@ export const contractMonths = pgTable('contract_months', {
   scopeNote:      varchar('scope_note', { length: 160 }),
   amended:        boolean('amended').notNull().default(false),
   note:           text('note'),
-});
+  // null = the aggregate deviation (as before). Set = a deviation scoped to
+  // one contracted deliverable type. The (periodId, lineItemId, month)
+  // uniqueness below can't express "at most one aggregate row per
+  // (periodId, month)" since NULL never conflicts with NULL in a unique
+  // constraint — that half is enforced separately via a partial index
+  // added through raw SQL in the migrate route.
+  lineItemId:     uuid('line_item_id').references(() => contractLineItems.id, { onDelete: 'cascade' }),
+}, (t) => [
+  unique().on(t.periodId, t.lineItemId, t.month),
+]);
 
 // Frame.io comments already mirrored into ClickUp (idempotency ledger for the
 // comment sync — a Frame.io comment id lands in ClickUp exactly once).
@@ -188,12 +259,13 @@ export const frameioSyncedComments = pgTable('frameio_synced_comments', {
   syncedAt:         timestamp('synced_at').defaultNow(),
 });
 
-// The real client name behind each Frame.io comment we post. Frame.io v4
-// attributes every write to whichever account owns the OAuth token (a single
-// LBM service account, not the client), and its `owner` field on
-// API-created comments comes back empty — so downstream code has no way to
-// recover who actually said it. Recorded at creation time in
-// /api/client/comment, when the session still knows the real client name.
+// Real per-comment attribution — every comment the portal posts to Frame.io
+// goes through LBM's own server-side OAuth connection, never the individual
+// client contact's identity, so Frame.io's own "owner"/"author" on every
+// comment is the same shared service account regardless of who actually
+// typed it. This is the only place the real portal user who wrote a given
+// comment is recorded; read it back and prefer it over whatever Frame.io
+// itself reports (see lib/comment-authors.ts).
 export const frameioCommentAuthors = pgTable('frameio_comment_authors', {
   frameioCommentId: varchar('frameio_comment_id', { length: 100 }).primaryKey(),
   authorName:       text('author_name').notNull(),
@@ -225,10 +297,28 @@ export const pendingDecisions = pgTable('pending_decisions', {
   executed:     boolean('executed').notNull().default(false),
 });
 
+// Client-set ordering of their in-production videos ("this one before that
+// one") — a separate small table rather than a video_cache column, since the
+// client portal reads tasks live from ClickUp (getTasksFromList), not from
+// video_cache, and this needs to be joined in there by clickupTaskId. Rank 1
+// is highest priority; rank translates to the ClickUp native Priority field
+// (Urgent/High/Normal/Low) via lib/priority.ts — never write rank itself to
+// ClickUp, it has no numeric-priority concept.
+export const videoPriorities = pgTable('video_priorities', {
+  clickupTaskId: varchar('clickup_task_id', { length: 50 }).primaryKey(),
+  clientName:    varchar('client_name', { length: 255 }).notNull(),
+  rank:          integer('rank').notNull(),
+  updatedAt:     timestamp('updated_at').defaultNow().notNull(),
+});
+
 export type AuthUser        = typeof authUsers.$inferSelect;
 export type Client          = typeof clients.$inferSelect;
 export type VideoCache      = typeof videoCache.$inferSelect;
 export type OAuthToken      = typeof oauthTokens.$inferSelect;
 export type ContractPeriod  = typeof contractPeriods.$inferSelect;
+export type ContractPeriodClient = typeof contractPeriodClients.$inferSelect;
+export type ContractLineItem = typeof contractLineItems.$inferSelect;
 export type ContractMonth   = typeof contractMonths.$inferSelect;
 export type PendingDecision = typeof pendingDecisions.$inferSelect;
+export type VideoPriority   = typeof videoPriorities.$inferSelect;
+export type FrameioCommentAuthor = typeof frameioCommentAuthors.$inferSelect;

@@ -85,6 +85,15 @@ export async function setUrlField(task: ClickUpTaskLite, ref: FieldRef, value: s
   return true;
 }
 
+// Set a checkbox (boolean) field. No-ops (returns false) if the field isn't
+// on the task.
+export async function setCheckboxField(task: ClickUpTaskLite, ref: FieldRef, value: boolean): Promise<boolean> {
+  const field = findFieldRef(task, ref);
+  if (!field) return false;
+  await cuRequest(`/task/${task.id}/field/${field.id}`, { method: 'POST', body: JSON.stringify({ value }) });
+  return true;
+}
+
 // Set a drop-down field to the option matching `optionName` (case-insensitive),
 // using the option UUID as the value. No-ops (returns false) if the field or
 // option is absent.
@@ -103,6 +112,16 @@ export async function postComment(taskId: string, commentText: string, notifyAll
 
 export async function setTaskStatus(taskId: string, status: string): Promise<void> {
   await cuRequest(`/task/${taskId}`, { method: 'PUT', body: JSON.stringify({ status }) });
+}
+
+// ClickUp's native Priority is a task attribute (not a custom field) set via
+// a small integer, not the string name: 1=Urgent, 2=High, 3=Normal, 4=Low.
+const PRIORITY_VALUE: Record<'urgent' | 'high' | 'normal' | 'low', number> = {
+  urgent: 1, high: 2, normal: 3, low: 4,
+};
+
+export async function setTaskPriority(taskId: string, priority: 'urgent' | 'high' | 'normal' | 'low'): Promise<void> {
+  await cuRequest(`/task/${taskId}`, { method: 'PUT', body: JSON.stringify({ priority: PRIORITY_VALUE[priority] }) });
 }
 
 // Field references (UUID + current name) verified against the live LBM workspace
