@@ -40,6 +40,10 @@ export interface LedgerRow {
    *  like "In backlog": that hid the difference between Backlog and Not
    *  Ready, which read as a data bug when compared against ClickUp. */
   stateLabel: string;
+  /** Humanized ClickUp status with no wait-time suffix — the raw value the
+   *  status filter matches on, since stateLabel varies per row ("For Client
+   *  Review · 4d" vs "· 21d") even when the underlying status is the same. */
+  status: string;
   tone: 'ok' | 'warn' | 'danger' | 'info' | 'mute';
   /** ISO. The old ledger rendered "Invalid Date" on every row. */
   date: string | null;
@@ -60,7 +64,7 @@ export interface LedgerRow {
 // Capitalizes each word in a raw ClickUp status ("qc final (daniel)") while
 // keeping QC/TC as acronyms, so the ledger can show the literal status
 // instead of a collapsed stage name.
-function humanizeStatus(status: string): string {
+export function humanizeStatus(status: string): string {
   const LOWER = new Set(['in', 'to', 'on', 'of', 'a']);
   return status
     .split(' ')
@@ -207,6 +211,7 @@ export async function loadClientDetail(id: string): Promise<ClientDetailData | n
         id: t.clickupTaskId,
         title: t.clientFacingTitle ?? t.title,
         ...ledgerState(t.status, waitDays),
+        status: humanizeStatus(t.status),
         date: valid ? new Date(updated).toISOString() : null,
         frameLink: t.frameLink,
         clickupUrl: t.clickupTaskId ? `https://app.clickup.com/t/${t.clickupTaskId}` : null,
