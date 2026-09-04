@@ -224,6 +224,20 @@ body {
   }
 }
 
+/* Skeleton placeholders — client-portal loading.tsx (Reviews/Calendar). */
+@keyframes skel-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .5; }
+}
+.skel {
+  background: #ece4d8;
+  border-radius: 8px;
+  animation: skel-pulse 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel { animation: none; opacity: .7; }
+}
+
 /* Video-row action buttons (Watch video / Original footage) — equal-weight
    bordered buttons, distinct from the flat status pill next to them via a
    real border + shadow that strengthens on hover, with no implied priority
