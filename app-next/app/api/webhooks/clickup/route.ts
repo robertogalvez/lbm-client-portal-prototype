@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { db } from '@/lib/db';
 import { videoCache, clients } from '@/lib/db/schema';
 import { mapTask } from '@/lib/clickup';
@@ -126,6 +127,14 @@ export async function POST(req: Request) {
   // against the cached value) are the retry path, so a failure here is never
   // fatal to the rest of the webhook.
   const frameLinkChanged = !!mapped.frameLink && mapped.frameLink !== existing[0]?.frameioAssetId;
+  if (frameLinkChanged) {
+    // The link text changing is our only signal a new/different asset is
+    // attached — bust the cached review-grid thumbnails so the next Reviews
+    // load resolves the new one instead of waiting out the TTL. (This can't
+    // catch a new version uploaded to the *same* share link — that's what
+    // the short revalidate window in getThumbnailUrl is for.)
+    revalidateTag('frameio-thumb', { expire: 0 });
+  }
   if (frameLinkChanged && frameio.isConfigured()) {
     try {
       const asset = await frameio.resolveFinalAsset(mapped.frameLink!);
