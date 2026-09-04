@@ -356,24 +356,23 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               </MobileAccordion>
             )}
 
-            {rejectedTasks.length > 0 && (
-              <MobileAccordion label="🔄 Needs Corrections" count={rejectedTasks.length}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
-                  {rejectedTasks.map(t => (
-                    <VideoRow key={t.clickupTaskId} task={t} showViewLink
-                      label="Changes requested — in editing"
-                      color="#b06f06" colorBg="#fbeecf"
-                    />
-                  ))}
-                </div>
-              </MobileAccordion>
-            )}
-
-            {inEditionTasks.length > 0 && (
-              <MobileAccordion label="📹 In Progress — Edition" count={inEditionTasks.length}>
-                <div style={{ padding: '12px 0 4px' }}>
-                  <PriorityReorderList items={inEditionTasks.map(t => ({ id: t.clickupTaskId, node: <VideoRow task={t} label={clientStatusLabel(t.status)} /> }))} />
-                </div>
+            {(rejectedTasks.length + inEditionTasks.length) > 0 && (
+              <MobileAccordion label="📹 In Progress — Edition" count={rejectedTasks.length + inEditionTasks.length}>
+                {rejectedTasks.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
+                    {rejectedTasks.map(t => (
+                      <VideoRow key={t.clickupTaskId} task={t} showViewLink
+                        label="Changes requested — in editing"
+                        color="#b06f06" colorBg="#fbeecf"
+                      />
+                    ))}
+                  </div>
+                )}
+                {inEditionTasks.length > 0 && (
+                  <div style={{ padding: rejectedTasks.length > 0 ? '4px 0 4px' : '12px 0 4px' }}>
+                    <PriorityReorderList items={inEditionTasks.map(t => ({ id: t.clickupTaskId, node: <VideoRow task={t} label={clientStatusLabel(t.status)} /> }))} />
+                  </div>
+                )}
               </MobileAccordion>
             )}
 
@@ -624,8 +623,8 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               </DesktopAccordion>
             )}
 
-            {rejectedTasks.length > 0 && (
-              <DesktopAccordion label="🔄 Needs Corrections" count={rejectedTasks.length} style={{marginBottom:16}}>
+            {(rejectedTasks.length + inEditionTasks.length) > 0 && (
+              <DesktopAccordion label="📹 In Progress — Edition" count={rejectedTasks.length + inEditionTasks.length} style={{marginBottom:16}}>
                 {rejectedTasks.map(t => (
                   <div key={t.clickupTaskId} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #e8e0d0'}}>
                     <div style={{width:40,height:40,borderRadius:8,background:'#2a2520',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎬</div>
@@ -636,11 +635,6 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                     <Link href={`/client/videos/${t.clickupTaskId}`} style={{fontSize:12, color:'#FF6000', textDecoration:'none', fontWeight:600}}>View →</Link>
                   </div>
                 ))}
-              </DesktopAccordion>
-            )}
-
-            {inEditionTasks.length > 0 && (
-              <DesktopAccordion label="📹 In Progress — Edition" count={inEditionTasks.length} style={{marginBottom:16}}>
                 <PriorityReorderList items={inEditionTasks.map(t => ({ id: t.clickupTaskId, node: <DesktopStatusRow t={t} /> }))} />
               </DesktopAccordion>
             )}
