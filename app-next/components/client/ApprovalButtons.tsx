@@ -8,6 +8,7 @@ import { useVideoDecision } from './VideoDecisionContext';
 interface Props {
   taskId: string;
   currentApproval: string | null;
+  hasCaption?: boolean;
 }
 
 type Stage =
@@ -18,9 +19,13 @@ type Stage =
   | 'done'      // executed — show permanent badge
   | 'error';
 
-type PickerOption = 'approve' | 'changes';
+// The middle option only exists when the task has a caption (Amendment B
+// §3) — it reuses the existing "Client fixes" checklist mechanism, with the
+// caption note as the (only) checklist item, instead of a dedicated caption
+// approval field.
+type PickerOption = 'approve' | 'approve_with_fixes' | 'changes';
 
-export function ApprovalButtons({ taskId, currentApproval }: Props) {
+export function ApprovalButtons({ taskId, currentApproval, hasCaption }: Props) {
   const [stage, setStage] = useState<Stage>('idle');
   const [result, setResult] = useState<string | null>(currentApproval);
   const [feedback, setFeedback] = useState('');
@@ -132,14 +137,23 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
 
   // ── Last confirmation — no undo after this, so make the ask explicit ─────
   if (stage === 'confirm' && selectedOption) {
-    const isChanges = selectedOption === 'changes';
-    const ink = isChanges ? '#cf3f36' : '#14805f';
+    const ink = selectedOption === 'changes' ? '#cf3f36'
+      : selectedOption === 'approve_with_fixes' ? '#b06f06'
+      : '#14805f';
     const question = selectedOption === 'approve' ? 'Approve and post as is?'
+      : selectedOption === 'approve_with_fixes' ? 'Approve the video and send the caption back for a fix?'
       : 'Send this back for changes?';
 
     function handleConfirmYes() {
       if (!selectedOption) return;
-      submitDecision(selectedOption, { feedbackText: feedback.trim() || undefined });
+      const trimmed = feedback.trim();
+      // The caption fix note IS the checklist item the editor sees — always
+      // send something, even if the client left the box empty after the
+      // warning (Amendment B §3: "the caption text becomes the checklist item").
+      const extra = selectedOption === 'approve_with_fixes'
+        ? { feedbackText: trimmed || undefined, noteItems: [trimmed || 'Fix the caption'] }
+        : { feedbackText: trimmed || undefined };
+      submitDecision(selectedOption, extra);
     }
 
     const sheet = (
@@ -195,7 +209,7 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
   // All three outcomes, a shared optional textarea, and a Confirm button that
   // takes the label and colour of whatever is selected (Amendment A).
   if (stage === 'picker') {
-    const selectedBg = (color: string) => (color === '#14805f' ? '#f2f9f6' : '#fdf4f3');
+    const selectedBg = (color: string) => (color === '#14805f' ? '#f2f9f6' : color === '#b06f06' ? '#fdf6e8' : '#fdf4f3');
 
     const optionStyle = (selected: boolean, selectedColor: string): React.CSSProperties => ({
       minHeight: 48, padding: '12px 16px', borderRadius: 13,
@@ -235,14 +249,17 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
       );
     }
 
-    const isEmptySendBack = selectedOption === 'changes' && !feedback.trim();
+    // A required note either way: for "changes" it's just a strong nudge
+    // (an empty send-back is still a legitimate instruction); for the
+    // caption fix it's the actual checklist item text the editor will see.
+    const isEmptyRequiredNote = (selectedOption === 'changes' || selectedOption === 'approve_with_fixes') && !feedback.trim();
 
     function handleConfirm() {
       if (!selectedOption) return;
       // An unexplained return costs a full edit cycle and the editor has to
       // chase the AM — warn once, but let the client proceed anyway
       // (re-shooting something entirely is a legitimate instruction).
-      if (isEmptySendBack && !sendBackWarningAck) {
+      if (isEmptyRequiredNote && !sendBackWarningAck) {
         setSendBackWarningAck(true);
         return;
       }
@@ -253,11 +270,15 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
       ? { label: 'Confirm', bg: '#f1ebe1', border: '1.5px solid transparent', color: '#bdb3a5', disabled: true }
       : selectedOption === 'changes'
         ? { label: 'Send back for changes', bg: '#fbe7e2', border: '1.5px solid #cf3f36', color: '#a8302a', disabled: false }
-        : { label: 'Approve & post', bg: '#14805f', border: '1.5px solid #14805f', color: '#fff', disabled: false };
+        : selectedOption === 'approve_with_fixes'
+          ? { label: 'Approve, fix caption', bg: '#fbeecf', border: '1.5px solid #b06f06', color: '#8a5800', disabled: false }
+          : { label: 'Approve & post', bg: '#14805f', border: '1.5px solid #14805f', color: '#fff', disabled: false };
 
     const textareaPlaceholder = selectedOption === 'changes'
       ? "What needs to change? (optional — your timestamped notes are already included)"
-      : "Anything the team should know — your timestamped notes are already included";
+      : selectedOption === 'approve_with_fixes'
+        ? "What should change in the caption?"
+        : "Anything the team should know — your timestamped notes are already included";
 
     const sheet = (
       <div className="ab-picker-scrim" onClick={dismissPicker}>
@@ -274,6 +295,13 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
             title="Approve — post as is"
             sub="Goes to the posting queue now. Notes are context for future videos."
           />
+          {hasCaption && (
+            <OptionRow
+              value="approve_with_fixes" titleColor="#8a5800" selectedColor="#b06f06"
+              title="Approve video, fix the caption"
+              sub="Video is fine — the caption gets reworded before posting."
+            />
+          )}
           <OptionRow
             value="changes" titleColor="#a8302a" selectedColor="#cf3f36"
             title="Send back for changes"
@@ -299,9 +327,11 @@ export function ApprovalButtons({ taskId, currentApproval }: Props) {
             />
           </div>
 
-          {isEmptySendBack && sendBackWarningAck && (
+          {isEmptyRequiredNote && sendBackWarningAck && (
             <div style={{ fontSize: 12, color: '#a8302a', background: '#fdf4f3', border: '1px solid #f5d0c8', borderRadius: 10, padding: '8px 10px' }}>
-              Let the team know what to change, or tap Confirm again to send it back with no note.
+              {selectedOption === 'approve_with_fixes'
+                ? "Let the team know what to change in the caption, or tap Confirm again to send it with no note."
+                : "Let the team know what to change, or tap Confirm again to send it back with no note."}
             </div>
           )}
 
