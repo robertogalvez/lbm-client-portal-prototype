@@ -210,7 +210,7 @@ export default async function VideoDetailPage({ params, searchParams }: { params
         {isReview && (
           <div className="vd-dock">
             <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 4 }}>Finish your review</div>
-            <ApprovalButtons taskId={task.clickupTaskId} currentApproval={task.clientApproval} />
+            <ApprovalButtons taskId={task.clickupTaskId} currentApproval={task.clientApproval} hasCaption={hasCaption} />
           </div>
         )}
 
