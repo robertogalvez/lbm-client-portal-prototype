@@ -20,7 +20,7 @@ import { getViewAsClient } from '@/lib/view-as';
 import { getInvoicesForClient, isQuickBooksConfigured } from '@/lib/quickbooks';
 import { InstagramLink } from '@/components/InstagramLink';
 import { clientStatusLabel } from '@/lib/client-status';
-import { deliveryCategory } from '@/lib/pipeline';
+import { deliveryCategory, pipelineStageOf } from '@/lib/pipeline';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -220,13 +220,24 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
     });
   const rejectedIds = new Set(rejectedTasks.map(t => t.clickupTaskId));
 
-  // 3. In Progress - Edition: all active production statuses (excluding scheduled/posted/approved/rejected)
-  const IN_PROD_STATUSES = new Set([
-    'in progress (editor)', 'in progress (corrections)', 'in tc/qc (somu)',
-    'on its way', 'approved · fixes pending',
-  ]);
+  // 3. In Progress - Edition: everything lib/pipeline.ts's canonical stages
+  // classify as 'editing' or 'qc' — editor pass, corrections, TC/QC, and
+  // every "QC Final (<reviewer>)" variant (matched by prefix, so a new name
+  // joining the QC rotation doesn't silently drop off this list — see
+  // pipelineStageOf). Was previously a hand-maintained status list that had
+  // drifted from ClickUp's real status text ("in tc/qc (somu)" vs the actual
+  // "TC - QC (Somu)") and never had the QC Final statuses at all, so those
+  // videos fell through and never appeared anywhere in the client portal.
+  // The two legacy strings below aren't produced by ClickUp anymore and
+  // don't map to a pipeline stage — kept as a safety net for old data.
+  const LEGACY_IN_PROD_STATUSES = new Set(['on its way', 'approved · fixes pending']);
   const inEditionTasks = clientTasks
-    .filter(t => IN_PROD_STATUSES.has(norm(t.status)) && !scheduledIds.has(t.clickupTaskId) && !postedAndArchivedIds.has(t.clickupTaskId) && !approvedIds.has(t.clickupTaskId) && !rejectedIds.has(t.clickupTaskId))
+    .filter(t => {
+      const s = norm(t.status);
+      const stage = pipelineStageOf(s);
+      return (stage === 'editing' || stage === 'qc' || LEGACY_IN_PROD_STATUSES.has(s))
+        && !scheduledIds.has(t.clickupTaskId) && !postedAndArchivedIds.has(t.clickupTaskId) && !approvedIds.has(t.clickupTaskId) && !rejectedIds.has(t.clickupTaskId);
+    })
     // Unranked videos (no explicit client priority yet) sort after ranked
     // ones and keep their relative order (stable sort) — nothing jumps
     // around just because one video got a rank.
