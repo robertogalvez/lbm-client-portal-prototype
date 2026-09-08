@@ -267,8 +267,13 @@ async function fioHeaders(): Promise<Record<string, string>> {
   };
 }
 
+// Bounded so a single slow/hanging Frame.io response can't stall a page
+// render — this matters most for getThumbnailUrl, which the Reviews page
+// awaits synchronously for every review card.
+const REQUEST_TIMEOUT_MS = 10_000;
+
 async function get<T = Record<string, unknown>>(path: string, stage: FrameioStage): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { headers: await fioHeaders(), cache: 'no-store' });
+  const res = await fetch(`${BASE}${path}`, { headers: await fioHeaders(), cache: 'no-store', signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
     throw new FrameioError(`Frame.io ${res.status}: ${path}${detail ? ` — ${detail.slice(0, 500)}` : ''}`, stage, res.status);
@@ -282,6 +287,7 @@ async function post<T = Record<string, unknown>>(path: string, body: unknown, st
     headers: await fioHeaders(),
     body: JSON.stringify(body),
     cache: 'no-store',
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!res.ok) {
     // Frame.io's actual validation reason lives in the response body — surface
@@ -306,7 +312,7 @@ export function parseVersionStackId(frameLink: string): string | null {
 // code already fetches share URLs anonymously).
 export async function resolveShortLink(url: string): Promise<string> {
   try {
-    const res = await fetch(url, { redirect: 'follow', cache: 'no-store' });
+    const res = await fetch(url, { redirect: 'follow', cache: 'no-store', signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
     return res.url || url;
   } catch {
     return url;
@@ -371,22 +377,30 @@ export async function resolveShareAssetId(shareId: string): Promise<{ assetId: s
     `/accounts/${accountId()}/files?parent_id=${collectionId}`,
     `/accounts/${accountId()}/collections/${collectionId}`,
   ];
+  // Fired concurrently, not one-by-one — this endpoint shape is genuinely
+  // unconfirmed (see comment above), so on any link needing this fallback we
+  // don't know in advance which of the 6 will work. Trying them in sequence
+  // meant up to 6x REQUEST_TIMEOUT_MS of real wall-clock time on the Reviews
+  // page for a single thumbnail before giving up.
   const attempts: Record<string, unknown> = {};
-  for (const path of candidatePaths) {
-    try {
-      const childRaw = await get<Record<string, unknown>>(path, 'parse');
-      attempts[path] = childRaw;
-      const childData = ((childRaw as { data?: unknown })?.data ?? childRaw) as unknown;
-      const childId = firstOf(
-        firstChildId(childData),
-        firstChildId((childData as Record<string, unknown> | undefined)?.assets),
-        firstChildId((childData as Record<string, unknown> | undefined)?.items),
-      );
-      if (childId) return { assetId: childId, raw: { share: shareRaw, resolvedVia: path, attempts } };
-    } catch (e) {
-      const err = e as FrameioError;
-      attempts[path] = { error: err?.message ?? String(e), status: err?.status };
+  const results = await Promise.allSettled(candidatePaths.map(path => get<Record<string, unknown>>(path, 'parse')));
+  for (let i = 0; i < candidatePaths.length; i++) {
+    const path = candidatePaths[i];
+    const result = results[i];
+    if (result.status === 'rejected') {
+      const err = result.reason as FrameioError;
+      attempts[path] = { error: err?.message ?? String(result.reason), status: err?.status };
+      continue;
     }
+    const childRaw = result.value;
+    attempts[path] = childRaw;
+    const childData = ((childRaw as { data?: unknown })?.data ?? childRaw) as unknown;
+    const childId = firstOf(
+      firstChildId(childData),
+      firstChildId((childData as Record<string, unknown> | undefined)?.assets),
+      firstChildId((childData as Record<string, unknown> | undefined)?.items),
+    );
+    if (childId) return { assetId: childId, raw: { share: shareRaw, resolvedVia: path, attempts } };
   }
   return { assetId: null, raw: { share: shareRaw, collectionId, attempts } };
 }

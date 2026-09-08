@@ -238,6 +238,21 @@ body {
   .skel { animation: none; opacity: .7; }
 }
 
+/* Loading spinner — Frame.io embed on the video detail page. */
+@keyframes spin-rotate {
+  to { transform: rotate(360deg); }
+}
+.spinner {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,.25);
+  border-top-color: rgba(255,255,255,.9);
+  animation: spin-rotate .8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 2s; }
+}
+
 /* Video-row action buttons (Watch video / Original footage) — equal-weight
    bordered buttons, distinct from the flat status pill next to them via a
    real border + shadow that strengthens on hover, with no implied priority
