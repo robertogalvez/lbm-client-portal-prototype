@@ -15,8 +15,13 @@ function headers() {
 // delivery) — it used to be 0 (no caching at all), which meant every single
 // /client render re-fetched and re-paginated the client's entire ClickUp task
 // list, even just navigating back from a video or switching tabs.
+// Bounded so a single slow/hanging ClickUp response can't stall the whole
+// page render — getTasksFromList pages through this in a loop, so without a
+// cap one bad page turns into a wait with no upper limit.
+const REQUEST_TIMEOUT_MS = 10_000;
+
 async function get(path: string) {
-  const res = await fetch(`${BASE}${path}`, { headers: headers(), next: { revalidate: 30, tags: ['clickup-tasks'] } });
+  const res = await fetch(`${BASE}${path}`, { headers: headers(), next: { revalidate: 30, tags: ['clickup-tasks'] }, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`ClickUp ${res.status}: ${path}`);
   return res.json();
 }

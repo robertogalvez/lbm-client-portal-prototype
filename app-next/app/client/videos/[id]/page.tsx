@@ -13,6 +13,7 @@ import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { getViewAsClient } from '@/lib/view-as';
 import { InstagramLink } from '@/components/InstagramLink';
 import { clientStatusLabel } from '@/lib/client-status';
+import { FrameioEmbed } from '@/components/client/FrameioEmbed';
 import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
@@ -115,7 +116,7 @@ export default async function VideoDetailPage({ params, searchParams }: { params
   );
 
   const player = embedUrl ? (
-    <iframe src={embedUrl} style={{ width: '100%', height: '100%', border: 'none', display: 'block', position: 'absolute', inset: 0 }} allow="fullscreen; picture-in-picture" allowFullScreen />
+    <FrameioEmbed src={embedUrl} />
   ) : (
     <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'linear-gradient(135deg, #2c3540, #4a5562)' }}>
       <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'rgba(255,255,255,.15)', display: 'grid', placeItems: 'center' }}>
@@ -243,6 +244,15 @@ export default async function VideoDetailPage({ params, searchParams }: { params
 
   return (
     <>
+    {/* Warms the TLS/DNS handshake for Frame.io's app before the iframe tag
+        even exists, so its own (unavoidably slow) app boot starts sooner.
+        React hoists <link> tags rendered anywhere in the tree into <head>. */}
+    {embedUrl && (
+      <>
+        <link rel="preconnect" href="https://app.frame.io" />
+        <link rel="preconnect" href="https://next.frame.io" />
+      </>
+    )}
     {viewAsClient && <ViewAsBanner clientName={viewAsClient.name} />}
     <VideoDecisionProvider initialDecided={!!task.clientApproval}>
       {shell}
