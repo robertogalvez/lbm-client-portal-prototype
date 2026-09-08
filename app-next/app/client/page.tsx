@@ -22,6 +22,7 @@ import { InstagramLink } from '@/components/InstagramLink';
 import { clientStatusLabel } from '@/lib/client-status';
 import { deliveryCategory } from '@/lib/pipeline';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export const dynamic = 'force-dynamic';
 
@@ -256,7 +257,13 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
         {/* 16:9 thumbnail */}
         <div style={{position:'relative', paddingTop:'56.25%', background:'#1a1714'}}>
           {thumb ? (
-            <img src={thumb} alt={t.title} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}} />
+            // unoptimized: Frame.io's thumbnail URL is signed + time-limited and
+            // its host isn't fixed, so it can't be allowlisted via
+            // next.config images.remotePatterns — Next's own optimizer would
+            // just 400 on it. The real win here is next/image's native lazy
+            // loading (this grid can hold many review cards), not re-encoding
+            // an already-CDN-served image.
+            <Image src={thumb} alt={t.title} fill unoptimized sizes="(min-width: 1100px) 33vw, (min-width: 780px) 50vw, 100vw" style={{objectFit:'cover'}} />
           ) : (
             <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:36}}>🎬</div>
           )}
@@ -784,14 +791,20 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
   const waiting = Math.floor((Date.now() - updatedDate.getTime()) / 86_400_000);
   return (
     <div style={{ background: '#fff', border: '1px solid #ece4d8', borderRadius: 22, overflow: 'hidden' }}>
-      {/* Thumbnail */}
+      {/* Thumbnail — CSS background-image before was invisible to next/image
+          (and the browser's own lazy-loading), so every card's thumbnail
+          downloaded up front regardless of scroll position. */}
       <div style={{
         position: 'relative', aspectRatio: '16/10' as const,
-        background: thumbnail
-          ? `url(${JSON.stringify(thumbnail)}) center/cover no-repeat`
-          : 'linear-gradient(135deg, #2c3540, #4a5562)',
+        background: thumbnail ? undefined : 'linear-gradient(135deg, #2c3540, #4a5562)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
+        {thumbnail && (
+          // unoptimized — see DesktopVideoCard above: Frame.io's thumbnail
+          // host is signed/time-limited and not fixed, so it can't go through
+          // Next's own image optimizer via remotePatterns.
+          <Image src={thumbnail} alt={task.clientFacingTitle || task.title} fill unoptimized sizes="(min-width: 900px) 460px, 100vw" style={{ objectFit: 'cover' }} />
+        )}
       </div>
 
       {/* Body */}
