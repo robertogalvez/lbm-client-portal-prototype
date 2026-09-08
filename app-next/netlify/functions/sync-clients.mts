@@ -1,7 +1,7 @@
 import type { Config } from '@netlify/functions';
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 // Inline schema to avoid bundling the full app
 const { pgTable, varchar, text, timestamp, uuid, integer, boolean, jsonb } = await import('drizzle-orm/pg-core');
@@ -96,7 +96,7 @@ export default async function handler() {
   // The clients table is small — one read up front replaces the two per-task
   // lookups (prior-name capture + legacy row reconciliation) the loop needs.
   const allClients = await db
-    .select({ id: clients.id, name: clients.name, clickupTaskId: clients.clickupTaskId })
+    .select({ id: clients.id, name: clients.name, clickupTaskId: clients.clickupTaskId, clientStatus: clients.clientStatus })
     .from(clients);
   const clientsByTaskId = new Map(allClients.map(c => [c.clickupTaskId, c]));
 
@@ -152,8 +152,29 @@ export default async function handler() {
     synced++;
   }
 
-  console.log(`Client sync complete: ${synced} synced, ${skipped.length} skipped (no Client Status): ${skipped.join(', ')}`);
-  return new Response(JSON.stringify({ synced, skipped: skipped.length, skippedNames: skipped, total: tasks.length }), {
+  // A client whose ClickUp task no longer appears in the Master Clients List
+  // at all (deleted, or moved off the list) never gets touched by the loop
+  // above, so its last-synced status — often still "Active" — would stick
+  // around forever and keep it on the dashboard. Clearing clientStatus (not
+  // deleting the row) hides it the same way a Paused/Churned client is
+  // hidden, while leaving its contracts, video history and portal-user link
+  // intact — contract_periods cascades on clients.id, so a hard delete here
+  // would take that history down with it.
+  const presentTaskIds = new Set(tasks.map(t => t.id as string));
+  const staleClientIds = allClients
+    .filter(c => !presentTaskIds.has(c.clickupTaskId) && c.clientStatus !== null)
+    .map(c => c.id);
+  if (staleClientIds.length > 0) {
+    await db.update(clients)
+      .set({ clientStatus: null, lastSyncedAt: new Date() })
+      .where(inArray(clients.id, staleClientIds));
+  }
+
+  console.log(`Client sync complete: ${synced} synced, ${skipped.length} skipped (no Client Status): ${skipped.join(', ')}, ${staleClientIds.length} removed from ClickUp (status cleared)`);
+  return new Response(JSON.stringify({
+    synced, skipped: skipped.length, skippedNames: skipped, total: tasks.length,
+    removedFromClickUp: staleClientIds.length,
+  }), {
     headers: { 'Content-Type': 'application/json' },
   });
 }
