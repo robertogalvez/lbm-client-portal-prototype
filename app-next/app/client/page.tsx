@@ -237,10 +237,15 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
 
   // Fetch Frame.io thumbnails for review cards in parallel — authenticated
   // via the v4 API (media_links.thumbnail), not scraped from the share page.
+  // Only needed on the Reviews tab itself — this used to run on every single
+  // /client load (Calendar, Report, Invoices, Account included) even though
+  // none of those tabs render a review card.
   const thumbnails: Record<string, string | null> = {};
-  await Promise.all(reviewTasks.map(async t => {
-    if (t.frameLink) thumbnails[t.clickupTaskId] = await getThumbnailUrl(t.frameLink);
-  }));
+  if (effectiveTab === 'reviews') {
+    await Promise.all(reviewTasks.map(async t => {
+      if (t.frameLink) thumbnails[t.clickupTaskId] = await getThumbnailUrl(t.frameLink);
+    }));
+  }
 
   const tabItems = [
     { label: 'Reviews', href: '/client?tab=reviews', badge: reviewTasks.length, active: effectiveTab === 'reviews', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:22,height:22}}><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg> },

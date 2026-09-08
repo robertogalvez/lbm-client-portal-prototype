@@ -7,13 +7,16 @@ function headers() {
   };
 }
 
-// Tagged so a client decision (approve/changes) can bust this cache on write
-// via revalidateTag('clickup-tasks') — see app/api/client/approve/route.ts.
-// Without that, a task the client just decided on could keep reading back
-// its pre-decision status for up to the full revalidate window.
-// Set to 0 (no caching) so calendar sees publish dates as soon as the AM updates ClickUp.
+// Tagged so a client decision (approve/changes) busts this cache on write —
+// see app/api/client/approve/route.ts — and so does any ClickUp-side edit,
+// via the same tag in app/api/webhooks/clickup/route.ts. Both are immediate
+// (expire: 0), so this revalidate window is only a fallback for changes that
+// happen without going through either of those (e.g. a missed webhook
+// delivery) — it used to be 0 (no caching at all), which meant every single
+// /client render re-fetched and re-paginated the client's entire ClickUp task
+// list, even just navigating back from a video or switching tabs.
 async function get(path: string) {
-  const res = await fetch(`${BASE}${path}`, { headers: headers(), next: { revalidate: 0, tags: ['clickup-tasks'] } });
+  const res = await fetch(`${BASE}${path}`, { headers: headers(), next: { revalidate: 30, tags: ['clickup-tasks'] } });
   if (!res.ok) throw new Error(`ClickUp ${res.status}: ${path}`);
   return res.json();
 }

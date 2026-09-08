@@ -31,6 +31,12 @@ export async function POST(req: Request) {
   const body = JSON.parse(rawBody) as { event: string; task_id: string };
   const { event, task_id } = body;
 
+  // Any ClickUp-side change to any task invalidates the client portal's
+  // cached task list (see the `get()` comment in lib/clickup.ts) — this is
+  // what lets that list be cached at all without AM edits in ClickUp going
+  // stale for up to the revalidate window.
+  revalidateTag('clickup-tasks', { expire: 0 });
+
   if (event === 'taskDeleted') {
     await db.delete(videoCache).where(eq(videoCache.clickupTaskId, task_id));
     return NextResponse.json({ ok: true });
