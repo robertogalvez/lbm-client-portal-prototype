@@ -250,6 +250,18 @@ export async function getTasksFromList(listId: string, includeArchived = false):
     .map(t => mapTask(t, fieldOptions));
 }
 
+// Single-task lookup — used by the video detail page so opening a video
+// doesn't have to page through and map the client's entire task list just
+// to find the one task it needs. Returns null on a 404 (task genuinely
+// doesn't exist); other HTTP errors still throw, same as the list fetch.
+export async function getTask(taskId: string): Promise<MappedTask | null> {
+  const res = await fetch(`${BASE}/task/${taskId}?custom_fields=true`, { headers: headers(), next: { revalidate: 0, tags: ['clickup-tasks'] } });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`ClickUp ${res.status}: /task/${taskId}`);
+  const task: ClickUpTask = await res.json();
+  return mapTask(task);
+}
+
 export async function getTasksFromFolder(folderId: string, includeArchived = false): Promise<MappedTask[]> {
   const data = await get(`/folder/${folderId}/list`);
   const lists: { id: string }[] = data.lists ?? [];

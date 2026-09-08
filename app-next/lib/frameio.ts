@@ -35,6 +35,7 @@ import { db } from '@/lib/db';
 import { oauthTokens } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { withRealAuthors } from '@/lib/comment-authors';
+import { unstable_cache } from 'next/cache';
 
 const BASE = 'https://api.frame.io/v4';
 const AUTH_URL = process.env.FRAMEIO_OAUTH_AUTH_URL || 'https://ims-na1.adobelogin.com/ims/authorize';
@@ -471,7 +472,20 @@ export async function resolveFinalAsset(frameLink: string): Promise<FinalAsset> 
 // the v4 API's own media_links.thumbnail field. Never throws — any failure
 // (not connected, asset not ready, network) degrades to null so callers can
 // fall back to a placeholder, same contract as the scrape it replaces.
-export async function getThumbnailUrl(frameLink: string): Promise<string | null> {
+//
+// Resolving a thumbnail from scratch means the same 2-4 sequential Frame.io
+// round trips as resolveFileId() (short-link/share resolution, version-stack
+// lookup) plus the media_links fetch itself — for EVERY review card, on
+// EVERY Reviews page load. Wrapped in unstable_cache so repeat loads within
+// the revalidate window reuse the result instead of re-walking that chain.
+// Deliberately NOT applied to resolveFileId/resolveFinalAsset themselves —
+// publish-video.ts and frameio-comment-sync.ts call those directly and need
+// the current head version, not a cached one. revalidate is kept short (not
+// "forever") because a new version uploaded to the *same* share link changes
+// which asset is the head version without the link text itself changing, so
+// the webhook's frameLinkChanged check (see app/api/webhooks/clickup/route.ts)
+// can't always catch it — the TTL is the correctness backstop for that case.
+async function getThumbnailUrlUncached(frameLink: string): Promise<string | null> {
   try {
     const fileId = await resolveFileId(frameLink);
     const file = await get<{ data?: { media_links?: { thumbnail?: { url?: string | null; download_url?: string | null } } } }>(
@@ -487,6 +501,12 @@ export async function getThumbnailUrl(frameLink: string): Promise<string | null>
     return null;
   }
 }
+
+export const getThumbnailUrl = unstable_cache(
+  getThumbnailUrlUncached,
+  ['frameio-thumbnail-url'],
+  { tags: ['frameio-thumb'], revalidate: 300 },
+);
 
 // ── Comments ──────────────────────────────────────────────────────────────────
 

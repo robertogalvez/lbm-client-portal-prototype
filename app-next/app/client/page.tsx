@@ -10,9 +10,9 @@ import { statusColors } from '@/components/ui/StatusBadge';
 import type { MappedTask } from '@/lib/clickup';
 import { NotificationBell } from '@/components/client/NotificationBell';
 import { LogoutButton } from '@/components/client/LogoutButton';
-import { CalendarView } from '@/components/client/CalendarView';
-import { InvoicesView } from '@/components/client/InvoicesView';
-import { MonthlyReport } from '@/components/client/MonthlyReport';
+import { CalendarView } from '@/components/client/CalendarView.lazy';
+import { InvoicesView } from '@/components/client/InvoicesView.lazy';
+import { MonthlyReport } from '@/components/client/MonthlyReport.lazy';
 import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { BannerStats } from '@/components/client/BannerStats';
 import { PriorityReorderList } from '@/components/client/PriorityReorderList';
@@ -22,6 +22,7 @@ import { InstagramLink } from '@/components/InstagramLink';
 import { clientStatusLabel } from '@/lib/client-status';
 import { deliveryCategory } from '@/lib/pipeline';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export const dynamic = 'force-dynamic';
 
@@ -118,13 +119,25 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   const showCalendar = clientRecord?.showCalendar ?? false;
   const priorityRank = new Map(priorityRows.map(r => [r.clickupTaskId, r.rank]));
 
+  const quickbooksConnected = isQuickBooksConfigured();
+  // Only surface the Invoices tab once QuickBooks is actually wired up — otherwise
+  // clients would see a tab full of labeled "sample data" as if it were real.
+  const showInvoices = (clientRecord?.showInvoices ?? false) && quickbooksConnected;
+  const showReport = clientRecord?.showReport ?? false;
+  const effectiveTab =
+    (tab === 'invoices' && !showInvoices) || (tab === 'calendar' && !showCalendar) || (tab === 'report' && !showReport)
+      ? 'reviews'
+      : tab;
+
   // Report contract data (§5.6/§7.1) — every period on file for this client
   // (including a joint contract they're part of, via contract_period_clients
   // — falling back to the legacy direct clientId column for any period PR 1's
   // backfill hasn't reached) plus their deviation-only contract_months rows,
   // so the report's month selector can resolve the right agreement for
   // whichever month is chosen, the same way the dashboard's month mode does.
-  const reportPeriods = clientRecord?.id
+  // Only fetched when the Report tab is actually the one being viewed — this
+  // used to run unconditionally on every Reviews/Calendar load too.
+  const reportPeriods = (effectiveTab === 'report' && clientRecord?.id)
     ? await (async () => {
         const [viaJoin, viaLegacyColumn] = await Promise.all([
           db.select({ periodId: contractPeriodClients.periodId }).from(contractPeriodClients).where(eq(contractPeriodClients.clientId, clientRecord.id)),
@@ -139,17 +152,10 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
   const reportMonthRows = reportPeriods.length > 0
     ? await db.select().from(contractMonths).where(inArray(contractMonths.periodId, reportPeriods.map(p => p.id)))
     : [];
-  const quickbooksConnected = isQuickBooksConfigured();
-  // Only surface the Invoices tab once QuickBooks is actually wired up — otherwise
-  // clients would see a tab full of labeled "sample data" as if it were real.
-  const showInvoices = (clientRecord?.showInvoices ?? false) && quickbooksConnected;
-  const showReport = clientRecord?.showReport ?? false;
 
-  const clientInvoices = showInvoices ? await getInvoicesForClient(clientName) : [];
-  const effectiveTab =
-    (tab === 'invoices' && !showInvoices) || (tab === 'calendar' && !showCalendar) || (tab === 'report' && !showReport)
-      ? 'reviews'
-      : tab;
+  // Same deal — QuickBooks is only worth calling when the Invoices tab is
+  // the one actually being rendered.
+  const clientInvoices = effectiveTab === 'invoices' ? await getInvoicesForClient(clientName) : [];
 
   const clientTasks = allTasks.filter(t => t.clientName === clientName);
   const reviewTasks = clientTasks.filter(t => norm(t.status) === 'for client review');
@@ -251,7 +257,13 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
         {/* 16:9 thumbnail */}
         <div style={{position:'relative', paddingTop:'56.25%', background:'#1a1714'}}>
           {thumb ? (
-            <img src={thumb} alt={t.title} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}} />
+            // unoptimized: Frame.io's thumbnail URL is signed + time-limited and
+            // its host isn't fixed, so it can't be allowlisted via
+            // next.config images.remotePatterns — Next's own optimizer would
+            // just 400 on it. The real win here is next/image's native lazy
+            // loading (this grid can hold many review cards), not re-encoding
+            // an already-CDN-served image.
+            <Image src={thumb} alt={t.title} fill unoptimized sizes="(min-width: 1100px) 33vw, (min-width: 780px) 50vw, 100vw" style={{objectFit:'cover'}} />
           ) : (
             <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:36}}>🎬</div>
           )}
@@ -779,14 +791,20 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
   const waiting = Math.floor((Date.now() - updatedDate.getTime()) / 86_400_000);
   return (
     <div style={{ background: '#fff', border: '1px solid #ece4d8', borderRadius: 22, overflow: 'hidden' }}>
-      {/* Thumbnail */}
+      {/* Thumbnail — CSS background-image before was invisible to next/image
+          (and the browser's own lazy-loading), so every card's thumbnail
+          downloaded up front regardless of scroll position. */}
       <div style={{
         position: 'relative', aspectRatio: '16/10' as const,
-        background: thumbnail
-          ? `url(${JSON.stringify(thumbnail)}) center/cover no-repeat`
-          : 'linear-gradient(135deg, #2c3540, #4a5562)',
+        background: thumbnail ? undefined : 'linear-gradient(135deg, #2c3540, #4a5562)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
+        {thumbnail && (
+          // unoptimized — see DesktopVideoCard above: Frame.io's thumbnail
+          // host is signed/time-limited and not fixed, so it can't go through
+          // Next's own image optimizer via remotePatterns.
+          <Image src={thumbnail} alt={task.clientFacingTitle || task.title} fill unoptimized sizes="(min-width: 900px) 460px, 100vw" style={{ objectFit: 'cover' }} />
+        )}
       </div>
 
       {/* Body */}

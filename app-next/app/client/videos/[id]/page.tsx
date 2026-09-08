@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { getTasksFromList } from '@/lib/clickup';
+import { getTask } from '@/lib/clickup';
 import { ApprovalButtons } from '@/components/client/ApprovalButtons';
 import { ReviewTabs, TabPanel } from '@/components/client/ReviewTabs';
 import { CaptionCard } from '@/components/client/CaptionCard';
@@ -58,25 +58,22 @@ export default async function VideoDetailPage({ params, searchParams }: { params
   const effectiveClientName = viewAsClient ? viewAsClient.name : userRow.clientName;
   if (!effectiveClientName) redirect('/client');
 
-  const allTasks = await getTasksFromList(process.env.CLICKUP_LIST_ID!, false);
-  const task = allTasks.find(t => t.clickupTaskId === id && t.clientName === effectiveClientName);
-  if (!task) {
-    const anyTask = allTasks.find(t => t.clickupTaskId === id);
-    if (anyTask) {
-      return (
-        <main style={{ minHeight: '100vh', background: '#faf6f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: 'system-ui, sans-serif' }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: '32px 28px', maxWidth: 420, border: '1px solid #ece4d8' }}>
-            <h2 style={{ fontSize: 17, fontWeight: 700, color: '#221e18', margin: '0 0 10px' }}>Access mismatch</h2>
-            <p style={{ fontSize: 13, color: '#6c6357', lineHeight: 1.6, margin: '0 0 16px' }}>
-              {viewAsClient ? "You're viewing" : 'Your account is linked to'} client <strong>{effectiveClientName ?? '(none)'}</strong>, but this video belongs to client <strong>{anyTask.clientName ?? '(none)'}</strong>.
-            </p>
-            <p style={{ fontSize: 12, color: '#9d9488', margin: 0 }}>Contact your account manager to fix your portal access.</p>
-          </div>
-        </main>
-      );
-    }
-    notFound();
+  const anyTask = await getTask(id);
+  if (!anyTask) notFound();
+  if (anyTask.clientName !== effectiveClientName) {
+    return (
+      <main style={{ minHeight: '100vh', background: '#faf6f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: 'system-ui, sans-serif' }}>
+        <div style={{ background: '#fff', borderRadius: 16, padding: '32px 28px', maxWidth: 420, border: '1px solid #ece4d8' }}>
+          <h2 style={{ fontSize: 17, fontWeight: 700, color: '#221e18', margin: '0 0 10px' }}>Access mismatch</h2>
+          <p style={{ fontSize: 13, color: '#6c6357', lineHeight: 1.6, margin: '0 0 16px' }}>
+            {viewAsClient ? "You're viewing" : 'Your account is linked to'} client <strong>{effectiveClientName ?? '(none)'}</strong>, but this video belongs to client <strong>{anyTask.clientName ?? '(none)'}</strong>.
+          </p>
+          <p style={{ fontSize: 12, color: '#9d9488', margin: 0 }}>Contact your account manager to fix your portal access.</p>
+        </div>
+      </main>
+    );
   }
+  const task = anyTask;
 
   const normStatus = task.status.toLowerCase().replace(/\s+/g, ' ').trim();
   const isReview = normStatus.includes('client review');
