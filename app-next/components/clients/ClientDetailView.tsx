@@ -11,7 +11,7 @@ import { Toggle } from '@/components/ui/Toggle';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { CoverageBar, CoverageLegend } from '@/components/ui/Bars';
-import { T, MONO, ATTENTION, COVERAGE_COLORS } from '@/components/ui/tokens';
+import { T, MONO, COVERAGE_COLORS } from '@/components/ui/tokens';
 import { ContractChannelsDrawer } from '@/components/shared/ContractChannelsDrawer';
 import { PLATFORMS } from '@/lib/socialLinks';
 import { fmtCalendarDate } from '@/lib/calendar-date';
@@ -220,16 +220,7 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
                     ))}
                   </div>
 
-                  {cov.notStarted > 0 && (
-                    <div style={{ background: ATTENTION.bg, borderRadius: 10, padding: '12px 14px', marginTop: 18 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 600, color: ATTENTION.head }}>{cov.notStarted} videos are sold but not started.</div>
-                      <p style={{ fontSize: 12.5, color: ATTENTION.body, lineHeight: 1.5, margin: '4px 0 0' }}>
-                        {row.stages.backlog === 0
-                          ? `Nothing is in backlog for ${firstName}, so the gap will not close on its own — brief or shoot before it becomes a missed contract.`
-                          : `${row.stages.backlog} in backlog against a gap of ${cov.notStarted} — keep briefing to stay ahead of the term.`}
-                      </p>
-                    </div>
-                  )}
+
                 </Card>
               );
             })()}
