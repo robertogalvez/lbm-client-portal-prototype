@@ -215,8 +215,6 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
 
             {filtered.map(r => {
               const isExpanded = expandedId === r.id;
-              const owed = owedCount(r);
-
               return (
                 <div key={r.id}>
                   {/* Main row — click to expand/collapse stage pills */}
@@ -261,8 +259,8 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
                         <>
                           <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 13, color: T.ink2 }}>
                             <span>{r.coverage.delivered} / {r.coverage.sold}</span>
-                            {owed !== null && owed > 0 && (
-                              <span style={{ fontSize: 11.5, color: T.ink3 }}>{owed} owed</span>
+                            {(r.coverage?.notStarted ?? 0) > 0 && (
+                              <span style={{ fontSize: 11.5, color: T.danger }}>{r.coverage!.notStarted} not started</span>
                             )}
                           </span>
                           <span style={{ display: 'block', marginTop: 7 }}>
@@ -319,7 +317,7 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
                       {r.stages.editing > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.editing} editing</StatusBadge>}
                       {r.stages.qc > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.qc} in QC</StatusBadge>}
                       {r.stages.backlog > 0 && <StatusBadge tone="slate" dot={false}>{r.stages.backlog} in backlog</StatusBadge>}
-                      {r.scheduledAhead > 0 && <StatusBadge tone="green" dot={false}>{r.scheduledAhead} ready to post</StatusBadge>}
+                      {r.scheduledAhead > 0 && <StatusBadge tone="green" dot={false}>{r.scheduledAhead} scheduled</StatusBadge>}
                       {(r.stages.ready - r.scheduledAhead) > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.ready - r.scheduledAhead} not scheduled</StatusBadge>}
                       {(r.coverage?.notStarted ?? 0) > 0 && <StatusBadge tone="red" dot={false}>{r.coverage!.notStarted} not started</StatusBadge>}
                       {r.unclassified > 0 && (
