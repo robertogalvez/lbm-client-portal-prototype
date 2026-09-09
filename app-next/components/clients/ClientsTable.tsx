@@ -166,8 +166,13 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
                   <span style={{ minWidth: 0 }}>
                     {r.coverage ? (
                       <>
-                        <span style={{ fontSize: 13, color: T.ink2 }}>
-                          {r.coverage.delivered} / {r.coverage.sold}
+                        <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13, color: T.ink2 }}>
+                          <span title="Videos delivered (posted or scheduled) out of total contracted">{r.coverage.delivered} / {r.coverage.sold}</span>
+                          {r.coverage.inPipeline > 0 && (
+                            <span title={`${r.coverage.delivered + r.coverage.inPipeline} total videos accounted for in ClickUp — ${r.coverage.delivered} delivered + ${r.coverage.inPipeline} in production`} style={{ fontSize: 11.5, color: T.ink3 }}>
+                              {r.coverage.delivered + r.coverage.inPipeline} in flight
+                            </span>
+                          )}
                         </span>
                         <span style={{ display: 'block', marginTop: 7 }}>
                           <CoverageBar
@@ -187,13 +192,19 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
                   {/* BLOCKED */}
                   <span style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-start' }}>
                     {r.waitingOnClient > 0 && (
-                      <StatusBadge tone="amber" dot={false}>{r.waitingOnClient} on client</StatusBadge>
+                      <span title="Videos waiting on the client to review and approve before we can continue">
+                        <StatusBadge tone="amber" dot={false}>{r.waitingOnClient} on client</StatusBadge>
+                      </span>
                     )}
                     {r.stalledWithUs > 0 && (
-                      <StatusBadge tone="red" dot={false}>{r.stalledWithUs} on us</StatusBadge>
+                      <span title="Videos stalled in editing or QC on our side for 3+ days — needs attention">
+                        <StatusBadge tone="red" dot={false}>{r.stalledWithUs} on us</StatusBadge>
+                      </span>
                     )}
                     {r.waitingOnClient === 0 && r.stalledWithUs === 0 && (
-                      <StatusBadge tone="slate" dot={false}>nothing blocked</StatusBadge>
+                      <span title="No videos are stuck — everything is moving through the pipeline normally">
+                        <StatusBadge tone="slate" dot={false}>nothing blocked</StatusBadge>
+                      </span>
                     )}
                   </span>
 
@@ -218,14 +229,14 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
                   padding: '8px 24px 12px 60px',
                   borderTop: `1px solid ${T.dividerLight}`,
                 }}>
-                  {!r.termExpired && (r.coverage?.notStarted ?? 0) > 0 && <StatusBadge tone="red" dot={false}>{r.coverage!.notStarted} not started</StatusBadge>}
-                  {r.stages.backlog > 0 && <StatusBadge tone="slate" dot={false}>{r.stages.backlog} in backlog</StatusBadge>}
-                  {r.stages.editing > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.editing} editing</StatusBadge>}
-                  {r.stages.qc > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.qc} in QC</StatusBadge>}
-                  {r.stages.review > 0 && <StatusBadge tone="amber" dot={false}>{r.stages.review} in review</StatusBadge>}
-                  {(r.stages.ready - r.scheduledAhead) > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.ready - r.scheduledAhead} not scheduled</StatusBadge>}
-                  {r.scheduledAhead > 0 && <StatusBadge tone="green" dot={false}>{r.scheduledAhead} scheduled</StatusBadge>}
-                  {r.coverage && (r.coverage.delivered - r.scheduledAhead) > 0 && <StatusBadge tone="green" dot={false}>{r.coverage.delivered - r.scheduledAhead} posted live</StatusBadge>}
+                  {!r.termExpired && (r.coverage?.notStarted ?? 0) > 0 && <span title="Sold as part of the contract but no ClickUp task exists yet — needs to be briefed or shot"><StatusBadge tone="red" dot={false}>{r.coverage!.notStarted} not started</StatusBadge></span>}
+                  {r.stages.backlog > 0 && <span title="Task created in ClickUp but production hasn't started yet"><StatusBadge tone="slate" dot={false}>{r.stages.backlog} in backlog</StatusBadge></span>}
+                  {r.stages.editing > 0 && <span title="Actively being edited by the team"><StatusBadge tone="blue" dot={false}>{r.stages.editing} editing</StatusBadge></span>}
+                  {r.stages.qc > 0 && <span title="In quality check before going to client review"><StatusBadge tone="blue" dot={false}>{r.stages.qc} in QC</StatusBadge></span>}
+                  {r.stages.review > 0 && <span title="Sent to client for approval — waiting on their feedback"><StatusBadge tone="amber" dot={false}>{r.stages.review} in review</StatusBadge></span>}
+                  {(r.stages.ready - r.scheduledAhead) > 0 && <span title="Approved and ready to post — needs a publish date set in VistaSocial"><StatusBadge tone="blue" dot={false}>{r.stages.ready - r.scheduledAhead} not scheduled</StatusBadge></span>}
+                  {r.scheduledAhead > 0 && <span title="Queued in VistaSocial with a future publish date — going live soon"><StatusBadge tone="green" dot={false}>{r.scheduledAhead} scheduled</StatusBadge></span>}
+                  {r.coverage && (r.coverage.delivered - r.scheduledAhead) > 0 && <span title="Posted live and counted toward contract delivery"><StatusBadge tone="green" dot={false}>{r.coverage.delivered - r.scheduledAhead} posted live</StatusBadge></span>}
                   {r.unclassified > 0 && (
                     <span title={`ClickUp status not mapped: ${r.unclassifiedStatuses.join(', ')}`}>
                       <StatusBadge tone="red" dot={false}>{r.unclassified} unmapped</StatusBadge>
