@@ -26,9 +26,11 @@ interface Props {
   openClientId: string | null;
   /** A ClickUp fetch failure means the numbers below are stale — say so. */
   error?: string | null;
+  /** When false, suppresses the Clients page header (use when embedded inside another page). */
+  showHeader?: boolean;
 }
 
-export function ClientsPageClient({ rows, clientRecords, openClientId, error }: Props) {
+export function ClientsPageClient({ rows, clientRecords, openClientId, error, showHeader = true }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -62,21 +64,31 @@ export function ClientsPageClient({ rows, clientRecords, openClientId, error }: 
     }
   }
 
+  const Wrapper = showHeader ? 'main' : 'div';
+
   return (
-    <main style={{ maxWidth: 1400 }}>
-      <PageHeader
-        title="Clients"
-        subtitle={`${rows.length} active account${rows.length === 1 ? '' : 's'} · sorted by risk, not alphabet`}
-        actions={
-          <>
-            {syncMsg && <span style={{ fontSize: 13, color: /rror|ail/.test(syncMsg) ? T.danger : T.ink2 }}>{syncMsg}</span>}
-            <Button variant="outline" onClick={syncNow} disabled={syncing}>{syncing ? 'Syncing…' : 'Sync now'}</Button>
-          </>
-        }
-      />
+    <Wrapper style={showHeader ? { maxWidth: 1400 } : undefined}>
+      {showHeader && (
+        <PageHeader
+          title="Clients"
+          subtitle={`${rows.length} active account${rows.length === 1 ? '' : 's'} · sorted by risk, not alphabet`}
+          actions={
+            <>
+              {syncMsg && <span style={{ fontSize: 13, color: /rror|ail/.test(syncMsg) ? T.danger : T.ink2 }}>{syncMsg}</span>}
+              <Button variant="outline" onClick={syncNow} disabled={syncing}>{syncing ? 'Syncing…' : 'Sync now'}</Button>
+            </>
+          }
+        />
+      )}
+      {!showHeader && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 34px 12px', gap: 8 }}>
+          {syncMsg && <span style={{ fontSize: 13, color: /rror|ail/.test(syncMsg) ? T.danger : T.ink2 }}>{syncMsg}</span>}
+          <Button variant="outline" onClick={syncNow} disabled={syncing}>{syncing ? 'Syncing…' : 'Sync now'}</Button>
+        </div>
+      )}
 
       {error && (
-        <div style={{ margin: '18px 34px 0' }}>
+        <div style={{ margin: '0 34px 18px' }}>
           <div style={{ background: '#fdedeb', border: '1px solid #f8d0cc', borderRadius: 8, padding: '12px 16px', fontSize: 13, color: T.danger }}>
             ClickUp error: {error} — the counts below may be out of date.
           </div>
@@ -109,6 +121,6 @@ export function ClientsPageClient({ rows, clientRecords, openClientId, error }: 
         />
       )}
 
-    </main>
+    </Wrapper>
   );
 }
