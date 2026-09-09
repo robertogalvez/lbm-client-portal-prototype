@@ -73,6 +73,11 @@ export const clients = pgTable('clients', {
   frameioProjectId:  varchar('frameio_project_id', { length: 100 }),
   whatsappNumber:    varchar('whatsapp_number', { length: 30 }),
   brandingConfig:    jsonb('branding_config'),
+  // Client-uploaded portal logo, as a normalized (resized client-side) data
+  // URL — kept as its own column rather than folded into brandingConfig,
+  // since the clients PUT route overwrites brandingConfig wholesale from
+  // vistaSocialProfileIds on every save.
+  logoUrl:           text('logo_url'),
   contactName:       text('contact_name'),
   contactEmail:      text('contact_email'),
   clientStatus:      varchar('client_status', { length: 20 }),

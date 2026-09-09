@@ -498,6 +498,15 @@ body {
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
   text-decoration: none; flex-shrink: 0; user-select: none;
 }
+.cd-logo-chip {
+  display: flex; align-items: center; justify-content: center;
+  height: 44px; max-width: 180px; flex-shrink: 0;
+  padding: 5px 10px; border-radius: 10px;
+  background: #fff; border: 1px solid #ece4d8;
+}
+.cd-logo-chip img {
+  height: 100%; width: auto; max-width: 100%; object-fit: contain;
+}
 .cd-nav-left { display: flex; align-items: center; }
 .cd-tabs { display: flex; align-items: center; gap: 2px; margin-left: 24px; }
 .cd-tab {

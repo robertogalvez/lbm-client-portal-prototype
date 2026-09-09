@@ -111,12 +111,13 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
       value => ({ value, error: null as string | null }),
       (e: unknown) => ({ value: [] as MappedTask[], error: e instanceof Error ? e.message : 'Unknown error' }),
     ),
-    db.select({ id: clients.id, showCalendar: clients.showCalendar, showInvoices: clients.showInvoices, showReport: clients.showReport }).from(clients).where(eq(clients.name, clientName)).limit(1),
+    db.select({ id: clients.id, showCalendar: clients.showCalendar, showInvoices: clients.showInvoices, showReport: clients.showReport, logoUrl: clients.logoUrl }).from(clients).where(eq(clients.name, clientName)).limit(1),
     db.select({ clickupTaskId: videoPriorities.clickupTaskId, rank: videoPriorities.rank }).from(videoPriorities).where(eq(videoPriorities.clientName, clientName)),
   ]);
   const allTasks = tasksResult.value;
   const fetchError = tasksResult.error;
   const showCalendar = clientRecord?.showCalendar ?? false;
+  const logoUrl = clientRecord?.logoUrl ?? null;
   const priorityRank = new Map(priorityRows.map(r => [r.clickupTaskId, r.rank]));
 
   const quickbooksConnected = isQuickBooksConfigured();
@@ -309,7 +310,16 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px 12px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: '#FF6000', display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 800, fontSize: 12, letterSpacing: '-0.02em', flexShrink: 0 }}>LBM</div>
+            {logoUrl ? (
+              // Fixed-size neutral chip so any client logo — square, wide,
+              // opaque black or white background — scales to fit without
+              // cropping or clashing with this header's own background.
+              <div style={{ height: 40, maxWidth: 110, borderRadius: 10, background: '#fff', border: '1px solid #eee2d6', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px 8px', flexShrink: 0 }}>
+                <img src={logoUrl} alt="" style={{ height: '100%', width: 'auto', maxWidth: '100%', objectFit: 'contain' }} />
+              </div>
+            ) : (
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: '#FF6000', display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 800, fontSize: 12, letterSpacing: '-0.02em', flexShrink: 0 }}>LBM</div>
+            )}
             <div>
               <div style={{ fontSize: 12, color: '#9d9488', fontWeight: 600 }}>Welcome back</div>
               <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.1 }}>{displayName}</div>
@@ -530,7 +540,13 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
       {/* Nav */}
       <nav aria-label="Main" className="cd-nav">
         <div className="cd-nav-inner">
-          <span className="cd-logo"><em>LEGACY MEDIA</em></span>
+          {logoUrl ? (
+            <span className="cd-logo-chip">
+              <img src={logoUrl} alt="" />
+            </span>
+          ) : (
+            <span className="cd-logo"><em>LEGACY MEDIA</em></span>
+          )}
           <div className="cd-tabs">
             <Link href="/client?tab=reviews" className={`cd-tab${effectiveTab === 'reviews' ? ' cd-active' : ''}`}>
               Reviews {reviewTasks.length > 0 && <span className="cd-tab-badge">{reviewTasks.length}</span>}

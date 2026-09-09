@@ -237,6 +237,7 @@ export async function POST(req: Request) {
         ON "contract_months" ("period_id", "month") WHERE "line_item_id" IS NULL`,
       sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS cycle_duration_days integer`,
       sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS cycle_anchor_date date`,
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS logo_url text`,
     ]);
 
     const rows = await sql`
