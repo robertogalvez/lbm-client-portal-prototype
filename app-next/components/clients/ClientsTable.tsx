@@ -166,11 +166,8 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
                   <span style={{ minWidth: 0 }}>
                     {r.coverage ? (
                       <>
-                        <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 13, color: T.ink2 }}>
-                          <span>{r.coverage.delivered} / {r.coverage.sold}</span>
-                          {!r.termExpired && (r.coverage?.notStarted ?? 0) > 0 && (
-                            <span style={{ fontSize: 11.5, color: T.danger }}>{r.coverage!.notStarted} not started</span>
-                          )}
+                        <span style={{ fontSize: 13, color: T.ink2 }}>
+                          {r.coverage.delivered} / {r.coverage.sold}
                         </span>
                         <span style={{ display: 'block', marginTop: 7 }}>
                           <CoverageBar

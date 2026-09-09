@@ -326,9 +326,12 @@ export interface Coverage {
   status: CoverageStatus;
 }
 
-export function coverage(input: { sold: number; delivered: number; inPipeline: number }): Coverage {
-  const { sold, delivered, inPipeline } = input;
-  const remainder = sold - delivered - inPipeline;
+export function coverage(input: { sold: number; delivered: number; inPipeline: number; archived?: number }): Coverage {
+  const { sold, delivered, inPipeline, archived = 0 } = input;
+  // `archived` = tasks in ARCHIVED_STATUSES (cancelled/discarded). They are
+  // excluded from both delivered and inPipeline, so without this subtraction
+  // they inflate notStarted — making the briefing gap look larger than it is.
+  const remainder = sold - delivered - inPipeline - archived;
   return {
     sold,
     delivered,
