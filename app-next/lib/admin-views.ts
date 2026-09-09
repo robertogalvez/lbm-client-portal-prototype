@@ -63,6 +63,13 @@ export interface AdminClientRow {
 
   // Coverage (null when there is no contract to measure against)
   coverage: Coverage | null;
+  /**
+   * Within `coverage.delivered`: how many are POSTED IN SOCIALS with a future
+   * publish date (produced + queued but not yet live). The rest are already live.
+   * Lets the coverage bar and stats row split the delivered segment into
+   * "live" and "scheduled" without re-deriving it in the component.
+   */
+  scheduledAhead: number;
   fulfilmentPct: number | null;
   pace: PaceNeeded | null;
 
@@ -71,6 +78,13 @@ export interface AdminClientRow {
   filterTags: AdminFilterTag[];
   /** Higher sorts first. Risk-first ordering: expired → no contract → active. */
   riskScore: number;
+}
+
+/** Total still due on the contract (sold − delivered), regardless of production stage.
+ *  Distinct from notStarted, which is the subset not yet in production at all. */
+export function owedCount(r: AdminClientRow): number | null {
+  if (!r.coverage) return null;
+  return Math.max(0, r.coverage.sold - r.coverage.delivered);
 }
 
 const AVATAR_COLORS = ['#B4762A', '#8A5A9E', '#5D6773', '#FF6000', '#14805f', '#cf5b53', '#2F5C8F', '#4A5560'];
@@ -146,8 +160,7 @@ export function buildAdminRows(
 
     const buckets = buildStageBuckets(clientTasks, nowMs, cutoffs);
 
-    // Delivered counts what actually went live inside this contract's term —
-    // a POSTED task with a future publish date has not happened yet.
+    // Delivered counts what actually went live inside this contract's term.
     const periodStartMs = p ? new Date(p.startsOn).getTime() : 0;
     const delivered = clientTasks.filter(t => {
       if (norm(t.status) !== POSTED) return false;
@@ -166,12 +179,29 @@ export function buildAdminRows(
       ? termLabel(term, p.state)
       : { text: 'No contract yet', tone: 'slate' as const };
 
+    // "POSTED IN SOCIALS" means VistaSocial confirmed the post is queued — the
+    // content is done and scheduled, even if the go-live date is still ahead.
+    // For contract coverage these count as delivered (not "in progress"), so the
+    // widget agrees with what ClickUp shows rather than hiding future-scheduled
+    // posts inside the amber bar. `scheduledAhead` is the count of POSTED tasks
+    // inside the period whose publish date hasn't arrived yet.
+    const periodEndMs = p?.endsOn ? new Date(p.endsOn).getTime() : Infinity;
+    const scheduledAhead = p ? clientTasks.filter(t => {
+      if (norm(t.status) !== POSTED) return false;
+      const postedAt = resolvePostedAt(t);
+      return postedAt > nowMs && postedAt >= periodStartMs && postedAt <= periodEndMs;
+    }).length : 0;
+    const coverageDelivered = delivered + scheduledAhead;
+    // Remove the now-delivered scheduled posts from the in-flight count so the
+    // three buckets (delivered + inPipeline + notStarted) still sum to sold.
+    const coverageInPipeline = Math.max(0, buckets.inFlight - scheduledAhead);
+
     // Sold includes what this contract carried in from a prior period it
     // renewed (§ renewal carry-in) — that shortfall is still owed, not a
     // separate debt the coverage bar leaves out.
     const soldTotal = p ? p.contractedTotal + p.carriedIn : 0;
-    const cov = p ? coverage({ sold: soldTotal, delivered, inPipeline: buckets.inFlight }) : null;
-    const fulfilmentFrac = p ? fulfilment(delivered, soldTotal) : null;
+    const cov = p ? coverage({ sold: soldTotal, delivered: coverageDelivered, inPipeline: coverageInPipeline }) : null;
+    const fulfilmentFrac = p ? fulfilment(coverageDelivered, soldTotal) : null;
 
     const base = {
       id: p ? p.id : c.clientId,
@@ -202,6 +232,7 @@ export function buildAdminRows(
       unclassifiedStatuses: buckets.unclassifiedStatuses,
 
       coverage: cov,
+      scheduledAhead,
       fulfilmentPct: fulfilmentFrac !== null ? fulfilmentFrac * 100 : null,
       pace: cov
         ? (term.kind === 'cycle-pending' && cov.notStarted > 0

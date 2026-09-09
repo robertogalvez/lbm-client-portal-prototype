@@ -47,6 +47,7 @@ export const ATTENTION = {
 // drawn, so the Coverage tab and the client detail card read as one thing.
 export const COVERAGE_COLORS = {
   delivered:  '#14805f',
+  scheduled:  '#4CAF86', // produced & queued — done but not yet live
   inPipeline: '#C58A1E',
   notStarted: '#d4dbe2',
   track:      '#eceef1',

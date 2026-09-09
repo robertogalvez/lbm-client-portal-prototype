@@ -7,7 +7,7 @@ import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { loadAdminRoster } from '@/lib/admin-roster';
 import { PipelineCard } from '@/components/dashboard/PipelineCard';
-import { ByClientTable } from '@/components/dashboard/ByClientTable';
+import Link from 'next/link';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { T } from '@/components/ui/tokens';
 
@@ -72,7 +72,11 @@ export default async function DashboardPage() {
           unclassifiedStatuses={totals.unclassifiedStatuses}
           firstPass={firstPass}
         />
-        <ByClientTable rows={rows} inactiveCount={inactiveCount} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingRight: 4 }}>
+          <Link href="/admin/clients" style={{ fontSize: 13, fontWeight: 600, color: T.brand, textDecoration: 'none' }}>
+            View all clients →
+          </Link>
+        </div>
       </div>
     </main>
   );
