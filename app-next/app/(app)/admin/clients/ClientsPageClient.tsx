@@ -3,7 +3,6 @@
 import { useCallback, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Button } from '@/components/ui/Button';
 import { T } from '@/components/ui/tokens';
 import { ClientsTable } from '@/components/clients/ClientsTable';
 import { ContractChannelsDrawer } from '@/components/shared/ContractChannelsDrawer';
@@ -35,9 +34,6 @@ export function ClientsPageClient({ rows, clientRecords, openClientId, error, sh
   const pathname = usePathname();
   const params = useSearchParams();
 
-  const [syncing, setSyncing] = useState(false);
-  const [syncMsg, setSyncMsg] = useState('');
-
   // The client tab lives in the URL, so a link to the Coverage tab is
   // shareable and survives a reload.
   const setParam = useCallback((key: string, value: string | null) => {
@@ -49,21 +45,6 @@ export function ClientsPageClient({ rows, clientRecords, openClientId, error, sh
 
   const noPeriodClient = openClientId ? clientRecords.find(c => c.id === openClientId) ?? null : null;
 
-  async function syncNow() {
-    setSyncing(true); setSyncMsg('');
-    try {
-      const res = await fetch('/api/admin/clients/sync', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Sync failed');
-      setSyncMsg(`Synced ${data.synced} client${data.synced === 1 ? '' : 's'}${data.skipped ? `, skipped ${data.skipped} without a Client Status` : ''}.`);
-      router.refresh();
-    } catch (e) {
-      setSyncMsg(e instanceof Error ? e.message : 'Error');
-    } finally {
-      setSyncing(false);
-    }
-  }
-
   const Wrapper = showHeader ? 'main' : 'div';
 
   return (
@@ -72,19 +53,7 @@ export function ClientsPageClient({ rows, clientRecords, openClientId, error, sh
         <PageHeader
           title="Clients"
           subtitle={`${rows.length} active account${rows.length === 1 ? '' : 's'} · sorted by risk, not alphabet`}
-          actions={
-            <>
-              {syncMsg && <span style={{ fontSize: 13, color: /rror|ail/.test(syncMsg) ? T.danger : T.ink2 }}>{syncMsg}</span>}
-              <Button variant="outline" onClick={syncNow} disabled={syncing}>{syncing ? 'Syncing…' : 'Sync now'}</Button>
-            </>
-          }
         />
-      )}
-      {!showHeader && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 34px 12px', gap: 8 }}>
-          {syncMsg && <span style={{ fontSize: 13, color: /rror|ail/.test(syncMsg) ? T.danger : T.ink2 }}>{syncMsg}</span>}
-          <Button variant="outline" onClick={syncNow} disabled={syncing}>{syncing ? 'Syncing…' : 'Sync now'}</Button>
-        </div>
       )}
 
       {error && (
