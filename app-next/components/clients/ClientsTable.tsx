@@ -173,9 +173,9 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
                       <>
                         <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13, color: T.ink2 }}>
                           <span title="Videos delivered (posted or scheduled) out of total contracted">{r.coverage.delivered} / {r.coverage.sold}</span>
-                          {r.coverage.inPipeline > 0 && (
-                            <span title={`${r.coverage.delivered + r.coverage.inPipeline} total videos accounted for in ClickUp — ${r.coverage.delivered} delivered + ${r.coverage.inPipeline} in production`} style={{ fontSize: 11.5, color: T.ink3 }}>
-                              {r.coverage.delivered + r.coverage.inPipeline} in flight
+                          {r.scheduledAhead > 0 && (
+                            <span title={`${r.coverage.delivered - r.scheduledAhead} posted live · ${r.scheduledAhead} scheduled with a future publish date`} style={{ fontSize: 11.5, color: T.ink3 }}>
+                              {r.coverage.delivered - r.scheduledAhead} live · {r.scheduledAhead} sched
                             </span>
                           )}
                         </span>

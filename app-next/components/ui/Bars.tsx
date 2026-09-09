@@ -37,7 +37,7 @@ export function CoverageLegend({ showScheduled = false }: { showScheduled?: bool
   const items: [string, string][] = [
     ['Posted live', COVERAGE_COLORS.delivered],
     ...(showScheduled ? [['Scheduled', COVERAGE_COLORS.scheduled] as [string, string]] : []),
-    ['In progress', COVERAGE_COLORS.inPipeline],
+    ['In production', COVERAGE_COLORS.inPipeline],
     ['Not started', COVERAGE_COLORS.notStarted],
   ];
   return (
