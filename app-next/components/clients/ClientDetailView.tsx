@@ -29,6 +29,10 @@ const LEDGER_SCOPES = [
   { value: 'published' as const, label: 'Published' },
 ];
 
+const TYPE_LABEL: Record<LedgerRow['deliverableType'], string> = {
+  short_form: 'SF', youtube: 'YT', ad: 'AD',
+};
+
 /** How many ledger rows before paging. The card sits beside a three-card rail
  *  and used to run several screens past it on an account with any history. */
 const PAGE_SIZE = 8;
@@ -75,6 +79,8 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
   const [statusFilter, setStatusFilter] = useState(ALL_STATUSES);
   const [page, setPage] = useState(0);
   const [syncOpen, setSyncOpen] = useState(false);
+  const [tab, setTab] = useState<'ledger' | 'inventory'>('ledger');
+  const [inventoryStatusFilter, setInventoryStatusFilter] = useState(ALL_STATUSES);
 
   const { row, displayName, ledger, portal } = data;
   const cov = row.coverage;
@@ -102,6 +108,17 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
   function changeScope(next: Scope) {
     setScope(next);
     setPage(0); // page 3 of the old filter is meaningless under the new one
+  }
+
+  // Inventory: all tasks (including archived, dimmed) grouped by status bucket.
+  const inventoryRows = ledger.filter(r =>
+    inventoryStatusFilter === ALL_STATUSES || r.status === inventoryStatusFilter,
+  );
+  const inventoryGroups: [string, LedgerRow[]][] = [];
+  for (const r of inventoryRows) {
+    const last = inventoryGroups[inventoryGroups.length - 1];
+    if (last && last[0] === r.status) last[1].push(r);
+    else inventoryGroups.push([r.status, [r]]);
   }
 
   const channels = PLATFORMS
@@ -172,7 +189,107 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
           </div>
         </div>
 
-        <div className="db-detail-grid">
+        {/* Tab switcher: Ledger (triage) vs Inventory (full list) */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          {(['ledger', 'inventory'] as const).map(t => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              style={{
+                padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
+                fontFamily: 'inherit', fontSize: 13, fontWeight: 600,
+                border: `1px solid ${tab === t ? T.brand : T.lineStrong}`,
+                background: tab === t ? T.brandTint : T.surface,
+                color: tab === t ? T.brandDark : T.ink2,
+              }}
+            >
+              {t === 'ledger' ? 'Ledger' : 'Inventory'}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'inventory' && (
+          <Card
+            title="Video inventory"
+            subtitle={`${inventoryRows.length} video${inventoryRows.length === 1 ? '' : 's'} · grouped by status`}
+            padded={false}
+            action={
+              <select
+                aria-label="Filter by status"
+                value={inventoryStatusFilter}
+                onChange={e => setInventoryStatusFilter(e.target.value)}
+                style={{
+                  padding: '6px 10px', borderRadius: 7, border: `1px solid ${T.lineStrong}`,
+                  background: T.surface, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 500,
+                  color: T.ink2, cursor: 'pointer',
+                }}
+              >
+                <option value={ALL_STATUSES}>All statuses</option>
+                {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            }
+          >
+            {inventoryRows.length === 0 && (
+              <div style={{ padding: '30px 24px', fontSize: 13, color: T.ink3, textAlign: 'center' }}>No videos on this account yet.</div>
+            )}
+            {inventoryGroups.map(([status, rows]) => (
+              <div key={status}>
+                {/* Status group header */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 24px', background: '#f8f9fb',
+                  borderTop: `1px solid ${T.dividerLight}`,
+                }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: T.ink3 }}>{status}</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 6px', borderRadius: 5, background: T.dividerLight, color: T.ink3 }}>{rows.length}</span>
+                </div>
+                {rows.map(v => (
+                  <div
+                    key={v.id}
+                    style={{
+                      display: 'grid', gridTemplateColumns: 'auto 2fr 1fr 170px', gap: 12, alignItems: 'center',
+                      padding: '11px 24px', borderTop: `1px solid ${T.dividerLight}`,
+                      opacity: v.archived ? 0.45 : 1,
+                    }}
+                  >
+                    {/* Type badge */}
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                      background: T.dividerLight, color: T.ink3, whiteSpace: 'nowrap', letterSpacing: '0.03em',
+                    }}>
+                      {TYPE_LABEL[v.deliverableType]}
+                    </span>
+                    {/* Title */}
+                    <span style={{ fontSize: 13, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.title}</span>
+                    {/* Date: publish date preferred, fall back to dateUpdated */}
+                    <span style={{ fontFamily: MONO, fontSize: 11.5, color: T.ink3 }}>
+                      {v.publishDate
+                        ? <span title="Publish date">{fmtDate(v.publishDate)}</span>
+                        : <span title="Last updated in ClickUp">{fmtDate(v.date)}</span>}
+                    </span>
+                    {/* Links */}
+                    <span style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                      {v.clickupUrl && (
+                        <a href={v.clickupUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 600, color: T.ink3, textDecoration: 'none' }}>CU ↗</a>
+                      )}
+                      {v.frameLink && (
+                        <a href={v.frameLink} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 600, color: T.brand, textDecoration: 'none' }}>F.io ↗</a>
+                      )}
+                      {v.instagramUrl && (
+                        <a href={v.instagramUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 600, color: '#E1306C', textDecoration: 'none' }}>
+                          {v.deliverableType === 'youtube' ? 'YT ↗' : 'IG ↗'}
+                        </a>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </Card>
+        )}
+
+        {tab === 'ledger' && <div className="db-detail-grid">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {/* Same formula, colours and wording as the Coverage tab — this is
                 the per-account view of it, computed by the same selector.
@@ -383,7 +500,7 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
               )}
             </Card>
           </div>
-        </div>
+        </div>}
       </div>
 
       {drawerOpen && <ContractChannelsDrawer

@@ -47,9 +47,16 @@ export interface LedgerRow {
   tone: 'ok' | 'warn' | 'danger' | 'info' | 'mute';
   /** ISO. The old ledger rendered "Invalid Date" on every row. */
   date: string | null;
+  /** ISO publish/go-live date from VistaSocial — set when the video has a
+   *  scheduled or actual publish date, null otherwise. */
+  publishDate: string | null;
   frameLink: string | null;
   /** https://app.clickup.com/t/<id> — null only if the task id itself is missing. */
   clickupUrl: string | null;
+  /** Live social post URL from ClickUp's "Instagram URL" field. */
+  instagramUrl: string | null;
+  /** What kind of deliverable this is. */
+  deliverableType: 'short_form' | 'youtube' | 'ad';
   /** Scope-matching flags, independent of stateLabel's wording. */
   waitingOnClient: boolean;
   published: boolean;
@@ -214,8 +221,11 @@ export async function loadClientDetail(id: string): Promise<ClientDetailData | n
         ...ledgerState(t.status, waitDays),
         status: humanizeStatus(t.status),
         date: valid ? new Date(updated).toISOString() : null,
+        publishDate: t.publishDate ?? null,
         frameLink: t.frameLink,
         clickupUrl: t.clickupTaskId ? `https://app.clickup.com/t/${t.clickupTaskId}` : null,
+        instagramUrl: t.instagramUrl ?? null,
+        deliverableType: t.deliverableType,
         waitingOnClient: s === 'for client review',
         // Date-corrected: a "Ready to be Posted" task whose Publish Date has
         // already passed counts as published even if ClickUp's status hasn't
