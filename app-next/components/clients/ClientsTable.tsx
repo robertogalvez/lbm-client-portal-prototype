@@ -61,6 +61,14 @@ function blockedTotal(r: AdminClientRow): number {
   return r.stalledWithUs + r.waitingOnClient;
 }
 
+// Active contracts first (0), no-contract clients second (1), expired last (2).
+// termExpired requires a periodId, so these three states are mutually exclusive.
+function statusGroup(r: AdminClientRow): number {
+  if (r.termExpired) return 2;
+  if (r.periodId === null) return 1;
+  return 0;
+}
+
 /**
  * Screen 2 — one row per client, six columns.
  * CLIENT | CONTRACT | DELIVERY | BLOCKED ↓ | PACE | WHAT TO DO
@@ -99,6 +107,9 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
       .filter(r => !q || r.name.toLowerCase().includes(q));
 
     results.sort((a, b) => {
+      const groupDiff = statusGroup(a) - statusGroup(b);
+      if (groupDiff !== 0) return groupDiff;
+
       let aVal: string | number;
       let bVal: string | number;
 
@@ -259,7 +270,7 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
                         <>
                           <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 13, color: T.ink2 }}>
                             <span>{r.coverage.delivered} / {r.coverage.sold}</span>
-                            {(r.coverage?.notStarted ?? 0) > 0 && (
+                            {!r.termExpired && (r.coverage?.notStarted ?? 0) > 0 && (
                               <span style={{ fontSize: 11.5, color: T.danger }}>{r.coverage!.notStarted} not started</span>
                             )}
                           </span>
@@ -319,7 +330,7 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
                       {r.stages.backlog > 0 && <StatusBadge tone="slate" dot={false}>{r.stages.backlog} in backlog</StatusBadge>}
                       {r.scheduledAhead > 0 && <StatusBadge tone="green" dot={false}>{r.scheduledAhead} scheduled</StatusBadge>}
                       {(r.stages.ready - r.scheduledAhead) > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.ready - r.scheduledAhead} not scheduled</StatusBadge>}
-                      {(r.coverage?.notStarted ?? 0) > 0 && <StatusBadge tone="red" dot={false}>{r.coverage!.notStarted} not started</StatusBadge>}
+                      {!r.termExpired && (r.coverage?.notStarted ?? 0) > 0 && <StatusBadge tone="red" dot={false}>{r.coverage!.notStarted} not started</StatusBadge>}
                       {r.unclassified > 0 && (
                         <span title={`ClickUp status not mapped: ${r.unclassifiedStatuses.join(', ')}`}>
                           <StatusBadge tone="red" dot={false}>{r.unclassified} unmapped</StatusBadge>
