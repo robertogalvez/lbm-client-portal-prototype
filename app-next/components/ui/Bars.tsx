@@ -11,28 +11,35 @@ export function ProgressBar({ pct, color, width, height = 6 }: { pct: number; co
 }
 
 /**
- * Delivered / in-pipeline / not-started against what was sold. The remainder
- * of the track is the empty page colour, so an over-committed contract still
- * reads correctly (the segments simply fill it).
+ * Coverage stacked bar. `delivered` = already live, `scheduled` = produced and
+ * queued with a future publish date (optional, defaults to 0), `inPipeline` =
+ * everything else still in production. Renders up to four colour segments so
+ * the difference between "live" and "scheduled" is visible at a glance.
  */
-export function CoverageBar({ sold, delivered, inPipeline, height = 8 }: { sold: number; delivered: number; inPipeline: number; height?: number }) {
-  const denom = Math.max(sold, delivered + inPipeline, 1);
+export function CoverageBar({
+  sold, delivered, scheduled = 0, inPipeline, height = 8,
+}: {
+  sold: number; delivered: number; scheduled?: number; inPipeline: number; height?: number;
+}) {
+  const denom = Math.max(sold, delivered + scheduled + inPipeline, 1);
   const pct = (n: number) => `${(n / denom) * 100}%`;
   return (
     <div style={{ display: 'flex', width: '100%', height, borderRadius: 999, background: COVERAGE_COLORS.track, overflow: 'hidden' }}>
       <div style={{ width: pct(delivered), background: COVERAGE_COLORS.delivered }} />
+      {scheduled > 0 && <div style={{ width: pct(scheduled), background: COVERAGE_COLORS.scheduled }} />}
       <div style={{ width: pct(inPipeline), background: COVERAGE_COLORS.inPipeline }} />
-      <div style={{ width: pct(Math.max(0, sold - delivered - inPipeline)), background: COVERAGE_COLORS.notStarted }} />
+      <div style={{ width: pct(Math.max(0, sold - delivered - scheduled - inPipeline)), background: COVERAGE_COLORS.notStarted }} />
     </div>
   );
 }
 
-export function CoverageLegend() {
-  const items = [
-    ['Posted in socials', COVERAGE_COLORS.delivered],
+export function CoverageLegend({ showScheduled = false }: { showScheduled?: boolean }) {
+  const items: [string, string][] = [
+    ['Posted live', COVERAGE_COLORS.delivered],
+    ...(showScheduled ? [['Scheduled', COVERAGE_COLORS.scheduled] as [string, string]] : []),
     ['In progress', COVERAGE_COLORS.inPipeline],
     ['Not started', COVERAGE_COLORS.notStarted],
-  ] as const;
+  ];
   return (
     <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
       {items.map(([label, color]) => (

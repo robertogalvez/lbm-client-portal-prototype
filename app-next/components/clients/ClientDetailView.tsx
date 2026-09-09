@@ -175,41 +175,63 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
         <div className="db-detail-grid">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {/* Same formula, colours and wording as the Coverage tab — this is
-                the per-account view of it, computed by the same selector. */}
-            {cov && (
-              <Card
-                title="Contract coverage"
-                action={<span style={{ fontFamily: MONO, fontSize: 12, color: T.ink3 }}>{cov.delivered + cov.inPipeline} of {cov.sold} accounted for</span>}
-              >
-                <CoverageBar sold={cov.sold} delivered={cov.delivered} inPipeline={cov.inPipeline} height={10} />
-                <div style={{ marginTop: 12 }}><CoverageLegend /></div>
-
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 26, marginTop: 18 }}>
-                  {[
-                    { n: cov.delivered, label: 'posted in socials', color: COVERAGE_COLORS.delivered },
-                    { n: cov.inPipeline, label: 'in progress', color: '#B4762A' },
-                    { n: cov.status === 'over' ? cov.over : cov.notStarted, label: cov.status === 'over' ? 'over contract' : 'not started', color: T.brand },
-                    { n: cov.sold, label: 'deliverables', color: T.ink },
-                  ].map(s => (
-                    <div key={s.label}>
-                      <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: s.color }}>{s.n}</div>
-                      <div style={{ fontSize: 12, color: T.ink3, marginTop: 2 }}>{s.label}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {cov.notStarted > 0 && (
-                  <div style={{ background: ATTENTION.bg, borderRadius: 10, padding: '12px 14px', marginTop: 18 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, color: ATTENTION.head }}>{cov.notStarted} videos are sold but not started.</div>
-                    <p style={{ fontSize: 12.5, color: ATTENTION.body, lineHeight: 1.5, margin: '4px 0 0' }}>
-                      {row.stages.backlog === 0
-                        ? `Nothing is in backlog for ${firstName}, so the gap will not close on its own — brief or shoot before it becomes a missed contract.`
-                        : `${row.stages.backlog} in backlog against a gap of ${cov.notStarted} — keep briefing to stay ahead of the term.`}
-                    </p>
+                the per-account view of it, computed by the same selector.
+                `row.scheduledAhead` splits the delivered bar into "live" (already
+                posted) and "scheduled" (POSTED IN SOCIALS with a future date),
+                so the AM sees the same three numbers they track in their inventory
+                sheet (live · scheduled · pending review) rather than a combined
+                "in progress" that masks what's actually happening. */}
+            {cov && (() => {
+              const liveDelivered = cov.delivered - row.scheduledAhead;
+              const covStats = [
+                { n: liveDelivered,       label: 'posted live',      color: COVERAGE_COLORS.delivered },
+                ...(row.scheduledAhead > 0
+                  ? [{ n: row.scheduledAhead, label: 'scheduled',    color: COVERAGE_COLORS.scheduled }]
+                  : []),
+                ...(cov.inPipeline > 0
+                  ? [{ n: cov.inPipeline,     label: 'in progress',  color: COVERAGE_COLORS.inPipeline }]
+                  : []),
+                { n: cov.status === 'over' ? cov.over : cov.notStarted, label: cov.status === 'over' ? 'over contract' : 'not started', color: T.brand },
+                { n: cov.sold,            label: 'deliverables',     color: T.ink },
+              ];
+              return (
+                <Card
+                  title="Contract coverage"
+                  action={<span style={{ fontFamily: MONO, fontSize: 12, color: T.ink3 }}>{cov.delivered + cov.inPipeline} of {cov.sold} accounted for</span>}
+                >
+                  <CoverageBar
+                    sold={cov.sold}
+                    delivered={liveDelivered}
+                    scheduled={row.scheduledAhead}
+                    inPipeline={cov.inPipeline}
+                    height={10}
+                  />
+                  <div style={{ marginTop: 12 }}>
+                    <CoverageLegend showScheduled={row.scheduledAhead > 0} />
                   </div>
-                )}
-              </Card>
-            )}
+
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 26, marginTop: 18 }}>
+                    {covStats.map(s => (
+                      <div key={s.label}>
+                        <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: s.color }}>{s.n}</div>
+                        <div style={{ fontSize: 12, color: T.ink3, marginTop: 2 }}>{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {cov.notStarted > 0 && (
+                    <div style={{ background: ATTENTION.bg, borderRadius: 10, padding: '12px 14px', marginTop: 18 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: ATTENTION.head }}>{cov.notStarted} videos are sold but not started.</div>
+                      <p style={{ fontSize: 12.5, color: ATTENTION.body, lineHeight: 1.5, margin: '4px 0 0' }}>
+                        {row.stages.backlog === 0
+                          ? `Nothing is in backlog for ${firstName}, so the gap will not close on its own — brief or shoot before it becomes a missed contract.`
+                          : `${row.stages.backlog} in backlog against a gap of ${cov.notStarted} — keep briefing to stay ahead of the term.`}
+                      </p>
+                    </div>
+                  )}
+                </Card>
+              );
+            })()}
 
             <Card
               title="Video ledger"

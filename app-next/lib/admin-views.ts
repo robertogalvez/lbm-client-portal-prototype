@@ -63,6 +63,13 @@ export interface AdminClientRow {
 
   // Coverage (null when there is no contract to measure against)
   coverage: Coverage | null;
+  /**
+   * Within `coverage.delivered`: how many are POSTED IN SOCIALS with a future
+   * publish date (produced + queued but not yet live). The rest are already live.
+   * Lets the coverage bar and stats row split the delivered segment into
+   * "live" and "scheduled" without re-deriving it in the component.
+   */
+  scheduledAhead: number;
   fulfilmentPct: number | null;
   pace: PaceNeeded | null;
 
@@ -218,6 +225,7 @@ export function buildAdminRows(
       unclassifiedStatuses: buckets.unclassifiedStatuses,
 
       coverage: cov,
+      scheduledAhead,
       fulfilmentPct: fulfilmentFrac !== null ? fulfilmentFrac * 100 : null,
       pace: cov
         ? (term.kind === 'cycle-pending' && cov.notStarted > 0
