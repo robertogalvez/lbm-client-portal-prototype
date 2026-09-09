@@ -4,7 +4,6 @@ import { SidebarProfile } from './SidebarProfile';
 export function Sidebar({ active, showClientPortal, user }: { active?: string; showClientPortal?: boolean; user?: { name: string; email: string } | null }) {
   const NAV = [
     { label: 'Dashboard', href: '/dashboard', icon: '▦' },
-    { label: 'Clients', href: '/admin/clients', icon: '◎' },
     { label: 'Invoices', href: '/invoices', icon: '▧' },
     { label: 'Publishing', href: '#', icon: '⬆', disabled: true },
     ...(showClientPortal ? [{ label: 'My Client Portal', href: '/client', icon: '▤' }] : []),
