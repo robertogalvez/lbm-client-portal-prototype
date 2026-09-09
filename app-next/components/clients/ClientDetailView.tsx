@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ChangeEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -15,6 +15,7 @@ import { T, MONO, ATTENTION, COVERAGE_COLORS } from '@/components/ui/tokens';
 import { ContractChannelsDrawer } from '@/components/shared/ContractChannelsDrawer';
 import { PLATFORMS } from '@/lib/socialLinks';
 import { fmtCalendarDate } from '@/lib/calendar-date';
+import { normalizeLogoFile, LogoUploadError } from '@/lib/logo-upload';
 import type { ClientDetailData, LedgerRow, PortalUser } from '@/lib/client-detail';
 
 const ALL_STATUSES = '__all__';
@@ -310,6 +311,12 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
               </div>
             </Card>
 
+            <BrandingCard
+              clientId={row.clientId}
+              logoUrl={data.logoUrl}
+              onChanged={url => setData(d => ({ ...d, logoUrl: url }))}
+            />
+
             {portal && (
               <PortalCard
                 clientId={row.clientId}
@@ -384,6 +391,95 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
         onSaved={refresh}
       />}
     </main>
+  );
+}
+
+function BrandingCard({
+  clientId, logoUrl, onChanged,
+}: {
+  clientId: string;
+  logoUrl: string | null;
+  onChanged: (url: string | null) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function save(next: string | null) {
+    setError('');
+    try {
+      const res = await fetch(`/api/admin/clients/${clientId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ logoUrl: next }),
+      });
+      if (!res.ok) throw new Error();
+      onChanged(next);
+    } catch {
+      setError('Could not save the logo.');
+    }
+  }
+
+  async function handleFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploading(true);
+    setError('');
+    try {
+      const dataUrl = await normalizeLogoFile(file);
+      await save(dataUrl);
+    } catch (err) {
+      setError(err instanceof LogoUploadError ? err.message : 'Could not process this image.');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <Card title="Branding">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        {/* Every logo sits on the same neutral white chip regardless of its
+            own background — real client logos arrive as opaque black- or
+            white-background rectangles, not transparent art, so rendering
+            straight onto a colored surface would clash. object-fit: contain
+            inside this fixed box scales any aspect ratio to fit without
+            cropping or distortion. */}
+        <div style={{
+          height: 44, width: 110, borderRadius: 10, background: '#fff',
+          border: `1px solid ${T.line}`, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', padding: '6px 10px', flexShrink: 0,
+        }}>
+          {logoUrl
+            ? <img src={logoUrl} alt="Client logo" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} />
+            : <span style={{ fontSize: 11, color: T.ink3 }}>No logo</span>}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 12.5, fontWeight: 600, color: T.brand, cursor: uploading ? 'default' : 'pointer' }}>
+            {uploading ? 'Uploading…' : logoUrl ? 'Replace logo' : 'Upload logo'}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              onChange={handleFile}
+              disabled={uploading}
+              style={{ display: 'none' }}
+            />
+          </label>
+          {logoUrl && (
+            <button
+              type="button"
+              onClick={() => save(null)}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, color: T.destructive, textAlign: 'left' }}
+            >
+              Remove logo
+            </button>
+          )}
+        </div>
+      </div>
+      <p style={{ fontSize: 12, color: T.ink3, lineHeight: 1.5, margin: '10px 0 0' }}>
+        PNG, JPG, WebP or SVG — any size or shape works, it&apos;s scaled to fit the portal header.
+      </p>
+      {error && <div style={{ fontSize: 12, color: T.danger, marginTop: 8 }}>{error}</div>}
+    </Card>
   );
 }
 

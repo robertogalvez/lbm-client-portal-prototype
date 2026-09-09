@@ -18,7 +18,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   // Master Clients List) — only portal-only fields are editable here.
   // Social links are edited separately via PUT .../[id]/social-links so
   // callers that only know about handles never touch these fields.
-  const { type, frameioProjectId, vistaSocialProfileIds, showCalendar, showInvoices, showReport, notifyEmail, notifySms } = body;
+  const { type, frameioProjectId, vistaSocialProfileIds, showCalendar, showInvoices, showReport, notifyEmail, notifySms, logoUrl } = body;
+
+  // logoUrl is omitted (not sent) by callers that aren't touching branding
+  // (e.g. the portal-toggle switches), so it must stay untouched in that
+  // case rather than being wiped like the other fields default to null/false.
+  const touchingLogo = Object.prototype.hasOwnProperty.call(body, 'logoUrl');
+  if (touchingLogo && logoUrl !== null && !/^data:image\/(png|jpeg|jpg|webp|svg\+xml);base64,/.test(logoUrl ?? '')) {
+    return NextResponse.json({ error: 'Invalid logo image' }, { status: 400 });
+  }
+  if (touchingLogo && typeof logoUrl === 'string' && logoUrl.length > 700_000) {
+    return NextResponse.json({ error: 'Logo image is too large' }, { status: 400 });
+  }
 
   const [updated] = await db.update(clients).set({
     type: type || null,
@@ -29,6 +40,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     showReport: showReport ?? false,
     notifyEmail: notifyEmail ?? true,
     notifySms: notifySms ?? false,
+    ...(touchingLogo ? { logoUrl: logoUrl || null } : {}),
   }).where(eq(clients.id, id)).returning();
 
   if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });

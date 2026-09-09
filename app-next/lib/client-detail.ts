@@ -104,6 +104,7 @@ export interface ClientDetailData {
    */
   deliveredByPeriod: Record<string, number>;
   clickupTaskId: string | null;
+  logoUrl: string | null;
   portal: ClientPortalData | null;
 }
 
@@ -269,6 +270,7 @@ export async function loadClientDetail(id: string): Promise<ClientDetailData | n
     periods,
     deliveredByPeriod,
     clickupTaskId: primaryClient?.clickupTaskId ?? null,
+    logoUrl: primaryClient?.logoUrl ?? null,
     portal: primaryClient ? {
       clickupTaskId: primaryClient.clickupTaskId,
       clientStatus: primaryClient.clientStatus,
