@@ -314,7 +314,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
               // Fixed-size neutral chip so any client logo — square, wide,
               // opaque black or white background — scales to fit without
               // cropping or clashing with this header's own background.
-              <div style={{ height: 40, maxWidth: 110, borderRadius: 10, background: '#fff', border: '1px solid #eee2d6', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px 8px', flexShrink: 0 }}>
+              <div style={{ height: 56, maxWidth: 150, borderRadius: 10, background: '#fff', border: '1px solid #eee2d6', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 10px', flexShrink: 0 }}>
                 <img src={logoUrl} alt="" style={{ height: '100%', width: 'auto', maxWidth: '100%', objectFit: 'contain' }} />
               </div>
             ) : (
