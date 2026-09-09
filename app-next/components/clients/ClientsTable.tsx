@@ -14,8 +14,6 @@ import { type AdminClientRow, type AdminFilterTag } from '@/lib/admin-views';
 // CLIENT | CONTRACT | DELIVERY | BLOCKED ↓ | WHAT TO DO
 const GRID = '2fr 1.5fr 2fr 1.2fr 3fr';
 
-type SortKey = 'name' | 'contractTerm' | 'delivery' | 'blocked';
-
 type FilterKey = 'all' | AdminFilterTag;
 
 const FILTERS: { key: FilterKey; label: string }[] = [
@@ -24,10 +22,6 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'nocontract', label: 'No contract' },
   { key: 'waiting', label: 'Waiting on client' },
 ];
-
-function blockedTotal(r: AdminClientRow): number {
-  return r.stalledWithUs + r.waitingOnClient;
-}
 
 // Active contracts first (0), no-contract clients second (1), expired last (2).
 function statusGroup(r: AdminClientRow): number {
@@ -39,17 +33,7 @@ function statusGroup(r: AdminClientRow): number {
 export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [query, setQuery] = useState('');
-  const [sortKey, setSortKey] = useState<SortKey>('blocked');
-  const [sortAsc, setSortAsc] = useState(false);
-
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortAsc(!sortAsc);
-    } else {
-      setSortKey(key);
-      setSortAsc(key === 'name');
-    }
-  };
+  const [sortAsc, setSortAsc] = useState(true);
 
   const counts = useMemo(() => ({
     all: rows.length,
@@ -67,44 +51,19 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
     results.sort((a, b) => {
       const groupDiff = statusGroup(a) - statusGroup(b);
       if (groupDiff !== 0) return groupDiff;
-
-      let aVal: string | number;
-      let bVal: string | number;
-
-      switch (sortKey) {
-        case 'name':
-          aVal = a.name.toLowerCase();
-          bVal = b.name.toLowerCase();
-          break;
-        case 'contractTerm':
-          aVal = a.termText?.toLowerCase() ?? '';
-          bVal = b.termText?.toLowerCase() ?? '';
-          break;
-        case 'delivery':
-          aVal = a.coverage?.delivered ?? 0;
-          bVal = b.coverage?.delivered ?? 0;
-          break;
-        case 'blocked':
-          aVal = blockedTotal(a);
-          bVal = blockedTotal(b);
-          break;
-      }
-
-      if (typeof aVal === 'string') {
-        return sortAsc ? aVal.localeCompare(bVal as string) : (bVal as string).localeCompare(aVal);
-      }
-      return sortAsc ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
+      const aName = a.name.toLowerCase();
+      const bName = b.name.toLowerCase();
+      return sortAsc ? aName.localeCompare(bName) : bName.localeCompare(aName);
     });
 
     return results;
-  }, [rows, filter, query, sortKey, sortAsc]);
+  }, [rows, filter, query, sortAsc]);
 
-  function SortButton({ col, label }: { col: SortKey; label: string }) {
-    const active = sortKey === col;
+  function ClientSortButton() {
     return (
       <button
         type="button"
-        onClick={() => handleSort(col)}
+        onClick={() => setSortAsc(a => !a)}
         style={{
           ...colHeader,
           cursor: 'pointer',
@@ -117,8 +76,8 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
           gap: 6,
         }}
       >
-        {label}
-        {active && <span>{sortAsc ? '↑' : '↓'}</span>}
+        Client
+        <span>{sortAsc ? '↑' : '↓'}</span>
       </button>
     );
   }
@@ -168,10 +127,10 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
         <TableScroll wide>
           <div style={{ minWidth: 860 }}>
             <div style={{ ...headerRow(GRID), padding: '4px 24px 12px' }}>
-              <SortButton col="name" label="Client" />
-              <SortButton col="contractTerm" label="Contract" />
-              <SortButton col="delivery" label="Delivery" />
-              <SortButton col="blocked" label="Blocked ↓" />
+              <ClientSortButton />
+              <span style={colHeader}>Contract</span>
+              <span style={colHeader}>Delivery</span>
+              <span style={colHeader}>Blocked</span>
               <span style={colHeader}>What to do</span>
             </div>
 
