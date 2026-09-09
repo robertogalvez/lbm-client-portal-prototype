@@ -317,8 +317,8 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
                       {r.stages.editing > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.editing} editing</StatusBadge>}
                       {r.stages.qc > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.qc} in QC</StatusBadge>}
                       {r.stages.backlog > 0 && <StatusBadge tone="slate" dot={false}>{r.stages.backlog} in backlog</StatusBadge>}
-                      {r.scheduledAhead > 0 && <StatusBadge tone="green" dot={false}>{r.scheduledAhead} scheduled</StatusBadge>}
-                      {(r.stages.ready - r.scheduledAhead) > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.ready - r.scheduledAhead} ready to post</StatusBadge>}
+                      {r.scheduledAhead > 0 && <StatusBadge tone="green" dot={false}>{r.scheduledAhead} ready to post</StatusBadge>}
+                      {(r.stages.ready - r.scheduledAhead) > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.ready - r.scheduledAhead} not scheduled</StatusBadge>}
                       {r.unclassified > 0 && (
                         <span title={`ClickUp status not mapped: ${r.unclassifiedStatuses.join(', ')}`}>
                           <StatusBadge tone="red" dot={false}>{r.unclassified} unmapped</StatusBadge>
