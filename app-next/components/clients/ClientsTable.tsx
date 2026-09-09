@@ -6,16 +6,15 @@ import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
 import { CoverageBar } from '@/components/ui/Bars';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { T, MONO, COVERAGE_COLORS } from '@/components/ui/tokens';
+import { T, MONO } from '@/components/ui/tokens';
 import { colHeader, headerRow, bodyRow, emptyState } from '@/components/ui/table';
 import { TableScroll } from '@/components/ui/TableScroll';
-import { owedCount, type AdminClientRow, type AdminFilterTag } from '@/lib/admin-views';
-import type { PaceNeeded } from '@/lib/contracts';
+import { type AdminClientRow, type AdminFilterTag } from '@/lib/admin-views';
 
-// CLIENT | CONTRACT | DELIVERY | BLOCKED ↓ | PACE | WHAT TO DO
-const GRID = '2fr 1.4fr 1.8fr 1fr 1.5fr 2fr';
+// CLIENT | CONTRACT | DELIVERY | BLOCKED ↓ | WHAT TO DO
+const GRID = '2fr 1.5fr 2fr 1.2fr 3fr';
 
-type SortKey = 'name' | 'contractTerm' | 'delivery' | 'blocked' | 'paceNeeded';
+type SortKey = 'name' | 'contractTerm' | 'delivery' | 'blocked';
 
 type FilterKey = 'all' | AdminFilterTag;
 
@@ -26,70 +25,29 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'waiting', label: 'Waiting on client' },
 ];
 
-function paceText(pace: PaceNeeded | null, r: AdminClientRow): string {
-  if (!pace) return '—';
-  switch (pace.kind) {
-    case 'covered':
-      return r.coverage?.status === 'over'
-        ? `${r.coverage.over} over contract${r.termExpired ? ', term expired' : ''}`
-        : 'Covered — just keep it moving';
-    case 'pace':
-      return `${pace.perWeek} / week to finish on time`;
-    case 'open':
-      return `${pace.remaining} to brief · no deadline to pace against`;
-    case 'blocked':
-      return r.termExpired
-        ? `Contract ended, ${owedCount(r) ?? pace.remaining} still owed`
-        : `No term on file, ${owedCount(r) ?? pace.remaining} still owed`;
-    case 'cycle-pending':
-      return `${pace.remaining} to start · ${pace.durationDays}-day clock starts at first publish`;
-  }
-}
-
-function getPaceSortValue(pace: PaceNeeded | null): number {
-  if (!pace) return 0;
-  switch (pace.kind) {
-    case 'pace': return pace.perWeek;
-    case 'open':
-    case 'blocked':
-    case 'cycle-pending': return pace.remaining;
-    case 'covered': return 0;
-  }
-}
-
 function blockedTotal(r: AdminClientRow): number {
   return r.stalledWithUs + r.waitingOnClient;
 }
 
 // Active contracts first (0), no-contract clients second (1), expired last (2).
-// termExpired requires a periodId, so these three states are mutually exclusive.
 function statusGroup(r: AdminClientRow): number {
   if (r.termExpired) return 2;
   if (r.periodId === null) return 1;
   return 0;
 }
 
-/**
- * Screen 2 — one row per client, six columns.
- * CLIENT | CONTRACT | DELIVERY | BLOCKED ↓ | PACE | WHAT TO DO
- *
- * Stage pills (diagnostic) live in an expand row rather than the always-visible
- * row — the triage question is "whose court" (BLOCKED), not "what stage".
- * Default sort is blocked-descending so the most-stuck client is always first.
- */
 export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('blocked');
   const [sortAsc, setSortAsc] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortAsc(!sortAsc);
     } else {
       setSortKey(key);
-      setSortAsc(key === 'name'); // name sorts A–Z by default; everything else descending
+      setSortAsc(key === 'name');
     }
   };
 
@@ -129,10 +87,6 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
         case 'blocked':
           aVal = blockedTotal(a);
           bVal = blockedTotal(b);
-          break;
-        case 'paceNeeded':
-          aVal = getPaceSortValue(a.pace);
-          bVal = getPaceSortValue(b.pace);
           break;
       }
 
@@ -212,145 +166,121 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
 
       <Card padded={false}>
         <TableScroll wide>
-          <div style={{ minWidth: 940 }}>
+          <div style={{ minWidth: 860 }}>
             <div style={{ ...headerRow(GRID), padding: '4px 24px 12px' }}>
               <SortButton col="name" label="Client" />
               <SortButton col="contractTerm" label="Contract" />
               <SortButton col="delivery" label="Delivery" />
               <SortButton col="blocked" label="Blocked ↓" />
-              <SortButton col="paceNeeded" label="Pace needed" />
               <span style={colHeader}>What to do</span>
             </div>
 
             {filtered.length === 0 && <div style={emptyState}>No clients match this filter.</div>}
 
-            {filtered.map(r => {
-              const isExpanded = expandedId === r.id;
-              return (
-                <div key={r.id}>
-                  {/* Main row — click to expand/collapse stage pills */}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setExpandedId(isExpanded ? null : r.id)}
-                    onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setExpandedId(isExpanded ? null : r.id)}
-                    style={{
-                      ...bodyRow(GRID),
-                      alignItems: 'start',
-                      cursor: 'pointer',
-                      background: isExpanded ? T.hover : undefined,
-                    }}
-                    className="db-row-link"
-                  >
-                    {/* CLIENT */}
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 212 }}>
-                      <Avatar name={r.name} color={r.avatarColor} />
-                      <span style={{ minWidth: 0 }}>
-                        <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
-                        <span style={{ display: 'block', fontSize: 11.5, color: T.ink3, marginTop: 2 }}>
-                          {r.model ?? 'no contract'}
-                          {r.coverage && ` · ${r.coverage.delivered} of ${r.coverage.sold} delivered`}
-                        </span>
+            {filtered.map(r => (
+              <div key={r.id}>
+                {/* Main row */}
+                <div style={{ ...bodyRow(GRID), alignItems: 'start' }}>
+                  {/* CLIENT */}
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
+                    <Avatar name={r.name} color={r.avatarColor} />
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+                      <span style={{ display: 'block', fontSize: 11.5, color: T.ink3, marginTop: 2 }}>
+                        {r.model ?? 'no contract'}
+                        {r.coverage && ` · ${r.coverage.delivered} of ${r.coverage.sold} delivered`}
                       </span>
                     </span>
+                  </span>
 
-                    {/* CONTRACT */}
-                    <span>
-                      <span style={{ display: 'block', fontFamily: MONO, fontSize: 12, color: T.ink2, whiteSpace: 'nowrap' }}>{r.termText}</span>
-                      <span style={{ display: 'inline-flex', marginTop: 6 }}>
-                        <StatusBadge tone={r.periodId ? r.expiryTone : 'amber'} dot={false}>
-                          {r.periodId ? r.expiryText : 'Needs setup'}
-                        </StatusBadge>
-                      </span>
+                  {/* CONTRACT */}
+                  <span>
+                    <span style={{ display: 'block', fontFamily: MONO, fontSize: 12, color: T.ink2, whiteSpace: 'nowrap' }}>{r.termText}</span>
+                    <span style={{ display: 'inline-flex', marginTop: 6 }}>
+                      <StatusBadge tone={r.periodId ? r.expiryTone : 'amber'} dot={false}>
+                        {r.periodId ? r.expiryText : 'Needs setup'}
+                      </StatusBadge>
                     </span>
+                  </span>
 
-                    {/* DELIVERY */}
-                    <span style={{ minWidth: 180 }}>
-                      {r.coverage ? (
-                        <>
-                          <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 13, color: T.ink2 }}>
-                            <span>{r.coverage.delivered} / {r.coverage.sold}</span>
-                            {!r.termExpired && (r.coverage?.notStarted ?? 0) > 0 && (
-                              <span style={{ fontSize: 11.5, color: T.danger }}>{r.coverage!.notStarted} not started</span>
-                            )}
-                          </span>
-                          <span style={{ display: 'block', marginTop: 7 }}>
-                            <CoverageBar
-                              sold={r.coverage.sold}
-                              delivered={r.coverage.delivered - r.scheduledAhead}
-                              scheduled={r.scheduledAhead}
-                              inPipeline={r.coverage.inPipeline}
-                              height={7}
-                            />
-                          </span>
-                        </>
-                      ) : (
-                        <span style={{ fontSize: 13, color: T.ink3, fontStyle: 'italic' }}>No contracted scope</span>
-                      )}
-                    </span>
-
-                    {/* BLOCKED */}
-                    <span style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-start' }}>
-                      {r.waitingOnClient > 0 && (
-                        <StatusBadge tone="amber" dot={false}>{r.waitingOnClient} on client</StatusBadge>
-                      )}
-                      {r.stalledWithUs > 0 && (
-                        <StatusBadge tone="red" dot={false}>{r.stalledWithUs} on us</StatusBadge>
-                      )}
-                      {r.waitingOnClient === 0 && r.stalledWithUs === 0 && (
-                        <StatusBadge tone="slate" dot={false}>nothing blocked</StatusBadge>
-                      )}
-                    </span>
-
-                    {/* PACE */}
-                    <span style={{ fontSize: 13, color: T.ink2, lineHeight: 1.45 }}>{paceText(r.pace, r)}</span>
-
-                    {/* WHAT TO DO */}
-                    <span style={{ display: 'flex', gap: 8, alignItems: 'flex-start', minWidth: 230 }}>
-                      <span style={{ flex: 1, fontSize: 13, color: T.ink2, lineHeight: 1.45 }}>{r.nextAction}</span>
-                      <span aria-hidden style={{ color: T.ghost, fontSize: 15, lineHeight: 1.2, transform: isExpanded ? 'rotate(90deg)' : undefined, transition: 'transform 0.15s' }}>›</span>
-                    </span>
-                  </div>
-
-                  {/* Expand row — stage pills + open client link */}
-                  {isExpanded && (
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      flexWrap: 'wrap',
-                      padding: '10px 24px 14px 60px',
-                      borderTop: `1px solid ${T.dividerLight}`,
-                      background: T.hover,
-                    }}>
-                      {r.coverage && (r.coverage.delivered - r.scheduledAhead) > 0 && <StatusBadge tone="green" dot={false}>{r.coverage.delivered - r.scheduledAhead} posted live</StatusBadge>}
-                      {r.stages.review > 0 && <StatusBadge tone="amber" dot={false}>{r.stages.review} in review</StatusBadge>}
-                      {r.stages.editing > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.editing} editing</StatusBadge>}
-                      {r.stages.qc > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.qc} in QC</StatusBadge>}
-                      {r.stages.backlog > 0 && <StatusBadge tone="slate" dot={false}>{r.stages.backlog} in backlog</StatusBadge>}
-                      {r.scheduledAhead > 0 && <StatusBadge tone="green" dot={false}>{r.scheduledAhead} scheduled</StatusBadge>}
-                      {(r.stages.ready - r.scheduledAhead) > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.ready - r.scheduledAhead} not scheduled</StatusBadge>}
-                      {!r.termExpired && (r.coverage?.notStarted ?? 0) > 0 && <StatusBadge tone="red" dot={false}>{r.coverage!.notStarted} not started</StatusBadge>}
-                      {r.unclassified > 0 && (
-                        <span title={`ClickUp status not mapped: ${r.unclassifiedStatuses.join(', ')}`}>
-                          <StatusBadge tone="red" dot={false}>{r.unclassified} unmapped</StatusBadge>
+                  {/* DELIVERY */}
+                  <span style={{ minWidth: 0 }}>
+                    {r.coverage ? (
+                      <>
+                        <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 13, color: T.ink2 }}>
+                          <span>{r.coverage.delivered} / {r.coverage.sold}</span>
+                          {!r.termExpired && (r.coverage?.notStarted ?? 0) > 0 && (
+                            <span style={{ fontSize: 11.5, color: T.danger }}>{r.coverage!.notStarted} not started</span>
+                          )}
                         </span>
-                      )}
-                      {r.stages.review === 0 && r.stages.editing === 0 && r.stages.qc === 0 && r.stages.backlog === 0 && r.stages.ready === 0 && r.scheduledAhead === 0 && r.unclassified === 0 && !r.coverage && (
-                        <span style={{ fontSize: 12, color: T.ink3 }}>Nothing in flight</span>
-                      )}
-                      <Link
-                        href={r.periodId ? `/admin/clients/${r.periodId}` : `/admin/clients?client=${r.clientId}`}
-                        onClick={e => e.stopPropagation()}
-                        style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 600, color: T.brand, textDecoration: 'none', whiteSpace: 'nowrap' }}
-                      >
-                        Open client →
-                      </Link>
-                    </div>
+                        <span style={{ display: 'block', marginTop: 7 }}>
+                          <CoverageBar
+                            sold={r.coverage.sold}
+                            delivered={r.coverage.delivered - r.scheduledAhead}
+                            scheduled={r.scheduledAhead}
+                            inPipeline={r.coverage.inPipeline}
+                            height={7}
+                          />
+                        </span>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: 13, color: T.ink3, fontStyle: 'italic' }}>No contracted scope</span>
+                    )}
+                  </span>
+
+                  {/* BLOCKED */}
+                  <span style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-start' }}>
+                    {r.waitingOnClient > 0 && (
+                      <StatusBadge tone="amber" dot={false}>{r.waitingOnClient} on client</StatusBadge>
+                    )}
+                    {r.stalledWithUs > 0 && (
+                      <StatusBadge tone="red" dot={false}>{r.stalledWithUs} on us</StatusBadge>
+                    )}
+                    {r.waitingOnClient === 0 && r.stalledWithUs === 0 && (
+                      <StatusBadge tone="slate" dot={false}>nothing blocked</StatusBadge>
+                    )}
+                  </span>
+
+                  {/* WHAT TO DO */}
+                  <span style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 0 }}>
+                    <span style={{ flex: 1, fontSize: 13, color: T.ink2, lineHeight: 1.45 }}>{r.nextAction}</span>
+                    <Link
+                      href={r.periodId ? `/admin/clients/${r.periodId}` : `/admin/clients?client=${r.clientId}`}
+                      style={{ fontSize: 12, fontWeight: 600, color: T.brand, textDecoration: 'none', whiteSpace: 'nowrap', marginTop: 1 }}
+                    >
+                      Open →
+                    </Link>
+                  </span>
+                </div>
+
+                {/* Stage pills — always visible */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  flexWrap: 'wrap',
+                  padding: '8px 24px 12px 60px',
+                  borderTop: `1px solid ${T.dividerLight}`,
+                }}>
+                  {r.coverage && (r.coverage.delivered - r.scheduledAhead) > 0 && <StatusBadge tone="green" dot={false}>{r.coverage.delivered - r.scheduledAhead} posted live</StatusBadge>}
+                  {r.stages.review > 0 && <StatusBadge tone="amber" dot={false}>{r.stages.review} in review</StatusBadge>}
+                  {r.stages.editing > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.editing} editing</StatusBadge>}
+                  {r.stages.qc > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.qc} in QC</StatusBadge>}
+                  {r.stages.backlog > 0 && <StatusBadge tone="slate" dot={false}>{r.stages.backlog} in backlog</StatusBadge>}
+                  {r.scheduledAhead > 0 && <StatusBadge tone="green" dot={false}>{r.scheduledAhead} scheduled</StatusBadge>}
+                  {(r.stages.ready - r.scheduledAhead) > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.ready - r.scheduledAhead} not scheduled</StatusBadge>}
+                  {!r.termExpired && (r.coverage?.notStarted ?? 0) > 0 && <StatusBadge tone="red" dot={false}>{r.coverage!.notStarted} not started</StatusBadge>}
+                  {r.unclassified > 0 && (
+                    <span title={`ClickUp status not mapped: ${r.unclassifiedStatuses.join(', ')}`}>
+                      <StatusBadge tone="red" dot={false}>{r.unclassified} unmapped</StatusBadge>
+                    </span>
+                  )}
+                  {r.stages.review === 0 && r.stages.editing === 0 && r.stages.qc === 0 && r.stages.backlog === 0 && r.stages.ready === 0 && r.scheduledAhead === 0 && r.unclassified === 0 && !r.coverage && (
+                    <span style={{ fontSize: 12, color: T.ink3 }}>Nothing in flight</span>
                   )}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </TableScroll>
       </Card>
