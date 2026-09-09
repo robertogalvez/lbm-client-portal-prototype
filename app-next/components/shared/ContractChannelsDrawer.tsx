@@ -268,12 +268,14 @@ export function ContractChannelsDrawer({ open, onClose, clientId, clientName, pe
   const quantityValid = form.model === 'retainer' ? !!form.monthlyQuota || !!form.contractedTotal : !!form.contractedTotal;
   const canSave = !formOpen || (!!form.label && !!form.startsOn && quantityValid);
 
-  const computedExpected: number | null = (() => {
-    const w = Number(form.cadencePerWeek);
-    if (!w || !form.startsOn || !form.endsOn) return null;
-    const weeks = (Date.parse(form.endsOn) - Date.parse(form.startsOn)) / (7 * 86_400_000);
+  function calcExpected(cadence: string, startsOn: string, endsOn: string): number | null {
+    const w = Number(cadence);
+    if (!w || !startsOn || !endsOn) return null;
+    const weeks = (Date.parse(endsOn) - Date.parse(startsOn)) / (7 * 86_400_000);
     return Math.round(w * weeks);
-  })();
+  }
+
+  const computedExpected = calcExpected(form.cadencePerWeek, form.startsOn, form.endsOn);
 
   // One save for the entire drawer: the contract period (when the form is
   // open) and the channels go together, so the panel can never be left half
@@ -530,18 +532,27 @@ export function ContractChannelsDrawer({ open, onClose, clientId, clientName, pe
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 160px' }}>
                 <span style={fieldCap}>Starts</span>
-                <input aria-label="Starts" type="date" value={form.startsOn} onChange={e => setForm(f => ({ ...f, startsOn: e.target.value }))} style={{ ...inp, fontFamily: MONO }} />
+                <input aria-label="Starts" type="date" value={form.startsOn} onChange={e => setForm(f => {
+                  const exp = calcExpected(f.cadencePerWeek, e.target.value, f.endsOn);
+                  return { ...f, startsOn: e.target.value, ...(exp !== null ? { contractedTotal: String(exp) } : {}) };
+                })} style={{ ...inp, fontFamily: MONO }} />
               </div>
               <div style={{ flex: '1 1 160px' }}>
                 <span style={fieldCap}>Ends</span>
-                <input aria-label="Ends — leave blank for open-ended" type="date" value={form.endsOn} onChange={e => setForm(f => ({ ...f, endsOn: e.target.value }))} style={{ ...inp, fontFamily: MONO }} />
+                <input aria-label="Ends — leave blank for open-ended" type="date" value={form.endsOn} onChange={e => setForm(f => {
+                  const exp = calcExpected(f.cadencePerWeek, f.startsOn, e.target.value);
+                  return { ...f, endsOn: e.target.value, ...(exp !== null ? { contractedTotal: String(exp) } : {}) };
+                })} style={{ ...inp, fontFamily: MONO }} />
                 <span style={{ display: 'block', fontSize: 11.5, color: T.ink3, marginTop: 4 }}>Leave blank for open-ended.</span>
               </div>
             </div>
 
             <div>
               <span style={fieldCap}>Videos per week</span>
-              <input aria-label="Videos per week" type="number" value={form.cadencePerWeek} onChange={e => setForm(f => ({ ...f, cadencePerWeek: e.target.value }))} placeholder="e.g. 2" style={inp} />
+              <input aria-label="Videos per week" type="number" value={form.cadencePerWeek} onChange={e => setForm(f => {
+                const exp = calcExpected(e.target.value, f.startsOn, f.endsOn);
+                return { ...f, cadencePerWeek: e.target.value, ...(exp !== null ? { contractedTotal: String(exp) } : {}) };
+              })} placeholder="e.g. 2" style={inp} />
             </div>
 
             {/* One quantity field, chosen by the delivery model. The old form
