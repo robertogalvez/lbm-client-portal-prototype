@@ -268,8 +268,9 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
 
   const DesktopVideoCard = ({ t }: { t: (typeof clientTasks)[0] }) => {
     const thumb = thumbnails[t.clickupTaskId];
+    // Wrap entire card in Link so clicking anywhere (thumbnail or CTA) opens the review.
     return (
-      <div style={{background:'#fff', borderRadius:16, overflow:'hidden', boxShadow:'0 2px 8px #0001'}}>
+      <Link href={`/client/videos/${t.clickupTaskId}`} style={{display:'block', background:'#fff', borderRadius:16, overflow:'hidden', boxShadow:'0 2px 8px #0001', textDecoration:'none', color:'inherit'}}>
         {/* 16:9 thumbnail */}
         <div style={{position:'relative', paddingTop:'56.25%', background:'#1a1714'}}>
           {thumb ? (
@@ -293,9 +294,10 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
             <AdBadge deliverableType={t.deliverableType} />
           </div>
           <div style={{background:'#fef3c7', color:'#92400e', textAlign:'center', padding:'6px', borderRadius:8, fontSize:12, fontWeight:600, marginBottom:12}}>⏳ Awaiting your review</div>
-          <a href={`/client/videos/${t.clickupTaskId}`} style={{display:'block', textAlign:'center', padding:'10px', background:'#f97316', color:'#fff', borderRadius:10, fontWeight:600, fontSize:14, textDecoration:'none'}}>Watch &amp; review</a>
+          {/* Styled div — outer Link handles navigation */}
+          <div style={{display:'block', textAlign:'center', padding:'10px', background:'#f97316', color:'#fff', borderRadius:10, fontWeight:600, fontSize:14}}>Watch &amp; review</div>
         </div>
-      </div>
+      </Link>
     );
   };
 
@@ -805,8 +807,12 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
   const ts = Number(task.dateUpdated);
   const updatedDate = isNaN(ts) ? new Date(task.dateUpdated) : new Date(ts);
   const waiting = Math.floor((Date.now() - updatedDate.getTime()) / 86_400_000);
+  // Wrap the entire card in a Link so any tap (thumbnail, title, button area)
+  // opens the review — on mobile a small tap target like a lone button is
+  // easy to miss. The inner CTA div looks like a button but the outer <a>
+  // is the actual navigation; nesting <a> inside <a> is invalid HTML.
   return (
-    <div style={{ background: '#fff', border: '1px solid #ece4d8', borderRadius: 22, overflow: 'hidden' }}>
+    <Link href={`/client/videos/${task.clickupTaskId}`} style={{ display: 'block', background: '#fff', border: '1px solid #ece4d8', borderRadius: 22, overflow: 'hidden', textDecoration: 'none', color: 'inherit' }}>
       {/* Thumbnail — CSS background-image before was invisible to next/image
           (and the browser's own lazy-loading), so every card's thumbnail
           downloaded up front regardless of scroll position. */}
@@ -821,6 +827,12 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
           // Next's own image optimizer via remotePatterns.
           <Image src={thumbnail} alt={task.clientFacingTitle || task.title} fill unoptimized sizes="(min-width: 900px) 460px, 100vw" style={{ objectFit: 'cover' }} />
         )}
+        {/* Play overlay hint — visible on the thumbnail so it's obvious the image is tappable */}
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.18)', opacity: 0 }} className="vrc-play-overlay">
+          <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg viewBox="0 0 24 24" fill="#fff" style={{ width: 22, height: 22, marginLeft: 3 }}><path d="M8 5v14l11-7z"/></svg>
+          </div>
+        </div>
       </div>
 
       {/* Body */}
@@ -858,20 +870,19 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
           </span>
         </div>
 
-        {/* Primary CTA */}
-        <Link href={`/client/videos/${task.clickupTaskId}`} style={{
-          width: '100%', padding: '15px', borderRadius: 15, border: 'none',
+        {/* Primary CTA — styled as a button but the outer Link handles navigation */}
+        <div style={{
+          width: '100%', padding: '15px', borderRadius: 15,
           background: '#FF6000', color: '#fff', fontWeight: 700, fontSize: 15,
-          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          fontFamily: 'inherit', textDecoration: 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:16,height:16}}>
             <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
           </svg>
           Watch &amp; review
-        </Link>
+        </div>
       </div>
-    </div>
+    </Link>
   );
 }
 

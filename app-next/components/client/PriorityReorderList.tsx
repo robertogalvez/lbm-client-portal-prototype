@@ -7,6 +7,13 @@ interface PriorityItem {
   node: React.ReactNode;
 }
 
+function ordinal(n: number): string {
+  if (n === 1) return '1st';
+  if (n === 2) return '2nd';
+  if (n === 3) return '3rd';
+  return `${n}th`;
+}
+
 // Up/down reordering (no drag-and-drop dependency — this needs to work
 // reliably on mobile touch, and a small button pair does that without
 // adding a library). Each move optimistically reorders locally, then saves
@@ -44,21 +51,30 @@ export function PriorityReorderList({ items: initialItems }: { items: PriorityIt
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {items.map((item, i) => (
         <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
-            <button
-              type="button" disabled={i === 0 || saving} onClick={() => move(i, -1)}
-              aria-label="Move up in priority"
-              style={{ ...arrowBtnStyle, opacity: i === 0 ? 0.35 : 1 }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ width: 13, height: 13 }}><path d="m18 15-6-6-6 6" /></svg>
-            </button>
-            <button
-              type="button" disabled={i === items.length - 1 || saving} onClick={() => move(i, 1)}
-              aria-label="Move down in priority"
-              style={{ ...arrowBtnStyle, opacity: i === items.length - 1 ? 0.35 : 1 }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ width: 13, height: 13 }}><path d="m6 9 6 6 6-6" /></svg>
-            </button>
+          {/* Rank badge + move buttons — shows position clearly ("1st Priority")
+              so the client knows their order at a glance, not just which arrow to press. */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flexShrink: 0, minWidth: 52 }}>
+            <div style={rankBadgeStyle(i)}>
+              {ordinal(i + 1)}
+            </div>
+            <div style={{ display: 'flex', gap: 3 }}>
+              <button
+                type="button" disabled={i === 0 || saving} onClick={() => move(i, -1)}
+                aria-label={`Move to ${ordinal(i)} priority`}
+                style={{ ...arrowBtnStyle, opacity: i === 0 ? 0.3 : 1 }}
+                title="Move up"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ width: 11, height: 11 }}><path d="m18 15-6-6-6 6" /></svg>
+              </button>
+              <button
+                type="button" disabled={i === items.length - 1 || saving} onClick={() => move(i, 1)}
+                aria-label={`Move to ${ordinal(i + 2)} priority`}
+                style={{ ...arrowBtnStyle, opacity: i === items.length - 1 ? 0.3 : 1 }}
+                title="Move down"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ width: 11, height: 11 }}><path d="m6 9 6 6 6-6" /></svg>
+              </button>
+            </div>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>{item.node}</div>
         </div>
@@ -67,8 +83,22 @@ export function PriorityReorderList({ items: initialItems }: { items: PriorityIt
   );
 }
 
+function rankBadgeStyle(i: number): React.CSSProperties {
+  // First position gets an accent color; others are neutral.
+  const isFirst = i === 0;
+  return {
+    fontSize: 10, fontWeight: 800, letterSpacing: '0.02em',
+    padding: '2px 6px', borderRadius: 6,
+    color: isFirst ? '#B23E00' : '#6c6357',
+    background: isFirst ? '#ffede3' : '#f5f2ef',
+    border: `1px solid ${isFirst ? '#ffd0b8' : '#ece4d8'}`,
+    whiteSpace: 'nowrap' as const,
+    lineHeight: 1.5,
+  };
+}
+
 const arrowBtnStyle: React.CSSProperties = {
-  width: 26, height: 22, borderRadius: 6, border: '1px solid #ece4d8',
+  width: 22, height: 20, borderRadius: 5, border: '1px solid #ece4d8',
   background: '#fff', color: '#6c6357', display: 'grid', placeItems: 'center',
   cursor: 'pointer', padding: 0,
 };
