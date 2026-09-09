@@ -144,7 +144,12 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
                   <span style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
                     <Avatar name={r.name} color={r.avatarColor} />
                     <span style={{ minWidth: 0 }}>
-                      <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+                      <Link
+                        href={r.periodId ? `/admin/clients/${r.periodId}` : `/admin/clients?client=${r.clientId}`}
+                        style={{ display: 'block', fontSize: 14, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }}
+                      >
+                        {r.name}
+                      </Link>
                       <span style={{ display: 'block', fontSize: 11.5, color: T.ink3, marginTop: 2 }}>
                         {r.model ?? 'no contract'}
                         {r.coverage && ` · ${r.coverage.delivered} of ${r.coverage.sold} delivered`}
@@ -209,15 +214,7 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
                   </span>
 
                   {/* WHAT TO DO */}
-                  <span style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 0 }}>
-                    <span style={{ flex: 1, fontSize: 13, color: T.ink2, lineHeight: 1.45 }}>{r.nextAction}</span>
-                    <Link
-                      href={r.periodId ? `/admin/clients/${r.periodId}` : `/admin/clients?client=${r.clientId}`}
-                      style={{ fontSize: 12, fontWeight: 600, color: T.brand, textDecoration: 'none', whiteSpace: 'nowrap', marginTop: 1 }}
-                    >
-                      Open →
-                    </Link>
-                  </span>
+                  <span style={{ fontSize: 13, color: T.ink2, lineHeight: 1.45 }}>{r.nextAction}</span>
                 </div>
 
                 {/* Stage pills — always visible, ordered by production workflow */}
