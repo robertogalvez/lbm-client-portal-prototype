@@ -317,13 +317,14 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
                       {r.stages.editing > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.editing} editing</StatusBadge>}
                       {r.stages.qc > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.qc} in QC</StatusBadge>}
                       {r.stages.backlog > 0 && <StatusBadge tone="slate" dot={false}>{r.stages.backlog} in backlog</StatusBadge>}
-                      {r.stages.ready > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.ready} ready to post</StatusBadge>}
+                      {r.scheduledAhead > 0 && <StatusBadge tone="green" dot={false}>{r.scheduledAhead} scheduled</StatusBadge>}
+                      {(r.stages.ready - r.scheduledAhead) > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.ready - r.scheduledAhead} ready to post</StatusBadge>}
                       {r.unclassified > 0 && (
                         <span title={`ClickUp status not mapped: ${r.unclassifiedStatuses.join(', ')}`}>
                           <StatusBadge tone="red" dot={false}>{r.unclassified} unmapped</StatusBadge>
                         </span>
                       )}
-                      {r.stages.review === 0 && r.stages.editing === 0 && r.stages.qc === 0 && r.stages.backlog === 0 && r.stages.ready === 0 && r.unclassified === 0 && (
+                      {r.stages.review === 0 && r.stages.editing === 0 && r.stages.qc === 0 && r.stages.backlog === 0 && r.stages.ready === 0 && r.scheduledAhead === 0 && r.unclassified === 0 && (
                         <span style={{ fontSize: 12, color: T.ink3 }}>Nothing in flight</span>
                       )}
                       <Link
