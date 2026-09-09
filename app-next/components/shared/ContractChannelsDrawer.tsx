@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Drawer } from '@/components/ui/Drawer';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -159,17 +159,10 @@ export function ContractChannelsDrawer({ open, onClose, clientId, clientName, pe
   // starts from fresh props — no prop→state resync effect needed.
   const [periods, setPeriods] = useState(initialPeriods);
 
-  const [roster, setRoster] = useState<{ id: string; name: string }[]>([]);
-  useEffect(() => {
-    if (!open) return;
-    fetch('/api/admin/contracts/clients-roster').then(r => r.ok ? r.json() : []).then(setRoster).catch(() => {});
-  }, [open]);
-
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<PeriodForm>(() => emptyForm(clientId));
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
-  const [jointOpen, setJointOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [monthPeriodId, setMonthPeriodId] = useState<string | null>(null);
   const [monthForm, setMonthForm] = useState({ month: '', quotaOverride: '', note: '' });
@@ -273,7 +266,14 @@ export function ContractChannelsDrawer({ open, onClose, clientId, clientName, pe
   }
 
   const quantityValid = form.model === 'retainer' ? !!form.monthlyQuota || !!form.contractedTotal : !!form.contractedTotal;
-  const canSave = !formOpen || (!!form.label && !!form.startsOn && form.clientIds.length > 0 && quantityValid);
+  const canSave = !formOpen || (!!form.label && !!form.startsOn && quantityValid);
+
+  const computedExpected: number | null = (() => {
+    const w = Number(form.cadencePerWeek);
+    if (!w || !form.startsOn || !form.endsOn) return null;
+    const weeks = (Date.parse(form.endsOn) - Date.parse(form.startsOn)) / (7 * 86_400_000);
+    return Math.round(w * weeks);
+  })();
 
   // One save for the entire drawer: the contract period (when the form is
   // open) and the channels go together, so the panel can never be left half
@@ -539,23 +539,62 @@ export function ContractChannelsDrawer({ open, onClose, clientId, clientName, pe
               </div>
             </div>
 
+            <div>
+              <span style={fieldCap}>Videos per week</span>
+              <input aria-label="Videos per week" type="number" value={form.cadencePerWeek} onChange={e => setForm(f => ({ ...f, cadencePerWeek: e.target.value }))} placeholder="e.g. 2" style={inp} />
+            </div>
+
             {/* One quantity field, chosen by the delivery model. The old form
                 had four overlapping ones and no rule for which to fill. */}
             {form.model === 'retainer' ? (
               <div>
                 <span style={fieldCap}>Videos per month</span>
                 <input aria-label="Videos per month" type="number" value={form.monthlyQuota} onChange={e => setForm(f => ({ ...f, monthlyQuota: e.target.value }))} placeholder="e.g. 16" style={inp} />
-                <span style={{ display: 'block', fontSize: 11.5, color: T.ink3, marginTop: 4 }}>Contract total is calculated from this and the term.</span>
+                <span style={{ display: 'block', fontSize: 11.5, color: T.ink3, marginTop: 4 }}>Used for monthly pacing. Set videos/week above to validate expected total.</span>
                 <div style={{ marginTop: 10 }}>
                   <span style={fieldCap}>Contract total</span>
                   <input aria-label="Contract total" type="number" value={form.contractedTotal} onChange={e => setForm(f => ({ ...f, contractedTotal: e.target.value }))} placeholder="e.g. 69" style={inp} />
+                  {computedExpected !== null && (() => {
+                    const weeks = ((Date.parse(form.endsOn) - Date.parse(form.startsOn)) / (7 * 86_400_000)).toFixed(1);
+                    const entered = Number(form.contractedTotal);
+                    const differs = form.contractedTotal && entered !== computedExpected;
+                    return (
+                      <div style={{ marginTop: 4 }}>
+                        <span style={{ display: 'block', fontSize: 11.5, color: T.ink3 }}>
+                          Expected: {computedExpected} videos ({weeks} weeks × {form.cadencePerWeek}/week)
+                        </span>
+                        {differs && (
+                          <span style={{ display: 'block', fontSize: 11.5, color: '#b45309', marginTop: 2 }}>
+                            Entered total ({entered}) differs from expected ({computedExpected})
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             ) : (
               <div>
                 <span style={fieldCap}>Total deliverables</span>
                 <input aria-label="Total deliverables" type="number" value={form.contractedTotal} onChange={e => setForm(f => ({ ...f, contractedTotal: e.target.value }))} placeholder="e.g. 40" style={inp} />
-                <span style={{ display: 'block', fontSize: 11.5, color: T.ink3, marginTop: 4 }}>The whole scope. Progress on the client page counts against it.</span>
+                {computedExpected !== null && (() => {
+                  const weeks = ((Date.parse(form.endsOn) - Date.parse(form.startsOn)) / (7 * 86_400_000)).toFixed(1);
+                  const entered = Number(form.contractedTotal);
+                  const differs = form.contractedTotal && entered !== computedExpected;
+                  return (
+                    <div style={{ marginTop: 4 }}>
+                      <span style={{ display: 'block', fontSize: 11.5, color: T.ink3 }}>
+                        Expected: {computedExpected} videos ({weeks} weeks × {form.cadencePerWeek}/week)
+                      </span>
+                      {differs && (
+                        <span style={{ display: 'block', fontSize: 11.5, color: '#b45309', marginTop: 2 }}>
+                          Entered total ({entered}) differs from expected ({computedExpected})
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+                {!computedExpected && <span style={{ display: 'block', fontSize: 11.5, color: T.ink3, marginTop: 4 }}>The whole scope. Progress on the client page counts against it.</span>}
               </div>
             )}
 
@@ -564,49 +603,11 @@ export function ContractChannelsDrawer({ open, onClose, clientId, clientName, pe
               <textarea aria-label="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Where these numbers came from, anything unusual…" rows={3} style={{ ...inp, minHeight: 62, resize: 'vertical' }} />
             </div>
 
-            <Disclosure label="This contract also covers other clients" open={jointOpen} onToggle={() => setJointOpen(o => !o)}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                {roster.filter(c => c.id !== clientId).map(c => {
-                  const checked = form.clientIds.includes(c.id);
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      aria-pressed={checked}
-                      onClick={() => setForm(f => ({
-                        ...f,
-                        clientIds: checked ? f.clientIds.filter(x => x !== c.id) : [...f.clientIds, c.id],
-                      }))}
-                      style={{
-                        padding: '6px 12px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit',
-                        fontSize: 12, fontWeight: 600,
-                        border: `1px solid ${checked ? T.brand : T.lineStrong}`,
-                        background: checked ? T.brandTint : T.surface,
-                        color: checked ? T.brandDark : T.ink2,
-                      }}
-                    >
-                      {c.name}
-                    </button>
-                  );
-                })}
-              </div>
-              <span style={{ fontSize: 11.5, color: T.ink3 }}>This client is always covered and is not listed here.</span>
-            </Disclosure>
-
-            <Disclosure label="Cadence, rolling cycles & carry-over" open={advancedOpen} onToggle={() => setAdvancedOpen(o => !o)}>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <div style={{ flex: '1 1 160px' }}>
-                  <span style={fieldCap}>Videos per week</span>
-                  <input aria-label="Videos per week" type="number" value={form.cadencePerWeek} onChange={e => setForm(f => ({ ...f, cadencePerWeek: e.target.value }))} placeholder="Only if billed weekly" style={inp} />
-                </div>
-                <div style={{ flex: '1 1 160px' }}>
-                  <span style={fieldCap}>Carried over from last period</span>
-                  <input aria-label="Carried over from last period" type="number" value={form.carriedIn} onChange={e => setForm(f => ({ ...f, carriedIn: e.target.value }))} placeholder="0" style={inp} />
-                </div>
-              </div>
+            <Disclosure label="Carry-over" open={advancedOpen} onToggle={() => setAdvancedOpen(o => !o)}>
               <div>
-                <span style={fieldCap}>Rolling cycle length (days)</span>
-                <input aria-label="Rolling cycle length in days" type="number" value={form.cycleDurationDays} onChange={e => setForm(f => ({ ...f, cycleDurationDays: e.target.value }))} placeholder="Blank = the fixed dates above" style={inp} />
+                <span style={fieldCap}>Carried over from last period</span>
+                <input aria-label="Carried over from last period" type="number" value={form.carriedIn} onChange={e => setForm(f => ({ ...f, carriedIn: e.target.value }))} placeholder="0" style={inp} />
+                <span style={{ display: 'block', fontSize: 11.5, color: T.ink3, marginTop: 4 }}>Shortfall from the previous contract that counts toward this period's total.</span>
               </div>
             </Disclosure>
           </section>
