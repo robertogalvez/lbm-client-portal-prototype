@@ -80,6 +80,13 @@ export interface AdminClientRow {
   riskScore: number;
 }
 
+/** Total still due on the contract (sold − delivered), regardless of production stage.
+ *  Distinct from notStarted, which is the subset not yet in production at all. */
+export function owedCount(r: AdminClientRow): number | null {
+  if (!r.coverage) return null;
+  return Math.max(0, r.coverage.sold - r.coverage.delivered);
+}
+
 const AVATAR_COLORS = ['#B4762A', '#8A5A9E', '#5D6773', '#FF6000', '#14805f', '#cf5b53', '#2F5C8F', '#4A5560'];
 
 export function initialsOf(name: string): string {

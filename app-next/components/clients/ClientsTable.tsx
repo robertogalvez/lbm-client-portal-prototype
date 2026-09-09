@@ -6,15 +6,16 @@ import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
 import { CoverageBar } from '@/components/ui/Bars';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { T, MONO } from '@/components/ui/tokens';
+import { T, MONO, COVERAGE_COLORS } from '@/components/ui/tokens';
 import { colHeader, headerRow, bodyRow, emptyState } from '@/components/ui/table';
 import { TableScroll } from '@/components/ui/TableScroll';
-import type { AdminClientRow, AdminFilterTag } from '@/lib/admin-views';
+import { owedCount, type AdminClientRow, type AdminFilterTag } from '@/lib/admin-views';
 import type { PaceNeeded } from '@/lib/contracts';
 
-const GRID = '2fr 1.4fr 1.6fr 1.7fr 1.5fr 2fr';
+// CLIENT | CONTRACT | DELIVERY | BLOCKED ↓ | PACE | WHAT TO DO
+const GRID = '2fr 1.4fr 1.8fr 1fr 1.5fr 2fr';
 
-type SortKey = 'name' | 'contractTerm' | 'coverage' | 'inFlight' | 'paceNeeded';
+type SortKey = 'name' | 'contractTerm' | 'delivery' | 'blocked' | 'paceNeeded';
 
 type FilterKey = 'all' | AdminFilterTag;
 
@@ -25,33 +26,6 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'waiting', label: 'Waiting on client' },
 ];
 
-/** In-flight reads as stacked chips, one per stage that actually has work in it. */
-function inFlightChips(r: AdminClientRow) {
-  const parts: { label: string; tone: 'amber' | 'blue' | 'slate' | 'red'; title?: string }[] = [];
-  if (r.stages.review) parts.push({ label: `${r.stages.review} in review`, tone: 'amber' });
-  if (r.stages.editing) parts.push({ label: `${r.stages.editing} editing`, tone: 'blue' });
-  if (r.stages.qc) parts.push({ label: `${r.stages.qc} in QC`, tone: 'blue' });
-  if (r.stages.backlog) parts.push({ label: `${r.stages.backlog} in backlog`, tone: 'slate' });
-  if (r.stages.ready) parts.push({ label: `${r.stages.ready} ready to post`, tone: 'blue' });
-  // A ClickUp status this app doesn't recognise (a renamed or added column).
-  // Flagged rather than dropped — see lib/pipeline.ts's unclassified bucket.
-  if (r.unclassified) {
-    parts.push({
-      label: `${r.unclassified} unclassified`,
-      tone: 'red',
-      title: `ClickUp status not mapped to a stage: ${r.unclassifiedStatuses.join(', ')}`,
-    });
-  }
-  if (parts.length === 0) parts.push({ label: 'nothing in flight', tone: 'slate' });
-  return parts;
-}
-
-/**
- * The actionable field, and the reason this screen does not show
- * percent-delivered: a percentage cannot tell you whether the remainder is in
- * production or does not exist yet, and a pace figure is meaningless without
- * a deadline — so an expired term states the contractual problem instead.
- */
 function paceText(pace: PaceNeeded | null, r: AdminClientRow): string {
   if (!pace) return '—';
   switch (pace.kind) {
@@ -65,59 +39,49 @@ function paceText(pace: PaceNeeded | null, r: AdminClientRow): string {
       return `${pace.remaining} to brief · no deadline to pace against`;
     case 'blocked':
       return r.termExpired
-        ? `Contract ended, ${pace.remaining} still owed`
-        : `No term on file, ${pace.remaining} still owed`;
+        ? `Contract ended, ${owedCount(r) ?? pace.remaining} still owed`
+        : `No term on file, ${owedCount(r) ?? pace.remaining} still owed`;
     case 'cycle-pending':
-      // The deadline is known in length but not yet in date, so there is no
-      // pace to quote — publishing the first video is what starts the clock.
       return `${pace.remaining} to start · ${pace.durationDays}-day clock starts at first publish`;
   }
-}
-
-function notStartedTone(r: AdminClientRow): 'red' | 'amber' | 'green' {
-  const cov = r.coverage!;
-  if (cov.status === 'covered') return 'green';
-  if (cov.status === 'over') return 'amber';
-  return r.termExpired || r.stages.backlog === 0 ? 'red' : 'amber';
 }
 
 function getPaceSortValue(pace: PaceNeeded | null): number {
   if (!pace) return 0;
   switch (pace.kind) {
-    case 'pace':
-      return pace.perWeek;
+    case 'pace': return pace.perWeek;
     case 'open':
     case 'blocked':
-    case 'cycle-pending':
-      return pace.remaining;
-    case 'covered':
-      return 0;
+    case 'cycle-pending': return pace.remaining;
+    case 'covered': return 0;
   }
 }
 
+function blockedTotal(r: AdminClientRow): number {
+  return r.stalledWithUs + r.waitingOnClient;
+}
+
 /**
- * Screen 2 — one table answering both "which accounts are at risk?" and "do
- * we have enough videos in motion to honour what we sold?" Used to be two
- * tabs (Accounts / Coverage) that read the same AdminClientRow[] and mostly
- * repeated each other — Accounts' "Contract term" badge already said what
- * Coverage's separate "Term left" column said, just phrased differently, and
- * Coverage's sold/delivered/in-progress rollup was a coarser view of the
- * exact pipeline Accounts' stage chips already broke out granularly. One row
- * now carries both altitudes instead of making you flip tabs to see if an
- * at-risk client is also short on coverage.
+ * Screen 2 — one row per client, six columns.
+ * CLIENT | CONTRACT | DELIVERY | BLOCKED ↓ | PACE | WHAT TO DO
+ *
+ * Stage pills (diagnostic) live in an expand row rather than the always-visible
+ * row — the triage question is "whose court" (BLOCKED), not "what stage".
+ * Default sort is blocked-descending so the most-stuck client is always first.
  */
 export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [query, setQuery] = useState('');
-  const [sortKey, setSortKey] = useState<SortKey>('name');
-  const [sortAsc, setSortAsc] = useState(true);
+  const [sortKey, setSortKey] = useState<SortKey>('blocked');
+  const [sortAsc, setSortAsc] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortAsc(!sortAsc);
     } else {
       setSortKey(key);
-      setSortAsc(true);
+      setSortAsc(key === 'name'); // name sorts A–Z by default; everything else descending
     }
   };
 
@@ -128,8 +92,6 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
     waiting: rows.filter(r => r.filterTags.includes('waiting')).length,
   }), [rows]);
 
-  // The chips in the old portal were decorative — they had counts but did not
-  // filter anything. They filter now, and the count on the right follows them.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const results = rows
@@ -149,17 +111,14 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
           aVal = a.termText?.toLowerCase() ?? '';
           bVal = b.termText?.toLowerCase() ?? '';
           break;
-        case 'coverage':
+        case 'delivery':
           aVal = a.coverage?.delivered ?? 0;
           bVal = b.coverage?.delivered ?? 0;
           break;
-        case 'inFlight': {
-          const aFlight = a.stages.review + a.stages.editing + a.stages.qc + a.stages.backlog + a.stages.ready;
-          const bFlight = b.stages.review + b.stages.editing + b.stages.qc + b.stages.backlog + b.stages.ready;
-          aVal = aFlight;
-          bVal = bFlight;
+        case 'blocked':
+          aVal = blockedTotal(a);
+          bVal = blockedTotal(b);
           break;
-        }
         case 'paceNeeded':
           aVal = getPaceSortValue(a.pace);
           bVal = getPaceSortValue(b.pace);
@@ -174,6 +133,30 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
 
     return results;
   }, [rows, filter, query, sortKey, sortAsc]);
+
+  function SortButton({ col, label }: { col: SortKey; label: string }) {
+    const active = sortKey === col;
+    return (
+      <button
+        type="button"
+        onClick={() => handleSort(col)}
+        style={{
+          ...colHeader,
+          cursor: 'pointer',
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          textAlign: 'left',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+        }}
+      >
+        {label}
+        {active && <span>{sortAsc ? '↑' : '↓'}</span>}
+      </button>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -218,163 +201,144 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
 
       <Card padded={false}>
         <TableScroll wide>
-        <div style={{ ...headerRow(GRID), padding: '4px 24px 12px' }}>
-          <button
-            type="button"
-            onClick={() => handleSort('name')}
-            style={{
-              ...colHeader,
-              cursor: 'pointer',
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              textAlign: 'left',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            Client
-            {sortKey === 'name' && <span>{sortAsc ? '↑' : '↓'}</span>}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSort('contractTerm')}
-            style={{
-              ...colHeader,
-              cursor: 'pointer',
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              textAlign: 'left',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            Contract term
-            {sortKey === 'contractTerm' && <span>{sortAsc ? '↑' : '↓'}</span>}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSort('coverage')}
-            style={{
-              ...colHeader,
-              cursor: 'pointer',
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              textAlign: 'left',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            Coverage
-            {sortKey === 'coverage' && <span>{sortAsc ? '↑' : '↓'}</span>}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSort('inFlight')}
-            style={{
-              ...colHeader,
-              cursor: 'pointer',
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              textAlign: 'left',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            In flight
-            {sortKey === 'inFlight' && <span>{sortAsc ? '↑' : '↓'}</span>}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSort('paceNeeded')}
-            style={{
-              ...colHeader,
-              cursor: 'pointer',
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              textAlign: 'left',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            Pace needed
-            {sortKey === 'paceNeeded' && <span>{sortAsc ? '↑' : '↓'}</span>}
-          </button>
-          <span style={colHeader}>What to do</span>
-        </div>
+          <div style={{ minWidth: 940 }}>
+            <div style={{ ...headerRow(GRID), padding: '4px 24px 12px' }}>
+              <SortButton col="name" label="Client" />
+              <SortButton col="contractTerm" label="Contract" />
+              <SortButton col="delivery" label="Delivery" />
+              <SortButton col="blocked" label="Blocked ↓" />
+              <SortButton col="paceNeeded" label="Pace needed" />
+              <span style={colHeader}>What to do</span>
+            </div>
 
-        {filtered.length === 0 && <div style={emptyState}>No clients match this filter.</div>}
+            {filtered.length === 0 && <div style={emptyState}>No clients match this filter.</div>}
 
-        {filtered.map(r => (
-          <Link
-            key={r.id}
-            href={r.periodId ? `/admin/clients/${r.periodId}` : `/admin/clients?client=${r.clientId}`}
-            style={{ ...bodyRow(GRID), alignItems: 'start', textDecoration: 'none', color: 'inherit' }}
-            className="db-row-link"
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
-              <Avatar name={r.name} color={r.avatarColor} />
-              <span style={{ minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
-                <span style={{ display: 'block', fontSize: 11.5, color: T.ink3, marginTop: 2 }}>
-                  {r.model ?? 'no contract'}
-                  {r.fulfilmentPct !== null && ` · ${Math.round(r.fulfilmentPct)}% delivered`}
-                </span>
-              </span>
-            </span>
+            {filtered.map(r => {
+              const isExpanded = expandedId === r.id;
+              const owed = owedCount(r);
 
-            <span>
-              <span style={{ display: 'block', fontFamily: MONO, fontSize: 12, color: T.ink2 }}>{r.termText}</span>
-              <span style={{ display: 'inline-flex', marginTop: 6 }}>
-                <StatusBadge tone={r.periodId ? r.expiryTone : 'amber'} dot={false}>
-                  {r.periodId ? r.expiryText : 'Needs setup'}
-                </StatusBadge>
-              </span>
-            </span>
+              return (
+                <div key={r.id}>
+                  {/* Main row — click to expand/collapse stage pills */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setExpandedId(isExpanded ? null : r.id)}
+                    onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setExpandedId(isExpanded ? null : r.id)}
+                    style={{
+                      ...bodyRow(GRID),
+                      alignItems: 'start',
+                      cursor: 'pointer',
+                      background: isExpanded ? T.hover : undefined,
+                    }}
+                    className="db-row-link"
+                  >
+                    {/* CLIENT */}
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 212 }}>
+                      <Avatar name={r.name} color={r.avatarColor} />
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+                        <span style={{ display: 'block', fontSize: 11.5, color: T.ink3, marginTop: 2 }}>
+                          {r.model ?? 'no contract'}
+                          {r.coverage && ` · ${r.coverage.delivered} of ${r.coverage.sold} delivered`}
+                        </span>
+                      </span>
+                    </span>
 
-            <span>
-              {r.coverage ? (
-                <>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: T.ink2 }}>
-                    {r.coverage.delivered} of {r.coverage.sold}
-                    <StatusBadge tone={notStartedTone(r)} dot={false}>
-                      {r.coverage.status === 'short' ? `+${r.coverage.notStarted} to start` : r.coverage.status === 'over' ? `${r.coverage.over} over` : 'none'}
-                    </StatusBadge>
-                  </span>
-                  <span style={{ display: 'block', marginTop: 7, maxWidth: 140 }}>
-                    <CoverageBar sold={r.coverage.sold} delivered={r.coverage.delivered} inPipeline={r.coverage.inPipeline} />
-                  </span>
-                </>
-              ) : (
-                <span style={{ fontSize: 15, color: T.ghost }}>—</span>
-              )}
-            </span>
+                    {/* CONTRACT */}
+                    <span>
+                      <span style={{ display: 'block', fontFamily: MONO, fontSize: 12, color: T.ink2, whiteSpace: 'nowrap' }}>{r.termText}</span>
+                      <span style={{ display: 'inline-flex', marginTop: 6 }}>
+                        <StatusBadge tone={r.periodId ? r.expiryTone : 'amber'} dot={false}>
+                          {r.periodId ? r.expiryText : 'Needs setup'}
+                        </StatusBadge>
+                      </span>
+                    </span>
 
-            <span style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-start' }}>
-              {inFlightChips(r).map(c => (
-                <span key={c.label} title={c.title}>
-                  <StatusBadge tone={c.tone} dot={false}>{c.label}</StatusBadge>
-                </span>
-              ))}
-            </span>
+                    {/* DELIVERY */}
+                    <span style={{ minWidth: 180 }}>
+                      {r.coverage ? (
+                        <>
+                          <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 13, color: T.ink2 }}>
+                            <span>{r.coverage.delivered} / {r.coverage.sold}</span>
+                            {owed !== null && owed > 0 && (
+                              <span style={{ fontSize: 11.5, color: T.ink3 }}>{owed} owed</span>
+                            )}
+                          </span>
+                          <span style={{ display: 'block', marginTop: 7 }}>
+                            <CoverageBar
+                              sold={r.coverage.sold}
+                              delivered={r.coverage.delivered}
+                              inPipeline={r.coverage.inPipeline}
+                              height={7}
+                            />
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: 13, color: T.ink3, fontStyle: 'italic' }}>No contracted scope</span>
+                      )}
+                    </span>
 
-            <span style={{ fontSize: 13, color: T.ink2, lineHeight: 1.45 }}>{paceText(r.pace, r)}</span>
+                    {/* BLOCKED */}
+                    <span style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-start' }}>
+                      {r.waitingOnClient > 0 && (
+                        <StatusBadge tone="amber" dot={false}>{r.waitingOnClient} on client</StatusBadge>
+                      )}
+                      {r.stalledWithUs > 0 && (
+                        <StatusBadge tone="red" dot={false}>{r.stalledWithUs} on us</StatusBadge>
+                      )}
+                      {r.waitingOnClient === 0 && r.stalledWithUs === 0 && (
+                        <StatusBadge tone="slate" dot={false}>nothing blocked</StatusBadge>
+                      )}
+                    </span>
 
-            <span style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-              <span style={{ flex: 1, fontSize: 13, color: T.ink2, lineHeight: 1.45 }}>{r.nextAction}</span>
-              <span aria-hidden style={{ color: T.ghost, fontSize: 15, lineHeight: 1.2 }}>›</span>
-            </span>
-          </Link>
-        ))}
+                    {/* PACE */}
+                    <span style={{ fontSize: 13, color: T.ink2, lineHeight: 1.45 }}>{paceText(r.pace, r)}</span>
+
+                    {/* WHAT TO DO */}
+                    <span style={{ display: 'flex', gap: 8, alignItems: 'flex-start', minWidth: 230 }}>
+                      <span style={{ flex: 1, fontSize: 13, color: T.ink2, lineHeight: 1.45 }}>{r.nextAction}</span>
+                      <span aria-hidden style={{ color: T.ghost, fontSize: 15, lineHeight: 1.2, transform: isExpanded ? 'rotate(90deg)' : undefined, transition: 'transform 0.15s' }}>›</span>
+                    </span>
+                  </div>
+
+                  {/* Expand row — stage pills + open client link */}
+                  {isExpanded && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      flexWrap: 'wrap',
+                      padding: '10px 24px 14px 60px',
+                      borderTop: `1px solid ${T.dividerLight}`,
+                      background: T.hover,
+                    }}>
+                      {r.stages.review > 0 && <StatusBadge tone="amber" dot={false}>{r.stages.review} in review</StatusBadge>}
+                      {r.stages.editing > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.editing} editing</StatusBadge>}
+                      {r.stages.qc > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.qc} in QC</StatusBadge>}
+                      {r.stages.backlog > 0 && <StatusBadge tone="slate" dot={false}>{r.stages.backlog} in backlog</StatusBadge>}
+                      {r.stages.ready > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.ready} ready to post</StatusBadge>}
+                      {r.unclassified > 0 && (
+                        <span title={`ClickUp status not mapped: ${r.unclassifiedStatuses.join(', ')}`}>
+                          <StatusBadge tone="red" dot={false}>{r.unclassified} unmapped</StatusBadge>
+                        </span>
+                      )}
+                      {r.stages.review === 0 && r.stages.editing === 0 && r.stages.qc === 0 && r.stages.backlog === 0 && r.stages.ready === 0 && r.unclassified === 0 && (
+                        <span style={{ fontSize: 12, color: T.ink3 }}>Nothing in flight</span>
+                      )}
+                      <Link
+                        href={r.periodId ? `/admin/clients/${r.periodId}` : `/admin/clients?client=${r.clientId}`}
+                        onClick={e => e.stopPropagation()}
+                        style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 600, color: T.brand, textDecoration: 'none', whiteSpace: 'nowrap' }}
+                      >
+                        Open client →
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </TableScroll>
       </Card>
     </div>

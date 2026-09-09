@@ -20,7 +20,7 @@ import type { ClientDetailData, LedgerRow, PortalUser } from '@/lib/client-detai
 const ALL_STATUSES = '__all__';
 
 const TONE_COLOR: Record<LedgerRow['tone'], string> = {
-  ok: T.ok, warn: '#B4762A', danger: '#B23A0C', info: T.info, mute: T.ink3,
+  ok: T.ok, warn: T.warn, danger: '#B23A0C', info: T.info, mute: T.ink3,
 };
 
 const LEDGER_SCOPES = [
@@ -153,7 +153,7 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
               </div>
             )}
             {row.term.kind === 'cycle-pending' && (
-              <div style={{ fontSize: 12, color: '#B4762A', marginTop: 6 }}>
+              <div style={{ fontSize: 12, color: T.warn, marginTop: 6 }}>
                 {row.term.durationDays}-day cycle — the clock starts when the first video is published.
               </div>
             )}
