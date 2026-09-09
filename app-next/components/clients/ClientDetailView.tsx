@@ -197,6 +197,7 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
               return (
                 <Card
                   title="Contract coverage"
+                  subtitle={row.termText}
                   action={<span style={{ fontFamily: MONO, fontSize: 12, color: T.ink3 }}>{cov.delivered + cov.inPipeline} of {cov.sold} accounted for</span>}
                 >
                   <CoverageBar
