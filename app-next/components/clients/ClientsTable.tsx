@@ -268,7 +268,8 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
                           <span style={{ display: 'block', marginTop: 7 }}>
                             <CoverageBar
                               sold={r.coverage.sold}
-                              delivered={r.coverage.delivered}
+                              delivered={r.coverage.delivered - r.scheduledAhead}
+                              scheduled={r.scheduledAhead}
                               inPipeline={r.coverage.inPipeline}
                               height={7}
                             />
@@ -313,18 +314,20 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
                       borderTop: `1px solid ${T.dividerLight}`,
                       background: T.hover,
                     }}>
+                      {r.coverage && (r.coverage.delivered - r.scheduledAhead) > 0 && <StatusBadge tone="green" dot={false}>{r.coverage.delivered - r.scheduledAhead} posted live</StatusBadge>}
                       {r.stages.review > 0 && <StatusBadge tone="amber" dot={false}>{r.stages.review} in review</StatusBadge>}
                       {r.stages.editing > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.editing} editing</StatusBadge>}
                       {r.stages.qc > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.qc} in QC</StatusBadge>}
                       {r.stages.backlog > 0 && <StatusBadge tone="slate" dot={false}>{r.stages.backlog} in backlog</StatusBadge>}
                       {r.scheduledAhead > 0 && <StatusBadge tone="green" dot={false}>{r.scheduledAhead} ready to post</StatusBadge>}
                       {(r.stages.ready - r.scheduledAhead) > 0 && <StatusBadge tone="blue" dot={false}>{r.stages.ready - r.scheduledAhead} not scheduled</StatusBadge>}
+                      {(r.coverage?.notStarted ?? 0) > 0 && <StatusBadge tone="red" dot={false}>{r.coverage!.notStarted} not started</StatusBadge>}
                       {r.unclassified > 0 && (
                         <span title={`ClickUp status not mapped: ${r.unclassifiedStatuses.join(', ')}`}>
                           <StatusBadge tone="red" dot={false}>{r.unclassified} unmapped</StatusBadge>
                         </span>
                       )}
-                      {r.stages.review === 0 && r.stages.editing === 0 && r.stages.qc === 0 && r.stages.backlog === 0 && r.stages.ready === 0 && r.scheduledAhead === 0 && r.unclassified === 0 && (
+                      {r.stages.review === 0 && r.stages.editing === 0 && r.stages.qc === 0 && r.stages.backlog === 0 && r.stages.ready === 0 && r.scheduledAhead === 0 && r.unclassified === 0 && !r.coverage && (
                         <span style={{ fontSize: 12, color: T.ink3 }}>Nothing in flight</span>
                       )}
                       <Link
