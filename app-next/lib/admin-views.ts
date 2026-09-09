@@ -14,7 +14,7 @@ import {
 import { matchesClient, resolvePostedAt, type ClientPortfolioInput } from '@/lib/portfolio';
 import { fmtCalendarDate } from '@/lib/calendar-date';
 import {
-  buildStageBuckets, postedCutoffs, norm, POSTED, PIPELINE_STAGE_KEYS,
+  buildStageBuckets, postedCutoffs, norm, POSTED, PIPELINE_STAGE_KEYS, ARCHIVED_STATUSES,
   type PipelineStageCounts, type PipelinePeriod,
 } from '@/lib/pipeline';
 
@@ -195,12 +195,15 @@ export function buildAdminRows(
     // Remove the now-delivered scheduled posts from the in-flight count so the
     // three buckets (delivered + inPipeline + notStarted) still sum to sold.
     const coverageInPipeline = Math.max(0, buckets.inFlight - scheduledAhead);
+    // Tasks in ARCHIVED / NOT POSTED - DISCARDED are excluded from both
+    // delivered and inPipeline, so without this they silently inflate notStarted.
+    const archivedCount = clientTasks.filter(t => ARCHIVED_STATUSES.has(norm(t.status))).length;
 
     // Sold includes what this contract carried in from a prior period it
     // renewed (§ renewal carry-in) — that shortfall is still owed, not a
     // separate debt the coverage bar leaves out.
     const soldTotal = p ? p.contractedTotal + p.carriedIn : 0;
-    const cov = p ? coverage({ sold: soldTotal, delivered: coverageDelivered, inPipeline: coverageInPipeline }) : null;
+    const cov = p ? coverage({ sold: soldTotal, delivered: coverageDelivered, inPipeline: coverageInPipeline, archived: archivedCount }) : null;
     const fulfilmentFrac = p ? fulfilment(coverageDelivered, soldTotal) : null;
 
     const base = {
