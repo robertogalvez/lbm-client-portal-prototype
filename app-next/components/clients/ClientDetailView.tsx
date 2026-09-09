@@ -189,7 +189,7 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
                   ? [{ n: row.scheduledAhead, label: 'scheduled',    color: COVERAGE_COLORS.scheduled }]
                   : []),
                 ...(cov.inPipeline > 0
-                  ? [{ n: cov.inPipeline,     label: 'in progress',  color: COVERAGE_COLORS.inPipeline }]
+                  ? [{ n: cov.inPipeline,     label: 'in production', color: COVERAGE_COLORS.inPipeline }]
                   : []),
                 { n: cov.status === 'over' ? cov.over : cov.notStarted, label: cov.status === 'over' ? 'over contract' : 'not started', color: T.brand },
                 { n: cov.sold,            label: 'deliverables',     color: T.ink },
