@@ -72,6 +72,11 @@ export interface AdminClientRow {
   scheduledAhead: number;
   fulfilmentPct: number | null;
   pace: PaceNeeded | null;
+  /**
+   * Share of delivered videos approved on revision round 1 (no revision needed),
+   * across all delivered tasks for this client. null when no tasks have revision data.
+   */
+  firstPassCleanPct: number | null;
 
   /** Plain language: what this row's owner should actually do. Replaces the status badge. */
   nextAction: string;
@@ -237,6 +242,11 @@ export function buildAdminRows(
       coverage: cov,
       scheduledAhead,
       fulfilmentPct: fulfilmentFrac !== null ? fulfilmentFrac * 100 : null,
+      firstPassCleanPct: (() => {
+        const withRevisions = clientTasks.filter(t => norm(t.status) === POSTED && t.revisions != null);
+        if (withRevisions.length === 0) return null;
+        return Math.round((withRevisions.filter(t => t.revisions === 1).length / withRevisions.length) * 100);
+      })(),
       pace: cov
         ? (term.kind === 'cycle-pending' && cov.notStarted > 0
             ? { kind: 'cycle-pending' as const, remaining: cov.notStarted, durationDays: term.durationDays! }

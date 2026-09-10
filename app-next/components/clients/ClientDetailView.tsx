@@ -336,8 +336,13 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
                         <div style={{ fontSize: 12, color: T.ink3, marginTop: 2 }}>{s.label}</div>
                       </div>
                     ))}
+                    {data.firstPassCleanPct !== null && (
+                      <div title="Share of delivered videos approved on the first review round with no revisions needed">
+                        <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.ink }}>{data.firstPassCleanPct}%</div>
+                        <div style={{ fontSize: 12, color: T.ink3, marginTop: 2 }}>first pass clean</div>
+                      </div>
+                    )}
                   </div>
-
 
                 </Card>
               );
