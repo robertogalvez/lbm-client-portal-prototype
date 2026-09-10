@@ -17,7 +17,7 @@ export interface DecisionNotice {
   assignedAmName: string | null;
   taskId: string;
   videoTitle: string;
-  action: 'approve' | 'changes';
+  action: 'approve' | 'approve_with_fixes' | 'changes';
   clientName: string | null;
 }
 
@@ -36,18 +36,30 @@ export async function notifyAmOfDecision(notice: DecisionNotice): Promise<void> 
     const am = await getAmContact(notice.assignedAmName);
     if (!am || am.notifyMethod === 'none') return;
 
-    const verb = notice.action === 'approve' ? 'approved' : 'requested changes on';
     const taskUrl = `https://app.clickup.com/t/${notice.taskId}`;
     const who = notice.clientName ?? 'A client';
+    const isCaptionFix = notice.action === 'approve_with_fixes';
+    const verb = notice.action === 'changes' ? 'requested changes on' : 'approved';
+    // The caption-fix case gets its own copy, not just a verb swap — the AM
+    // needs to see the "fix it before it posts" instruction, not infer it.
+    const subject = isCaptionFix
+      ? `Fix the caption before posting: "${notice.videoTitle}"`
+      : `${who} ${verb} "${notice.videoTitle}"`;
+    const bodyText = isCaptionFix
+      ? `${who} approved <strong>${notice.videoTitle}</strong> and it's headed to the posting queue — but asked for the caption to be fixed first. Please fix it before it goes out.`
+      : `${who} just <strong>${verb}</strong> <strong>${notice.videoTitle}</strong>.`;
+    const smsText = isCaptionFix
+      ? `LBM Portal: ${who} approved "${notice.videoTitle}" (posting queue) but the caption needs a fix before it posts. ${taskUrl}`
+      : `LBM Portal: ${who} ${verb} "${notice.videoTitle}". ${taskUrl}`;
 
     if (am.notifyMethod === 'email') {
       if (!am.email) return;
       await sendEmail({
         to: am.email,
-        subject: `${who} ${verb} "${notice.videoTitle}"`,
+        subject,
         htmlBody: `
           <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
-            <p style="font-size: 16px; color: #111c28; margin: 0 0 16px;">${who} just <strong>${verb}</strong> <strong>${notice.videoTitle}</strong>.</p>
+            <p style="font-size: 16px; color: #111c28; margin: 0 0 16px;">${bodyText}</p>
             <a href="${taskUrl}" style="display: inline-block; background: #FF6000; color: #fff; font-weight: 600; font-size: 14px; padding: 12px 24px; border-radius: 8px; text-decoration: none;">
               Open the task in ClickUp
             </a>
@@ -60,7 +72,7 @@ export async function notifyAmOfDecision(notice: DecisionNotice): Promise<void> 
         console.warn('[notifyAmOfDecision] notifyMethod is "sms" but Twilio is not configured yet — skipping');
         return;
       }
-      await sendSms({ to: am.phone, body: `LBM Portal: ${who} ${verb} "${notice.videoTitle}". ${taskUrl}` });
+      await sendSms({ to: am.phone, body: smsText });
     }
   } catch (e) {
     console.error('[notifyAmOfDecision] failed:', e);

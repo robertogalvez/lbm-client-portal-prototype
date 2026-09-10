@@ -185,17 +185,7 @@ export async function POST(req: Request) {
       .limit(1);
     const clientType = clientRows[0]?.type ?? '';
     if (clientType !== 'one-time') {
-      await fetch(
-        `https://api.clickup.com/api/v2/task/${task_id}/comment`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: process.env.CLICKUP_API_TOKEN ?? '',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ comment_text: '⚠️ Caption is missing — please add a caption before the client reviews this video.' }),
-        }
-      );
+      await clickupWrite.postComment(task_id, '⚠️ Caption is missing — please add a caption before the client reviews this video.');
     }
   }
 

@@ -157,19 +157,20 @@ export const PUBLISHING_STATUS = {
 export const TASK_STATUS = {
   readyToBePosted:      'ready to be posted',
   postedInSocials:      'posted in socials',
-  // Where "approve — apply my notes first" and "send back for changes" both
-  // land — the CLIENT APPROVAL field (APPROVED WITH COMMENTS vs REQUESTED
-  // CHANGES) is what distinguishes them, not status. There is no separate
-  // "held" status: LBM confirmed any non-clean approval routes back through
-  // corrections, same as a rejection.
+  // Where a real rejection ("send back for changes") lands. A caption-fix
+  // approval does NOT land here — it goes to readyToBePosted like a plain
+  // approval (see approve/route.ts); only the Client fixes checklist marks
+  // that the caption still needs work.
   inProgressCorrections: 'in progress (corrections)',
 } as const;
 
 // Exact CLIENT APPROVAL dropdown option names (verified live against the LBM
-// workspace, task 86aj464t5 — "0. Videographer's Backlog" list).
+// workspace, task 86aj464t5 — "0. Videographer's Backlog" list). There is no
+// "APPROVED WITH COMMENTS" option — a caption-fix decision (see
+// approve/route.ts) targets APPROVED like a plain approval; the distinction
+// lives in the Client fixes checklist, not this field.
 export const CLIENT_APPROVAL = {
   approve:            'APPROVED',
-  approveWithFixes:   'APPROVED WITH COMMENTS',
   changes:            'REQUESTED CHANGES',
 } as const;
 
