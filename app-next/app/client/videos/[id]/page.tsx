@@ -78,7 +78,6 @@ export default async function VideoDetailPage({ params, searchParams }: { params
 
   const normStatus = task.status.toLowerCase().replace(/\s+/g, ' ').trim();
   const isReview = normStatus.includes('client review');
-  const isHeld = (task.clientApproval ?? '').toLowerCase().trim() === 'approved with comments';
   const embedUrl = task.frameLink ? toFrameioEmbedUrl(task.frameLink) : null;
   const hasCaption = !!task.caption;
 
@@ -209,32 +208,6 @@ export default async function VideoDetailPage({ params, searchParams }: { params
           <div className="vd-dock">
             <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 4 }}>Finish your review</div>
             <ApprovalButtons taskId={task.clickupTaskId} currentApproval={task.clientApproval} hasCaption={hasCaption} />
-          </div>
-        )}
-
-        {isHeld && (
-          <div className="vd-dock">
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#9d9488', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Fixes in progress</div>
-            {task.clientFixesChecklist ? (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <div style={{ flex: 1, height: 6, borderRadius: 100, background: '#f0e8df', overflow: 'hidden' }}>
-                    <div style={{
-                      width: `${task.clientFixesChecklist.total > 0 ? Math.round(task.clientFixesChecklist.resolved / task.clientFixesChecklist.total * 100) : 0}%`,
-                      height: '100%', background: '#8a6200',
-                    }} />
-                  </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#8a6200', flexShrink: 0 }}>
-                    {task.clientFixesChecklist.resolved} / {task.clientFixesChecklist.total}
-                  </span>
-                </div>
-                <p style={{ fontSize: 12, color: '#9d9488', margin: 0 }}>We&apos;ll bring it back to you to confirm once these are done.</p>
-              </>
-            ) : (
-              <p style={{ fontSize: 13, color: '#6c6357', margin: 0 }}>
-                Your fixes are queued with the team. We&apos;ll bring it back to you to confirm once they&apos;re done.
-              </p>
-            )}
           </div>
         )}
       </div>

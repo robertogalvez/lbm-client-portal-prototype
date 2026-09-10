@@ -29,6 +29,11 @@ export interface CommentSyncResult {
   posted: number;
   alreadySynced: number;
   error?: string;
+  // Set when Frame.io itself couldn't be reached (wrong-account OAuth, outage,
+  // not configured) but an extra note still got posted anyway — see the
+  // guaranteed-delivery split in syncFrameioComments below. Distinct from
+  // `error`, which means the ClickUp write itself failed.
+  frameError?: string;
 }
 
 // A one-shot summary note (the optional text on the "Request changes" box)
@@ -60,78 +65,122 @@ function formatBatchForClickUp(
   return [header, ...blocks].join('\n\n');
 }
 
+// Frame.io fetch + claim, isolated from the ClickUp write so a Frame.io
+// failure (thrown here) can never also take down posting an extra note —
+// see the split in syncFrameioComments below.
+async function claimUnsyncedComments(taskId: string, frameLink: string): Promise<{ claimed: FrameioComment[]; alreadySynced: number }> {
+  const fileId = await resolveFileId(frameLink);
+  const comments = await withRealAuthors(await listComments(fileId));
+  if (comments.length === 0) return { claimed: [], alreadySynced: 0 };
+
+  const existing = await db
+    .select({ id: frameioSyncedComments.frameioCommentId })
+    .from(frameioSyncedComments)
+    .where(inArray(frameioSyncedComments.frameioCommentId, comments.map(c => c.id)));
+  const seen = new Set(existing.map(r => r.id));
+
+  const fresh = comments
+    .filter(c => !seen.has(c.id))
+    .sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
+
+  // Claim each comment via an atomic insert BEFORE posting anything — the
+  // race guard: two decision-time syncs for the same task shouldn't both
+  // grab the same comment and each post their own combined comment for it.
+  // The unique constraint on frameio_comment_id makes this claim atomic
+  // even under true concurrency; returning() tells us whether we won it.
+  const claimed: FrameioComment[] = [];
+  for (const c of fresh) {
+    const rows = await db
+      .insert(frameioSyncedComments)
+      .values({ frameioCommentId: c.id, clickupTaskId: taskId })
+      .onConflictDoNothing()
+      .returning({ id: frameioSyncedComments.frameioCommentId });
+    if (rows.length > 0) claimed.push(c);
+  }
+  return { claimed, alreadySynced: seen.size };
+}
+
+// How many of this task's Frame.io comments haven't reached ClickUp yet —
+// used by the approve route's "you have unmirrored notes" guard. Throws on
+// any Frame.io error (not configured, auth, outage); the caller decides
+// whether to fail open or closed, it's not this function's call to make.
+export async function countUnmirroredComments(taskId: string, frameLink: string): Promise<number> {
+  if (!isConfigured()) return 0;
+  const fileId = await resolveFileId(frameLink);
+  const comments = await listComments(fileId);
+  if (comments.length === 0) return 0;
+  const existing = await db
+    .select({ id: frameioSyncedComments.frameioCommentId })
+    .from(frameioSyncedComments)
+    .where(inArray(frameioSyncedComments.frameioCommentId, comments.map(c => c.id)));
+  const seen = new Set(existing.map(r => r.id));
+  return comments.filter(c => !seen.has(c.id)).length;
+}
+
+// Mirrors any un-synced Frame.io comments plus an optional typed note into
+// ONE combined ClickUp comment. The Frame.io fetch/claim step and the ClickUp
+// post are deliberately independent: a Frame.io failure (wrong-account OAuth,
+// outage, not configured) is captured as `frameError` and never blocks
+// posting `extraNote` — a client's typed note must reach ClickUp regardless
+// of whether their timestamped Frame.io notes could be read. Previously both
+// were wrapped in one try/catch, so a Frame.io failure silently dropped the
+// note too (confirmed live: a "changes" decision with a typed note produced
+// zero ClickUp comments while Frame.io auth was broken).
 export async function syncFrameioComments(taskId: string, frameLink: string, extraNote?: ExtraNote): Promise<CommentSyncResult> {
   const hasExtraNote = !!extraNote?.text.trim();
-  try {
-    if (!isConfigured()) {
-      if (hasExtraNote) {
-        await postComment(taskId, formatBatchForClickUp([], extraNote, new Map()), false);
-        return { ok: true, posted: 1, alreadySynced: 0 };
-      }
-      return { ok: false, posted: 0, alreadySynced: 0, error: 'Frame.io is not configured' };
-    }
 
-    const fileId = await resolveFileId(frameLink);
-    const comments = await withRealAuthors(await listComments(fileId));
+  let claimed: FrameioComment[] = [];
+  let alreadySynced = 0;
+  let frameError: string | undefined;
 
-    const existing = comments.length > 0
-      ? await db
-          .select({ id: frameioSyncedComments.frameioCommentId })
-          .from(frameioSyncedComments)
-          .where(inArray(frameioSyncedComments.frameioCommentId, comments.map(c => c.id)))
-      : [];
-    const seen = new Set(existing.map(r => r.id));
-
-    const fresh = comments
-      .filter(c => !seen.has(c.id))
-      .sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
-
-    if (fresh.length === 0 && !hasExtraNote) {
-      return { ok: true, posted: 0, alreadySynced: seen.size };
-    }
-
-    // Claim each comment via an atomic insert BEFORE posting anything — the
-    // race guard: two decision-time syncs for the same task shouldn't both
-    // grab the same comment and each post their own combined comment for it.
-    // The unique constraint on frameio_comment_id makes this claim atomic
-    // even under true concurrency; returning() tells us whether we won it.
-    const claimed: FrameioComment[] = [];
-    for (const c of fresh) {
-      const rows = await db
-        .insert(frameioSyncedComments)
-        .values({ frameioCommentId: c.id, clickupTaskId: taskId })
-        .onConflictDoNothing()
-        .returning({ id: frameioSyncedComments.frameioCommentId });
-      if (rows.length > 0) claimed.push(c);
-    }
-    if (claimed.length === 0 && !hasExtraNote) {
-      return { ok: true, posted: 0, alreadySynced: seen.size };
-    }
-
-    const authorRows = claimed.length > 0
-      ? await db
-          .select({ id: frameioCommentAuthors.frameioCommentId, name: frameioCommentAuthors.authorName })
-          .from(frameioCommentAuthors)
-          .where(inArray(frameioCommentAuthors.frameioCommentId, claimed.map(c => c.id)))
-      : [];
-    const realAuthorNames = new Map(authorRows.map(r => [r.id, r.name]));
-
+  if (!isConfigured()) {
+    frameError = 'Frame.io is not configured';
+  } else {
     try {
-      await postComment(taskId, formatBatchForClickUp(claimed, extraNote, realAuthorNames), false);
+      const result = await claimUnsyncedComments(taskId, frameLink);
+      claimed = result.claimed;
+      alreadySynced = result.alreadySynced;
     } catch (e) {
-      // Release the whole batch's claims so a future run retries instead of
-      // losing them forever (the ledger would otherwise say "synced" for
-      // comments that never actually reached ClickUp).
-      if (claimed.length > 0) {
-        await db.delete(frameioSyncedComments).where(inArray(frameioSyncedComments.frameioCommentId, claimed.map(c => c.id)));
-      }
-      throw e;
+      frameError = e instanceof Error ? e.message : String(e);
+      console.error(`Frame.io comment fetch failed for task ${taskId}:`, frameError);
     }
-
-    return { ok: true, posted: claimed.length + (hasExtraNote ? 1 : 0), alreadySynced: seen.size };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error(`Frame.io comment sync failed for task ${taskId}:`, msg);
-    return { ok: false, posted: 0, alreadySynced: 0, error: msg };
   }
+
+  if (claimed.length === 0 && !hasExtraNote) {
+    return frameError
+      ? { ok: false, posted: 0, alreadySynced, error: frameError }
+      : { ok: true, posted: 0, alreadySynced };
+  }
+
+  const authorRows = claimed.length > 0
+    ? await db
+        .select({ id: frameioCommentAuthors.frameioCommentId, name: frameioCommentAuthors.authorName })
+        .from(frameioCommentAuthors)
+        .where(inArray(frameioCommentAuthors.frameioCommentId, claimed.map(c => c.id)))
+    : [];
+  const realAuthorNames = new Map(authorRows.map(r => [r.id, r.name]));
+
+  const body = formatBatchForClickUp(claimed, extraNote, realAuthorNames)
+    + (frameError ? `\n\n⚠️ Could not fetch this client's Frame.io video notes — check Frame.io directly.` : '');
+
+  try {
+    await postComment(taskId, body, false);
+  } catch (e) {
+    // Release the whole batch's claims so a future run retries instead of
+    // losing them forever (the ledger would otherwise say "synced" for
+    // comments that never actually reached ClickUp).
+    if (claimed.length > 0) {
+      await db.delete(frameioSyncedComments).where(inArray(frameioSyncedComments.frameioCommentId, claimed.map(c => c.id)));
+    }
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`Failed to post client-feedback comment for task ${taskId}:`, msg);
+    return { ok: false, posted: 0, alreadySynced, error: msg, ...(frameError ? { frameError } : {}) };
+  }
+
+  return {
+    ok: true,
+    posted: claimed.length + (hasExtraNote ? 1 : 0),
+    alreadySynced,
+    ...(frameError ? { frameError } : {}),
+  };
 }

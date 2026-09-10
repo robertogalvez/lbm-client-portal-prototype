@@ -3,12 +3,12 @@ import { headers } from 'next/headers';
 import { revalidateTag } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { authUsers, pendingDecisions, frameioSyncedComments } from '@/lib/db/schema';
+import { authUsers, pendingDecisions } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getViewAsClient } from '@/lib/view-as';
 import { resolveTaskClientName, mapTask, type ClickUpTask } from '@/lib/clickup';
 import { setTaskStatus, postComment, TASK_STATUS, CLIENT_APPROVAL, createClientFixesChecklist } from '@/lib/clickup-write';
-import { syncFrameioComments } from '@/lib/frameio-comment-sync';
+import { syncFrameioComments, countUnmirroredComments } from '@/lib/frameio-comment-sync';
 import { notifyAmOfDecision } from '@/lib/notify-am';
 import { sendSms, isSmsConfigured } from '@/lib/sms';
 
@@ -94,31 +94,26 @@ async function handlePost(req: Request) {
   const frameLink = typeof frameField?.value === 'string' ? frameField.value : null;
 
   // 409 guard: "post as is" is only valid when there are no unmirrored Frame.io
-  // comments — otherwise the client must explicitly choose what to do with their notes.
+  // comments — otherwise the client must explicitly choose what to do with
+  // their notes. Was previously a broken ad-hoc fetch using an env var
+  // (FRAMEIO_ACCESS_TOKEN) that's never set anywhere, plus a divergent
+  // endpoint shape — it 401'd, was swallowed, and this guard silently never
+  // fired. Now reuses the same Frame.io calls syncFrameioComments already
+  // relies on. Fails open on any Frame.io error (outage, wrong-account
+  // auth) — a Frame.io problem must never block an approval, it just means
+  // this soft safety net can't do its job for now.
   if (action === 'approve' && frameLink) {
-    const assetId = extractAssetId(frameLink);
-    if (assetId) {
-      const frameioRes = await fetch(
-        `https://api.frame.io/v4/assets/${assetId}/comments`,
-        { headers: { Authorization: `Bearer ${process.env.FRAMEIO_ACCESS_TOKEN ?? ''}` }, cache: 'no-store' }
-      ).catch(() => null);
-      if (frameioRes?.ok) {
-        const frameioData = await frameioRes.json().catch(() => ({ data: [] })) as { data?: { id: string }[] };
-        const allComments = frameioData?.data ?? [];
-        const syncedRows = await db
-          .select({ frameioCommentId: frameioSyncedComments.frameioCommentId })
-          .from(frameioSyncedComments)
-          .where(eq(frameioSyncedComments.clickupTaskId, taskId));
-        const syncedSet = new Set(syncedRows.map(r => r.frameioCommentId));
-        const unmirrored = allComments.filter(c => !syncedSet.has(c.id));
-        if (unmirrored.length > 0) {
-          return NextResponse.json({
-            error: 'approve_blocked_by_unmirrored_notes',
-            unmirroredCount: unmirrored.length,
-            message: 'This video has notes not yet sent to the team. Choose what to do with them first.',
-          }, { status: 409 });
-        }
+    try {
+      const unmirroredCount = await countUnmirroredComments(taskId, frameLink);
+      if (unmirroredCount > 0) {
+        return NextResponse.json({
+          error: 'approve_blocked_by_unmirrored_notes',
+          unmirroredCount,
+          message: 'This video has notes not yet sent to the team. Choose what to do with them first.',
+        }, { status: 409 });
       }
+    } catch (e) {
+      console.warn('[approve] unmirrored-notes guard could not reach Frame.io, proceeding anyway:', e instanceof Error ? e.message : e);
     }
   }
 
@@ -150,9 +145,12 @@ async function handlePost(req: Request) {
   const approvalField = (task.custom_fields ?? []).find((f: { name: string }) => f.name === 'CLIENT APPROVAL');
   if (!approvalField) return NextResponse.json({ error: 'CLIENT APPROVAL field not found' }, { status: 422 });
 
-  const targetApprovalName = action === 'changes' ? CLIENT_APPROVAL.changes
-    : action === 'approve_with_fixes' ? CLIENT_APPROVAL.approveWithFixes
-    : CLIENT_APPROVAL.approve;
+  // Both approve variants target the same real ClickUp option — the field's
+  // live options are only APPROVED / REQUESTED CHANGES / DISCARDED, there is
+  // no "APPROVED WITH COMMENTS" (confirmed against the live workspace). The
+  // "fix the caption" distinction lives in the Client fixes checklist below,
+  // not in this field.
+  const targetApprovalName = action === 'changes' ? CLIENT_APPROVAL.changes : CLIENT_APPROVAL.approve;
 
   const options: { id: string; name: string }[] = approvalField.type_config?.options ?? [];
   const optionIndex = options.findIndex((o: { name: string }) => o.name.toLowerCase() === targetApprovalName.toLowerCase());
@@ -181,15 +179,15 @@ async function handlePost(req: Request) {
     return NextResponse.json({ error: `ClickUp field update failed: ${err}` }, { status: 502 });
   }
 
-  // Set task status. "Approve — apply my notes first" and "Send back for
-  // changes" both route through corrections; the CLIENT APPROVAL value set
-  // above is what tells the AM which one it was. Runs alongside the fixes
-  // checklist creation (independent ClickUp calls).
-  const targetStatus = action === 'approve' ? TASK_STATUS.readyToBePosted : TASK_STATUS.inProgressCorrections;
+  // Set task status. Both approve variants go straight to the posting queue
+  // — "fix the caption" doesn't hold the video back, the AM is told
+  // separately (below) to fix the caption in parallel. Only a real rejection
+  // ("changes") routes through corrections.
+  const targetStatus = action === 'changes' ? TASK_STATUS.inProgressCorrections : TASK_STATUS.readyToBePosted;
   const [, checklistResult] = await Promise.all([
     setTaskStatus(taskId, targetStatus).catch(() => { /* non-fatal */ }),
     action === 'approve_with_fixes' && noteItems && noteItems.length > 0
-      ? createClientFixesChecklist(taskId, noteItems, new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }))
+      ? createClientFixesChecklist(taskId, noteItems, new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })).catch(() => null as { checklistId: string; itemIds: string[] } | null)
       : Promise.resolve(null as { checklistId: string; itemIds: string[] } | null),
   ]);
 
@@ -212,35 +210,35 @@ async function handlePost(req: Request) {
     assignedAmName: mapped.assignedAmName,
     taskId,
     videoTitle,
-    action: action === 'approve_with_fixes' ? 'approve' : (action as 'approve' | 'changes'),
+    action,
     clientName: effectiveClientName,
   }).catch(() => {});
 
   postToClientApprovalsChat(action, effectiveClientName, videoTitle).catch(() => {});
 
   if (action === 'approve' || action === 'approve_with_fixes') {
-    notifyMichelOfApproval(effectiveClientName, videoTitle).catch(() => {});
+    notifyMichelOfApproval(effectiveClientName, videoTitle, action === 'approve_with_fixes').catch(() => {});
   }
 
   return NextResponse.json({ ok: true, decisionId: decision.id, action, optionName: options[optionIndex]?.name, commentSync, checklistResult });
 }
 
-async function notifyMichelOfApproval(clientName: string, videoTitle: string) {
+async function notifyMichelOfApproval(clientName: string, videoTitle: string, captionNeedsFix: boolean) {
   if (!isSmsConfigured()) return;
   await sendSms({
     to: MICHEL_SMS_NUMBER,
-    body: `${clientName} approved "${videoTitle}".`,
+    body: captionNeedsFix
+      ? `${clientName} approved "${videoTitle}" but the caption needs a fix before it posts.`
+      : `${clientName} approved "${videoTitle}".`,
   });
 }
 
-function extractAssetId(frameLink: string): string {
-  const match = frameLink.match(/\/(?:reviews|presentations|assets)\/([a-f0-9-]{36})/i);
-  return match?.[1] ?? '';
-}
-
 async function postToClientApprovalsChat(action: string, clientName: string, videoTitle: string) {
-  const emoji = action === 'changes' ? '⚠️' : '✅';
-  const verb = action === 'changes' ? 'requested changes on' : 'approved';
+  const { emoji, verb } = action === 'changes'
+    ? { emoji: '⚠️', verb: 'requested changes on' }
+    : action === 'approve_with_fixes'
+      ? { emoji: '✅📝', verb: 'approved (caption needs a fix) on' }
+      : { emoji: '✅', verb: 'approved' };
   await fetch('https://api.clickup.com/api/v3/workspaces/90131939077/chat/channels/2ky4gfr5-81233/messages', {
     method: 'POST',
     headers: {
