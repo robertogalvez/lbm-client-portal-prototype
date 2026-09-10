@@ -113,6 +113,8 @@ export interface ClientDetailData {
   clickupTaskId: string | null;
   logoUrl: string | null;
   portal: ClientPortalData | null;
+  /** Share of delivered videos approved on revision round 1. null when no revision data exists. */
+  firstPassCleanPct: number | null;
 }
 
 const DAY_MS = 86_400_000;
@@ -281,6 +283,11 @@ export async function loadClientDetail(id: string): Promise<ClientDetailData | n
     deliveredByPeriod,
     clickupTaskId: primaryClient?.clickupTaskId ?? null,
     logoUrl: primaryClient?.logoUrl ?? null,
+    firstPassCleanPct: (() => {
+      const withRevisions = clientTasks.filter(t => norm(t.status) === POSTED && t.revisions != null);
+      if (withRevisions.length === 0) return null;
+      return Math.round((withRevisions.filter(t => t.revisions === 1).length / withRevisions.length) * 100);
+    })(),
     portal: primaryClient ? {
       clickupTaskId: primaryClient.clickupTaskId,
       clientStatus: primaryClient.clientStatus,

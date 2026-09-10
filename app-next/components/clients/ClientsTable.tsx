@@ -188,6 +188,11 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
                             height={7}
                           />
                         </span>
+                        {r.firstPassCleanPct !== null && (
+                          <span title="Share of delivered videos approved on the first review round — no revisions needed" style={{ display: 'block', marginTop: 5, fontSize: 11.5, color: T.ink3 }}>
+                            {r.firstPassCleanPct}% first pass clean
+                          </span>
+                        )}
                       </>
                     ) : (
                       <span style={{ fontSize: 13, color: T.ink3, fontStyle: 'italic' }}>No contracted scope</span>
