@@ -668,15 +668,22 @@ function PortalCard({
   }
 
   async function saveUserSms(userId: string, next: boolean) {
-    const res = await fetch(`/api/admin/portal-user/${userId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notifySms: next }),
-    });
-    const data = await res.json().catch(() => ({}));
-    onChanged();
-    if (next && data.smsSent === false) {
-      setMsg('Consent SMS could not be sent — check server logs. The toggle was saved; toggle off and back on to retry.');
+    setMsg('');
+    try {
+      const res = await fetch(`/api/admin/portal-user/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notifySms: next }),
+      });
+      const data = await res.json().catch(() => ({}));
+      onChanged();
+      if (next && data.smsSent === false) {
+        setMsg('Consent SMS could not be sent — check server logs. Toggle off and back on to retry.');
+      } else if (next && data.smsSent) {
+        setMsg('Consent SMS sent.');
+      }
+    } catch {
+      setMsg('Could not save SMS setting — check your connection.');
     }
   }
 
