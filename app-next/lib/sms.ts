@@ -1,26 +1,20 @@
 // Small Twilio SMS helper (same raw-fetch style as lib/email.ts's Postmark
-// call — no SDK dependency). Pending Twilio credentials: this safely no-ops
-// (logs + returns false) until TWILIO_ACCOUNT_SID / TWILIO_API_KEY_SID /
-// TWILIO_API_KEY_SECRET / TWILIO_FROM_NUMBER are set, so the notifyMethod:
-// 'sms' preference can be configured in Settings today and will start
-// working the moment the credentials are added — no code change needed then.
+// call — no SDK dependency). Auth uses TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN
+// for HTTP Basic Auth, which Twilio accepts for all REST endpoints.
+// TWILIO_AUTH_TOKEN is already required by the webhook route for HMAC
+// validation, so no extra credentials are needed.
 //
-// Auth uses a scoped API Key (SID starting with "SK" + its Secret) rather
-// than the account's main Auth Token — Twilio treats an API Key SID/Secret
-// pair as a drop-in Basic Auth credential for the same REST endpoints, and
-// it can be revoked independently without rotating the Auth Token. The
-// Account SID (starting with "AC") is still required separately — it's the
-// account the message is sent from (used in the URL path), not part of the
-// credential pair.
+// Safely no-ops (logs + returns false) if any required env var is missing,
+// so notifySms can be configured in the UI today and will start working the
+// moment the vars are set — no code change needed then.
 
 export function isSmsConfigured(): boolean {
-  return !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_API_KEY_SID && process.env.TWILIO_API_KEY_SECRET && process.env.TWILIO_FROM_NUMBER);
+  return !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM_NUMBER);
 }
 
 // Sends the Twilio-compliant opt-in disclosure message. Must be called once
-// when an admin enables SMS notifications for a client (notifySms: false→true).
-// The client replies YES to confirm enrollment, or STOP to decline (Twilio
-// handles STOP automatically at the carrier level; the webhook also tracks it).
+// when an admin enables SMS notifications for a user (notifySms: false→true).
+// The user replies YES to confirm enrollment, or STOP to decline.
 export async function sendSmsConsent({ to }: { to: string }): Promise<boolean> {
   const appUrl = (process.env.APP_URL ?? '').replace(/\/$/, '');
   const body = [
@@ -35,11 +29,11 @@ export async function sendSmsConsent({ to }: { to: string }): Promise<boolean> {
 
 export async function sendSms(opts: { to: string; body: string }): Promise<boolean> {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const apiKeySid = process.env.TWILIO_API_KEY_SID;
-  const apiKeySecret = process.env.TWILIO_API_KEY_SECRET;
-  const from = process.env.TWILIO_FROM_NUMBER;
-  if (!accountSid || !apiKeySid || !apiKeySecret || !from) {
-    console.error('[sendSms] Twilio not configured (missing TWILIO_ACCOUNT_SID/TWILIO_API_KEY_SID/TWILIO_API_KEY_SECRET/TWILIO_FROM_NUMBER)');
+  const authToken  = process.env.TWILIO_AUTH_TOKEN;
+  const from       = process.env.TWILIO_FROM_NUMBER;
+  if (!accountSid || !authToken || !from) {
+    const missing = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM_NUMBER'].filter(k => !process.env[k]);
+    console.error('[sendSms] Twilio not configured — missing:', missing.join(', '));
     return false;
   }
   if (!opts.to) return false;
@@ -48,7 +42,7 @@ export async function sendSms(opts: { to: string; body: string }): Promise<boole
     const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
       method: 'POST',
       headers: {
-        Authorization: `Basic ${Buffer.from(`${apiKeySid}:${apiKeySecret}`).toString('base64')}`,
+        Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({ To: opts.to, From: from, Body: opts.body }),
@@ -58,6 +52,7 @@ export async function sendSms(opts: { to: string; body: string }): Promise<boole
       console.error('[sendSms] Twilio error:', data);
       return false;
     }
+    console.log('[sendSms] sent to', opts.to, '— sid:', (data as { sid?: string }).sid);
     return true;
   } catch (err) {
     console.error('[sendSms] exception:', err);
