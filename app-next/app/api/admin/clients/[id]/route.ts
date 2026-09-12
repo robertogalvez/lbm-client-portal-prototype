@@ -4,7 +4,6 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { authUsers, clients } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { sendSmsConsent } from '@/lib/sms';
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -19,7 +18,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   // Master Clients List) — only portal-only fields are editable here.
   // Social links are edited separately via PUT .../[id]/social-links so
   // callers that only know about handles never touch these fields.
-  const { type, frameioProjectId, vistaSocialProfileIds, showCalendar, showInvoices, showReport, notifyEmail, notifySms, logoUrl } = body;
+  const { type, frameioProjectId, vistaSocialProfileIds, showCalendar, showInvoices, showReport, notifyEmail, logoUrl } = body;
 
   // logoUrl is omitted (not sent) by callers that aren't touching branding
   // (e.g. the portal-toggle switches), so it must stay untouched in that
@@ -32,34 +31,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: 'Logo image is too large' }, { status: 400 });
   }
 
-  // Read the existing record before writing — needed to detect the
-  // notifySms false→true transition that triggers the consent SMS.
-  const [existing] = await db
-    .select({ notifySms: clients.notifySms, whatsappNumber: clients.whatsappNumber })
-    .from(clients)
-    .where(eq(clients.id, id))
-    .limit(1);
-  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-
-  const nextNotifySms = notifySms ?? false;
-  const enablingSms = !existing.notifySms && nextNotifySms;
-  const disablingSms = existing.notifySms && !nextNotifySms;
-
-  // undefined = leave the column untouched; null = explicitly clear it.
-  let consentSentAt: Date | null | undefined = undefined;
-  let consentStatus: string | null | undefined = undefined;
-
-  if (enablingSms && existing.whatsappNumber) {
-    // Fire-and-forget — a failed SMS must not block the toggle save.
-    void sendSmsConsent({ to: existing.whatsappNumber });
-    consentSentAt = new Date();
-    consentStatus = 'pending';
-  }
-  if (disablingSms) {
-    consentSentAt = null;
-    consentStatus = null;
-  }
-
   const [updated] = await db.update(clients).set({
     type: type || null,
     frameioProjectId: frameioProjectId || null,
@@ -68,10 +39,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     showInvoices: showInvoices ?? false,
     showReport: showReport ?? false,
     notifyEmail: notifyEmail ?? true,
-    notifySms: nextNotifySms,
     ...(touchingLogo ? { logoUrl: logoUrl || null } : {}),
-    ...(consentSentAt !== undefined ? { smsConsentSentAt: consentSentAt } : {}),
-    ...(consentStatus !== undefined ? { smsConsentStatus: consentStatus } : {}),
   }).where(eq(clients.id, id)).returning();
 
   if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });

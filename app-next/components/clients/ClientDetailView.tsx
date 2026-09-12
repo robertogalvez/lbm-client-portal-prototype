@@ -463,11 +463,7 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
                   showInvoices: portal.showInvoices,
                   showReport: portal.showReport,
                   notifyEmail: portal.notifyEmail,
-                  notifySms: portal.notifySms,
                 }}
-                whatsappNumber={portal.whatsappNumber}
-                smsConsentStatus={portal.smsConsentStatus}
-                smsConsentSentAt={portal.smsConsentSentAt}
                 onChanged={refresh}
               />
             )}
@@ -628,7 +624,6 @@ interface PortalToggles {
   showInvoices: boolean;
   showReport: boolean;
   notifyEmail: boolean;
-  notifySms: boolean;
 }
 
 const TOGGLE_LABELS: { key: keyof PortalToggles; label: string }[] = [
@@ -639,15 +634,12 @@ const TOGGLE_LABELS: { key: keyof PortalToggles; label: string }[] = [
 ];
 
 function PortalCard({
-  clientId, clientName, users, initialToggles, whatsappNumber, smsConsentStatus, onChanged,
+  clientId, clientName, users, initialToggles, onChanged,
 }: {
   clientId: string;
   clientName: string;
   users: PortalUser[];
   initialToggles: PortalToggles;
-  whatsappNumber: string | null;
-  smsConsentStatus: string | null;
-  smsConsentSentAt: string | null;
   onChanged: () => void;
 }) {
   const [toggles, setToggles] = useState(initialToggles);
@@ -675,23 +667,22 @@ function PortalCard({
     }
   }
 
-  // SMS toggle needs a full parent refresh after success so the consent
-  // status badge (pending/opted_in/opted_out) reflects the new DB state.
-  async function setSmsToggle(next: boolean) {
-    const previous = toggles;
-    setToggles(prev => ({ ...prev, notifySms: next }));
-    try {
-      const res = await fetch(`/api/admin/clients/${clientId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...toggles, notifySms: next }),
-      });
-      if (!res.ok) throw new Error('Failed');
-      onChanged();
-    } catch {
-      setToggles(previous);
-      setMsg('Could not save that setting.');
-    }
+  async function saveUserPhone(userId: string, phone: string) {
+    await fetch(`/api/admin/portal-user/${userId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone }),
+    });
+    onChanged();
+  }
+
+  async function saveUserSms(userId: string, next: boolean) {
+    await fetch(`/api/admin/portal-user/${userId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notifySms: next }),
+    });
+    onChanged();
   }
 
   async function invite() {
@@ -727,8 +718,25 @@ function PortalCard({
 
       {users.map(u => (
         <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: T.ink2, padding: '4px 0' }}>
-          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name} · {u.email}</span>
-          {!u.emailVerified && <StatusBadge tone="amber" dot={false}>Pending</StatusBadge>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {u.name} · {u.email}
+              {!u.emailVerified && <> <StatusBadge tone="amber" dot={false}>Pending</StatusBadge></>}
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <input
+                type="tel"
+                defaultValue={u.phone ?? ''}
+                placeholder="Phone for SMS"
+                onBlur={e => { if (e.target.value !== (u.phone ?? '')) saveUserPhone(u.id, e.target.value); }}
+                style={{ fontSize: 11.5, color: T.ink3, background: 'none', border: 'none', borderBottom: `1px solid ${T.lineStrong}`, padding: '1px 2px', width: 140 }}
+              />
+              <Toggle checked={u.notifySms} label="SMS" onChange={next => saveUserSms(u.id, next)} disabled={!u.phone} />
+              {u.smsConsentStatus === 'pending'   && <StatusBadge tone="amber" dot={false}>Consent pending</StatusBadge>}
+              {u.smsConsentStatus === 'opted_in'  && <StatusBadge tone="green"  dot={false}>Opted in</StatusBadge>}
+              {u.smsConsentStatus === 'opted_out' && <StatusBadge tone="red"    dot={false}>Opted out</StatusBadge>}
+            </div>
+          </div>
         </div>
       ))}
 
@@ -747,18 +755,6 @@ function PortalCard({
             <Toggle checked={toggles[t.key]} label={t.label} onChange={next => setToggle(t.key, next)} />
           </div>
         ))}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, padding: '10px 0', borderTop: `1px solid ${T.dividerLight}` }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: 13, color: T.ink2 }}>SMS notifications</span>
-            {!whatsappNumber && (
-              <span style={{ fontSize: 11.5, color: T.ink3 }}>Add a phone number in ClickUp to enable SMS</span>
-            )}
-            {smsConsentStatus === 'pending' && <StatusBadge tone="amber" dot={false}>Consent pending</StatusBadge>}
-            {smsConsentStatus === 'opted_in' && <StatusBadge tone="green" dot={false}>Opted in</StatusBadge>}
-            {smsConsentStatus === 'opted_out' && <StatusBadge tone="red" dot={false}>Opted out</StatusBadge>}
-          </div>
-          <Toggle checked={toggles.notifySms} label="SMS notifications" onChange={setSmsToggle} disabled={!whatsappNumber} />
-        </div>
       </div>
 
       {msg && <div style={{ fontSize: 12, color: T.danger, marginTop: 8 }}>{msg}</div>}

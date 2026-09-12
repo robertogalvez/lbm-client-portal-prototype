@@ -19,7 +19,10 @@ export const authUsers = pgTable('auth_user', {
   // their videos, in addition to the ClickUp task comment — admin-configured
   // in Settings, not the AM's own choice. 'sms' requires `phone` to be set
   // AND Twilio to be configured (lib/sms.ts no-ops safely until it is).
-  notifyMethod:  varchar('notify_method', { length: 10 }).notNull().default('none'),
+  notifyMethod:    varchar('notify_method', { length: 10 }).notNull().default('none'),
+  notifySms:       boolean('notify_sms').notNull().default(false),
+  smsConsentSentAt: timestamp('sms_consent_sent_at'),
+  smsConsentStatus: varchar('sms_consent_status', { length: 20 }),
 });
 
 export const authSessions = pgTable('auth_session', {
