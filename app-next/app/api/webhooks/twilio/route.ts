@@ -42,18 +42,25 @@ export async function POST(req: Request) {
     return new NextResponse('Forbidden', { status: 403 });
   }
 
-  const from = params['From'] ?? '';
+  // Twilio sends From in E.164 (+12048904483); normalize by stripping spaces
+  // so it matches numbers stored with spaces (+1 204 890 4483).
+  const from = (params['From'] ?? '').replace(/\s/g, '');
   const body = (params['Body'] ?? '').trim().toUpperCase();
+
+  console.log('[twilio-webhook] from:', from, 'body:', body);
 
   if (!from) {
     return new NextResponse(TWIML_EMPTY, { headers: { 'Content-Type': 'text/xml' } });
   }
 
-  const [user] = await db
-    .select({ id: authUsers.id })
+  // Match on phone with spaces stripped on both sides
+  const allUsers = await db
+    .select({ id: authUsers.id, phone: authUsers.phone })
     .from(authUsers)
-    .where(eq(authUsers.phone, from))
-    .limit(1);
+    .where(eq(authUsers.role, 'client'));
+  const user = allUsers.find(u => (u.phone ?? '').replace(/\s/g, '') === from);
+
+  console.log('[twilio-webhook] matched user:', user?.id ?? 'none');
 
   if (user) {
     if (body === 'YES' || body === 'Y') {
