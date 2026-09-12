@@ -9,7 +9,7 @@
 
 import { db } from '@/lib/db';
 import { clients, authUsers } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNotNull } from 'drizzle-orm';
 import { sendEmail } from '@/lib/email';
 import { sendSms, isSmsConfigured } from '@/lib/sms';
 
@@ -59,11 +59,19 @@ export async function notifyClientReviewReady(notice: ReviewReadyNotice): Promis
         `,
       });
     }
-    if (client.notifySms && client.whatsappNumber) {
-      if (!isSmsConfigured()) {
-        console.warn('[notifyClientReviewReady] notifySms is on but Twilio is not configured yet — skipping');
-      } else {
-        await sendSms({ to: client.whatsappNumber, body: `Hi ${notice.clientName}, your new video is ready for review: ${videoUrl}. You can approve it, or reply with any changes needed!` });
+    if (isSmsConfigured()) {
+      const smsUsers = await db
+        .select({ phone: authUsers.phone })
+        .from(authUsers)
+        .where(and(
+          eq(authUsers.role, 'client'),
+          eq(authUsers.clientName, notice.clientName),
+          eq(authUsers.notifySms, true),
+          eq(authUsers.smsConsentStatus, 'opted_in'),
+          isNotNull(authUsers.phone),
+        ));
+      for (const u of smsUsers) {
+        if (u.phone) await sendSms({ to: u.phone, body: `Hi ${notice.clientName}, your new video is ready for review: ${videoUrl}. You can approve it, or reply with any changes needed!` });
       }
     }
   } catch (e) {
@@ -84,15 +92,22 @@ export async function notifyClientReportReady(notice: ReportReadyNotice): Promis
   try {
     if (!isSmsConfigured()) return;
 
-    const [client] = await db
-      .select({ whatsappNumber: clients.whatsappNumber, notifySms: clients.notifySms })
-      .from(clients)
-      .where(eq(clients.name, notice.clientName))
-      .limit(1);
-    if (!client || !client.notifySms || !client.whatsappNumber) return;
+    const smsUsers = await db
+      .select({ phone: authUsers.phone })
+      .from(authUsers)
+      .where(and(
+        eq(authUsers.role, 'client'),
+        eq(authUsers.clientName, notice.clientName),
+        eq(authUsers.notifySms, true),
+        eq(authUsers.smsConsentStatus, 'opted_in'),
+        isNotNull(authUsers.phone),
+      ));
+    if (smsUsers.length === 0) return;
 
     const reportUrl = `${notice.portalOrigin}/client?tab=report`;
-    await sendSms({ to: client.whatsappNumber, body: `LBM Portal: your new monthly report is ready. ${reportUrl}` });
+    for (const u of smsUsers) {
+      if (u.phone) await sendSms({ to: u.phone, body: `LBM Portal: your new monthly report is ready. ${reportUrl}` });
+    }
   } catch (e) {
     console.error('[notifyClientReportReady] failed:', e);
   }

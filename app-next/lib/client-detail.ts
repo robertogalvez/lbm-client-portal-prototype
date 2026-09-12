@@ -19,6 +19,10 @@ export interface PortalUser {
   email: string;
   clientName: string | null;
   emailVerified: boolean;
+  phone: string | null;
+  notifySms: boolean;
+  smsConsentStatus: string | null;
+  smsConsentSentAt: string | null;
 }
 
 export interface ClientPortalData {
@@ -29,10 +33,6 @@ export interface ClientPortalData {
   showInvoices: boolean;
   showReport: boolean;
   notifyEmail: boolean;
-  notifySms: boolean;
-  whatsappNumber: string | null;
-  smsConsentStatus: string | null;
-  smsConsentSentAt: string | null;
   portalUsers: PortalUser[];
 }
 
@@ -274,8 +274,12 @@ export async function loadClientDetail(id: string): Promise<ClientDetailData | n
   // Portal settings and users are a per-client concept, so they are scoped to
   // the primary client rather than a joint contract's combined name.
   const portalUsers = primaryClient
-    ? await db.select({ id: authUsers.id, name: authUsers.name, email: authUsers.email, clientName: authUsers.clientName, emailVerified: authUsers.emailVerified })
-        .from(authUsers).where(eq(authUsers.clientName, primaryClient.name))
+    ? (await db.select({ id: authUsers.id, name: authUsers.name, email: authUsers.email, clientName: authUsers.clientName, emailVerified: authUsers.emailVerified, phone: authUsers.phone, notifySms: authUsers.notifySms, smsConsentStatus: authUsers.smsConsentStatus, smsConsentSentAt: authUsers.smsConsentSentAt })
+        .from(authUsers).where(eq(authUsers.clientName, primaryClient.name)))
+      .map(u => ({
+        ...u,
+        smsConsentSentAt: u.smsConsentSentAt ? u.smsConsentSentAt.toISOString() : null,
+      }))
     : [];
 
   const data: ClientDetailData = {
@@ -300,10 +304,6 @@ export async function loadClientDetail(id: string): Promise<ClientDetailData | n
       showInvoices: primaryClient.showInvoices ?? false,
       showReport: primaryClient.showReport ?? false,
       notifyEmail: primaryClient.notifyEmail ?? true,
-      notifySms: primaryClient.notifySms ?? false,
-      whatsappNumber: primaryClient.whatsappNumber ?? null,
-      smsConsentStatus: primaryClient.smsConsentStatus ?? null,
-      smsConsentSentAt: primaryClient.smsConsentSentAt ? primaryClient.smsConsentSentAt.toISOString() : null,
       portalUsers,
     } : null,
   };

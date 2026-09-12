@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { db } from '@/lib/db';
-import { clients } from '@/lib/db/schema';
+import { authUsers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 function twilioSignatureValid(
@@ -49,21 +49,21 @@ export async function POST(req: Request) {
     return new NextResponse(TWIML_EMPTY, { headers: { 'Content-Type': 'text/xml' } });
   }
 
-  const [client] = await db
-    .select({ id: clients.id, notifySms: clients.notifySms })
-    .from(clients)
-    .where(eq(clients.whatsappNumber, from))
+  const [user] = await db
+    .select({ id: authUsers.id })
+    .from(authUsers)
+    .where(eq(authUsers.phone, from))
     .limit(1);
 
-  if (client) {
+  if (user) {
     if (body === 'YES' || body === 'Y') {
-      await db.update(clients)
+      await db.update(authUsers)
         .set({ smsConsentStatus: 'opted_in' })
-        .where(eq(clients.id, client.id));
+        .where(eq(authUsers.id, user.id));
     } else if (body.startsWith('STOP')) {
-      await db.update(clients)
+      await db.update(authUsers)
         .set({ smsConsentStatus: 'opted_out', notifySms: false })
-        .where(eq(clients.id, client.id));
+        .where(eq(authUsers.id, user.id));
     }
   }
 

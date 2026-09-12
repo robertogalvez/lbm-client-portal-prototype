@@ -1,0 +1,4 @@
+ALTER TABLE auth_user
+  ADD COLUMN IF NOT EXISTS notify_sms          BOOLEAN     NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS sms_consent_sent_at  TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS sms_consent_status   VARCHAR(20);
