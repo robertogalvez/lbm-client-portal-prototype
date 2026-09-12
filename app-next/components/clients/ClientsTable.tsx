@@ -145,7 +145,7 @@ export function ClientsTable({ rows }: { rows: AdminClientRow[] }) {
                     <Avatar name={r.name} color={r.avatarColor} />
                     <span style={{ minWidth: 0 }}>
                       <Link
-                        href={r.periodId ? `/admin/clients/${r.periodId}` : `/admin/clients?client=${r.clientId}`}
+                        href={r.periodId ? `/admin/clients/${r.periodId}` : `/dashboard?client=${r.clientId}`}
                         style={{ display: 'block', fontSize: 14, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }}
                       >
                         {r.name}
