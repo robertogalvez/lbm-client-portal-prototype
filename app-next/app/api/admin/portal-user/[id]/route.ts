@@ -34,6 +34,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   let consentSentAt: Date | null | undefined = undefined;
   let consentStatus: string | null | undefined = undefined;
 
+  console.log('[portal-user PUT] enablingSms:', enablingSms, 'nextPhone:', JSON.stringify(nextPhone));
   let smsSent: boolean | undefined;
   if (enablingSms && nextPhone) {
     smsSent = await sendSmsConsent({ to: nextPhone });
