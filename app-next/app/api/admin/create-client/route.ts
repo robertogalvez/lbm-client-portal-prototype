@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { authUsers } from '@/lib/db/schema';
+import { authUsers, clients } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 export async function POST(req: Request) {
@@ -27,6 +27,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'email, name, and clientName are required' }, { status: 400 });
   }
 
+  const [clientRecord] = await db.select({ whatsappNumber: clients.whatsappNumber })
+    .from(clients).where(eq(clients.name, clientName)).limit(1);
+  const phone = clientRecord?.whatsappNumber ?? null;
+
   // Check if user already exists
   const existing = await db
     .select({ id: authUsers.id })
@@ -37,7 +41,7 @@ export async function POST(req: Request) {
   if (existing.length > 0) {
     await db
       .update(authUsers)
-      .set({ role: 'client', clientName, name })
+      .set({ role: 'client', clientName, name, phone })
       .where(eq(authUsers.email, email));
     await sendInviteEmail(email, baseUrl);
     return NextResponse.json({ ok: true, action: 'updated', email });
@@ -52,6 +56,7 @@ export async function POST(req: Request) {
     emailVerified: false,
     role: 'client',
     clientName,
+    phone,
     createdAt: new Date(),
     updatedAt: new Date(),
   });

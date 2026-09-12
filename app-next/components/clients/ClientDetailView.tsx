@@ -667,15 +667,6 @@ function PortalCard({
     }
   }
 
-  async function saveUserPhone(userId: string, phone: string) {
-    await fetch(`/api/admin/portal-user/${userId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone }),
-    });
-    onChanged();
-  }
-
   async function saveUserSms(userId: string, next: boolean) {
     await fetch(`/api/admin/portal-user/${userId}`, {
       method: 'PUT',
@@ -724,13 +715,9 @@ function PortalCard({
               {!u.emailVerified && <> <StatusBadge tone="amber" dot={false}>Pending</StatusBadge></>}
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <input
-                type="tel"
-                defaultValue={u.phone ?? ''}
-                placeholder="Add phone for SMS"
-                onBlur={e => { if (e.target.value !== (u.phone ?? '')) saveUserPhone(u.id, e.target.value); }}
-                style={{ fontSize: 12, color: T.ink2, background: T.surface, border: `1px solid ${T.lineStrong}`, borderRadius: 6, padding: '3px 7px', width: 148, fontFamily: 'inherit' }}
-              />
+              <span style={{ fontSize: 12, color: u.phone ? T.ink3 : T.ghost, fontStyle: u.phone ? 'normal' : 'italic' }}>
+                {u.phone ?? 'No phone in ClickUp'}
+              </span>
               <Toggle checked={u.notifySms} label="SMS" onChange={next => saveUserSms(u.id, next)} disabled={!u.phone} />
               {u.smsConsentStatus === 'pending'   && <StatusBadge tone="amber" dot={false}>Consent pending</StatusBadge>}
               {u.smsConsentStatus === 'opted_in'  && <StatusBadge tone="green"  dot={false}>Opted in</StatusBadge>}

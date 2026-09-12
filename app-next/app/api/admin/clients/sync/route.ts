@@ -20,7 +20,7 @@ async function linkOrCreatePrimaryContact(clientId: string, r: MasterClientRecor
   let userId: string;
   if (existingUser && existingUser.role === 'client' && (!existingUser.clientName || existingUser.clientName === r.name)) {
     userId = existingUser.id;
-    await db.update(authUsers).set({ clientName: r.name, name: r.contactName || r.name }).where(eq(authUsers.id, userId));
+    await db.update(authUsers).set({ clientName: r.name, name: r.contactName || r.name, phone: r.whatsappNumber ?? null }).where(eq(authUsers.id, userId));
   } else if (existingUser) {
     // Email belongs to an unrelated account (different role, or a different
     // client) — don't touch it or create a colliding duplicate.
@@ -34,6 +34,7 @@ async function linkOrCreatePrimaryContact(clientId: string, r: MasterClientRecor
       emailVerified: false,
       role: 'client',
       clientName: r.name,
+      phone: r.whatsappNumber ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -122,13 +123,13 @@ export async function POST() {
         if (primary && primary.email.toLowerCase() !== r.contactEmail.toLowerCase()) {
           const emailTaken = await db.select({ id: authUsers.id }).from(authUsers).where(eq(authUsers.email, r.contactEmail)).limit(1);
           if (emailTaken.length === 0) {
-            await db.update(authUsers).set({ email: r.contactEmail, name: r.contactName || r.name, updatedAt: new Date() }).where(eq(authUsers.id, primary.id));
+            await db.update(authUsers).set({ email: r.contactEmail, name: r.contactName || r.name, phone: r.whatsappNumber ?? null, updatedAt: new Date() }).where(eq(authUsers.id, primary.id));
           }
           // else: another account already owns that address — leave the
           // primary link as-is rather than risk a unique-constraint error.
         } else if (primary) {
-          // Same email — just keep the display name current.
-          await db.update(authUsers).set({ name: r.contactName || r.name }).where(eq(authUsers.id, primary.id));
+          // Same email — keep the display name and phone current.
+          await db.update(authUsers).set({ name: r.contactName || r.name, phone: r.whatsappNumber ?? null }).where(eq(authUsers.id, primary.id));
         }
         // If `primary` is missing entirely (row was deleted), fall through
         // and treat this client as having no primary contact yet below.
