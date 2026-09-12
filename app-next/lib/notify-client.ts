@@ -63,7 +63,7 @@ export async function notifyClientReviewReady(notice: ReviewReadyNotice): Promis
       if (!isSmsConfigured()) {
         console.warn('[notifyClientReviewReady] notifySms is on but Twilio is not configured yet — skipping');
       } else {
-        await sendSms({ to: client.whatsappNumber, body: `LBM Portal: "${notice.videoTitle}" is ready for your review. ${videoUrl}` });
+        await sendSms({ to: client.whatsappNumber, body: `Hi ${notice.clientName}, your new video is ready for review: ${videoUrl}. You can approve it, or reply with any changes needed!` });
       }
     }
   } catch (e) {
