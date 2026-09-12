@@ -727,9 +727,9 @@ function PortalCard({
               <input
                 type="tel"
                 defaultValue={u.phone ?? ''}
-                placeholder="Phone for SMS"
+                placeholder="Add phone for SMS"
                 onBlur={e => { if (e.target.value !== (u.phone ?? '')) saveUserPhone(u.id, e.target.value); }}
-                style={{ fontSize: 11.5, color: T.ink3, background: 'none', border: 'none', borderBottom: `1px solid ${T.lineStrong}`, padding: '1px 2px', width: 140 }}
+                style={{ fontSize: 12, color: T.ink2, background: T.surface, border: `1px solid ${T.lineStrong}`, borderRadius: 6, padding: '3px 7px', width: 148, fontFamily: 'inherit' }}
               />
               <Toggle checked={u.notifySms} label="SMS" onChange={next => saveUserSms(u.id, next)} disabled={!u.phone} />
               {u.smsConsentStatus === 'pending'   && <StatusBadge tone="amber" dot={false}>Consent pending</StatusBadge>}
