@@ -34,10 +34,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   let consentSentAt: Date | null | undefined = undefined;
   let consentStatus: string | null | undefined = undefined;
 
+  let smsSent: boolean | undefined;
   if (enablingSms && nextPhone) {
-    void sendSmsConsent({ to: nextPhone });
-    consentSentAt = new Date();
-    consentStatus = 'pending';
+    smsSent = await sendSmsConsent({ to: nextPhone });
+    if (smsSent) {
+      consentSentAt = new Date();
+      consentStatus = 'pending';
+    }
+    // If false: leave consent fields untouched; notifySms still saves so admin can retry
   }
   if (disablingSms) {
     consentSentAt = null;
@@ -51,7 +55,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     ...(consentStatus !== undefined ? { smsConsentStatus: consentStatus } : {}),
   }).where(eq(authUsers.id, id));
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, smsSent });
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
