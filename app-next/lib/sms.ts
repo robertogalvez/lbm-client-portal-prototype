@@ -17,6 +17,22 @@ export function isSmsConfigured(): boolean {
   return !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_API_KEY_SID && process.env.TWILIO_API_KEY_SECRET && process.env.TWILIO_FROM_NUMBER);
 }
 
+// Sends the Twilio-compliant opt-in disclosure message. Must be called once
+// when an admin enables SMS notifications for a client (notifySms: false→true).
+// The client replies YES to confirm enrollment, or STOP to decline (Twilio
+// handles STOP automatically at the carrier level; the webhook also tracks it).
+export async function sendSmsConsent({ to }: { to: string }): Promise<boolean> {
+  const appUrl = (process.env.APP_URL ?? '').replace(/\/$/, '');
+  const body = [
+    "LBM Media: You've been enrolled for portal notifications (up to 2 msg/month).",
+    'Msg & data rates may apply.',
+    'Reply STOP to opt out, HELP for help.',
+    `Terms: ${appUrl}/terms  Privacy: ${appUrl}/privacy`,
+    'Reply YES to confirm enrollment, or STOP to decline.',
+  ].join(' ');
+  return sendSms({ to, body });
+}
+
 export async function sendSms(opts: { to: string; body: string }): Promise<boolean> {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const apiKeySid = process.env.TWILIO_API_KEY_SID;

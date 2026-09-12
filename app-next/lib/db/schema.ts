@@ -109,6 +109,12 @@ export const clients = pgTable('clients', {
   // report is ready — guards the scheduled reminder (see
   // app/api/reminders/new-report) to fire at most once per month per client.
   lastReportNotifiedMonth: varchar('last_report_notified_month', { length: 7 }),
+  // Twilio consent tracking — set when the admin enables notifySms for a
+  // client. smsConsentSentAt records when the enrollment SMS was sent;
+  // smsConsentStatus is 'pending' | 'opted_in' | 'opted_out' | null.
+  // null on both means consent has never been initiated for this client.
+  smsConsentSentAt:  timestamp('sms_consent_sent_at'),
+  smsConsentStatus:  varchar('sms_consent_status', { length: 20 }),
   // The option-id of this client's entry in ClickUp's "Client Name (AM)"
   // dropdown field — the same id MappedTask.clientOptionId already carries.
   // Lets task↔client matching join on a stable ID instead of normalized
