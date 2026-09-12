@@ -680,10 +680,26 @@ function PortalCard({
       if (next && data.smsSent === false) {
         setMsg('Consent SMS could not be sent — check server logs. Toggle off and back on to retry.');
       } else if (next && data.smsSent) {
-        setMsg('Consent SMS sent.');
+        setMsg('✓ Consent SMS sent.');
       }
     } catch {
       setMsg('Could not save SMS setting — check your connection.');
+    }
+  }
+
+  async function removeUser(userId: string) {
+    if (!window.confirm('Remove this user\'s portal access?')) return;
+    setMsg('');
+    try {
+      const res = await fetch(`/api/admin/portal-user/${userId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setMsg(data.error ?? 'Could not remove user.');
+        return;
+      }
+      onChanged();
+    } catch {
+      setMsg('Could not remove user — check your connection.');
     }
   }
 
@@ -718,22 +734,43 @@ function PortalCard({
         <p style={{ fontSize: 13, color: T.ink3, margin: '0 0 4px' }}>No portal users yet — nobody is seeing this.</p>
       )}
 
-      {users.map(u => (
-        <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: T.ink2, padding: '4px 0' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {u.name} · {u.email}
-              {!u.emailVerified && <> <StatusBadge tone="amber" dot={false}>Pending</StatusBadge></>}
-            </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, color: u.phone ? T.ink3 : T.ghost, fontStyle: u.phone ? 'normal' : 'italic' }}>
-                {u.phone ?? 'No phone in ClickUp'}
-              </span>
-              <Toggle checked={u.notifySms} label="SMS" onChange={next => saveUserSms(u.id, next)} disabled={!u.phone} />
-              {u.smsConsentStatus === 'pending'   && <StatusBadge tone="amber" dot={false}>Consent pending</StatusBadge>}
-              {u.smsConsentStatus === 'opted_in'  && <StatusBadge tone="green"  dot={false}>Opted in</StatusBadge>}
-              {u.smsConsentStatus === 'opted_out' && <StatusBadge tone="red"    dot={false}>Opted out</StatusBadge>}
+      {users.map((u, i) => (
+        <div key={u.id} style={{ borderTop: i > 0 ? `1px solid ${T.dividerLight}` : undefined, padding: '10px 0' }}>
+          {/* Identity row */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>{u.name}</span>
+                {!u.emailVerified && <StatusBadge tone="amber" dot={false}>Invite pending</StatusBadge>}
+              </div>
+              <div style={{ fontSize: 12, color: T.ink3, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {u.email}
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => removeUser(u.id)}
+              title="Remove portal access"
+              style={{ background: 'none', border: 'none', padding: '1px 5px', cursor: 'pointer', color: T.ghost, fontSize: 18, lineHeight: 1, flexShrink: 0, borderRadius: 4 }}
+            >
+              ×
+            </button>
+          </div>
+
+          {/* SMS row */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, gap: 8 }}>
+            <div>
+              <div style={{ fontSize: 12, color: T.ink3 }}>
+                SMS notifications
+                {u.phone
+                  ? <span style={{ color: T.ink3 }}> · {u.phone}</span>
+                  : <span style={{ color: T.ghost, fontStyle: 'italic' }}> · No phone in ClickUp</span>}
+              </div>
+              {u.smsConsentStatus === 'pending'   && <div style={{ marginTop: 3 }}><StatusBadge tone="amber" dot={false}>Consent pending</StatusBadge></div>}
+              {u.smsConsentStatus === 'opted_in'  && <div style={{ marginTop: 3 }}><StatusBadge tone="green"  dot={false}>SMS active</StatusBadge></div>}
+              {u.smsConsentStatus === 'opted_out' && <div style={{ marginTop: 3 }}><StatusBadge tone="red"    dot={false}>Opted out</StatusBadge></div>}
+            </div>
+            <Toggle checked={u.notifySms} label="SMS notifications" onChange={next => saveUserSms(u.id, next)} disabled={!u.phone} />
           </div>
         </div>
       ))}
@@ -755,7 +792,7 @@ function PortalCard({
         ))}
       </div>
 
-      {msg && <div style={{ fontSize: 12, color: T.danger, marginTop: 8 }}>{msg}</div>}
+      {msg && <div style={{ fontSize: 12, color: msg.startsWith('✓') ? T.ok : T.danger, marginTop: 8 }}>{msg}</div>}
     </Card>
   );
 }
