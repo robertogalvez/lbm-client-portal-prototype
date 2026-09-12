@@ -28,6 +28,7 @@ export async function sendSmsConsent({ to }: { to: string }): Promise<boolean> {
 }
 
 export async function sendSms(opts: { to: string; body: string }): Promise<boolean> {
+  console.log('[sendSms] called with to:', JSON.stringify(opts.to));
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken  = process.env.TWILIO_AUTH_TOKEN;
   const from       = process.env.TWILIO_FROM_NUMBER;
@@ -36,7 +37,10 @@ export async function sendSms(opts: { to: string; body: string }): Promise<boole
     console.error('[sendSms] Twilio not configured — missing:', missing.join(', '));
     return false;
   }
-  if (!opts.to) return false;
+  if (!opts.to) {
+    console.error('[sendSms] no `to` number — returning false silently');
+    return false;
+  }
 
   try {
     const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
