@@ -13,6 +13,7 @@ import { ViewAsBanner } from '@/components/admin/ViewAsBanner';
 import { getViewAsClient } from '@/lib/view-as';
 import { InstagramLink } from '@/components/InstagramLink';
 import { clientStatusLabel } from '@/lib/client-status';
+import { deliveryCategory } from '@/lib/pipeline';
 import { FrameioEmbed } from '@/components/client/FrameioEmbed';
 import Link from 'next/link';
 export const dynamic = 'force-dynamic';
@@ -78,6 +79,11 @@ export default async function VideoDetailPage({ params, searchParams }: { params
 
   const normStatus = task.status.toLowerCase().replace(/\s+/g, ' ').trim();
   const isReview = normStatus.includes('client review');
+  const delivery = deliveryCategory(task.status, task.publishDate);
+  const effectiveStatusLabel =
+    delivery === 'scheduled' ? 'Scheduled to be posted' :
+    delivery === 'posted'    ? 'Posted' :
+    clientStatusLabel(task.status);
   const embedUrl = task.frameLink ? toFrameioEmbedUrl(task.frameLink) : null;
   const hasCaption = !!task.caption;
 
@@ -87,7 +93,7 @@ export default async function VideoDetailPage({ params, searchParams }: { params
         <div className="vd-meta-hide-mobile">
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 9, color: isReview ? '#b06f06' : '#54616f', background: isReview ? '#fbeecf' : '#eef1f4' }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: isReview ? '#b06f06' : '#54616f' }} />
-            {isReview ? 'Awaiting your review' : task.status}
+            {effectiveStatusLabel}
           </span>
         </div>
         {task.frameLink && (
@@ -132,9 +138,8 @@ export default async function VideoDetailPage({ params, searchParams }: { params
     </Link>
   );
 
-  const statusColor = isReview ? '#b06f06' : '#54616f';
-  const statusBg = isReview ? '#fbeecf' : '#eef1f4';
-  const statusLabel = clientStatusLabel(task.status);
+  const statusColor = isReview ? '#b06f06' : delivery === 'posted' ? '#30a46c' : delivery === 'scheduled' ? '#20c997' : '#54616f';
+  const statusBg = isReview ? '#fbeecf' : delivery === 'posted' ? '#d5f0e3' : delivery === 'scheduled' ? '#d5f7ef' : '#eef1f4';
 
   const shell = (
     <main className="vd-shell">
@@ -149,7 +154,7 @@ export default async function VideoDetailPage({ params, searchParams }: { params
           </div>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, padding: '1px 7px', borderRadius: 7, color: statusColor, background: statusBg, marginTop: 2 }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: statusColor }} />
-            {statusLabel}
+            {effectiveStatusLabel}
           </span>
         </div>
         <div style={{ width: 36, flexShrink: 0 }} />
