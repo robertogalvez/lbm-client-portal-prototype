@@ -25,5 +25,9 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   const data = await loadClientDetail(id);
   if (!data) notFound();
 
+  if (data.currentPeriodId && data.currentPeriodId !== id) {
+    redirect(`/admin/clients/${data.currentPeriodId}`);
+  }
+
   return <ClientDetailView data={data} />;
 }
