@@ -184,7 +184,7 @@ async function handlePost(req: Request) {
   // separately (below) to fix the caption in parallel. Only a real rejection
   // ("changes") routes through corrections.
   const targetStatus = action === 'changes' ? TASK_STATUS.inProgressCorrections : TASK_STATUS.readyToBePosted;
-  const [, checklistResult] = await Promise.all([
+  const [,, checklistResult] = await Promise.all([
     setTaskStatus(taskId, targetStatus).catch(() => { /* non-fatal */ }),
     // Stamp approval timestamp so AMs can see when the client approved and the
     // client portal can display it on the approved-videos row.
