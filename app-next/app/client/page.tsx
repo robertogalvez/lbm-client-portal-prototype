@@ -864,17 +864,6 @@ function VideoReviewCard({ task, thumbnail }: { task: MappedTask; thumbnail: str
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const, fontSize: 12, color: '#9d9488', fontWeight: 500 }}>
           <span>{waiting === 0 ? 'Today' : waiting === 1 ? 'Yesterday' : `${waiting}d ago`}</span>
-          {task.dueDate && (
-            <>
-              <span style={{ width: 3, height: 3, borderRadius: '50%', background: '#9d9488' }} />
-              <span style={{
-                color: new Date(task.dueDate).getTime() < Date.now() ? '#dc2626' : '#9d9488',
-                fontWeight: new Date(task.dueDate).getTime() < Date.now() ? 600 : 500,
-              }}>
-                {new Date(task.dueDate).getTime() < Date.now() ? '⚠️ Overdue' : 'Due'} {fmtDate(task.dueDate)}
-              </span>
-            </>
-          )}
         </div>
 
         <div>

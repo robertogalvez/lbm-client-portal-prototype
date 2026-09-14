@@ -141,7 +141,6 @@ export default async function AmPage() {
   const now = Date.now();
   const DAY_MS = 86_400_000;
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-  const weekEnd = now + 7 * DAY_MS;
 
   // "Posted" is driven by deliveryCategory (Publish Date vs. now), not the
   // raw status — see lib/pipeline.ts.
@@ -153,8 +152,7 @@ export default async function AmPage() {
   // KPIs
   const activeClients = new Set(activeTasks.map(t => t.clientName).filter(Boolean)).size;
   const inReview = amTasks.filter(t => norm(t.status) === 'for client review').length;
-  const dueThisWeek = activeTasks.filter(t => t.dueDate && new Date(t.dueDate).getTime() <= weekEnd).length;
-  const overdue = activeTasks.filter(t => t.dueDate && new Date(t.dueDate).getTime() < now).length;
+  const approvedThisMonth = amTasks.filter(t => t.approvedAt && new Date(t.approvedAt).getTime() >= monthStart).length;
 
   // Client cards
   type ClientData = {
@@ -194,10 +192,11 @@ export default async function AmPage() {
     return false;
   }).sort((a, b) => daysWaiting(b.dateUpdated) - daysWaiting(a.dateUpdated));
 
-  // Due this week
-  const dueTasks = activeTasks
-    .filter(t => t.dueDate && new Date(t.dueDate).getTime() <= weekEnd)
-    .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+  // Recently approved
+  const recentlyApproved = amTasks
+    .filter(t => t.approvedAt)
+    .sort((a, b) => new Date(b.approvedAt!).getTime() - new Date(a.approvedAt!).getTime())
+    .slice(0, 10);
 
   // Recently posted — surfaces the captured Instagram link to the AM
   const recentlyPosted = amTasks
@@ -228,8 +227,7 @@ export default async function AmPage() {
       <div style={{ display: 'flex', gap: 16, marginBottom: 28, flexWrap: 'wrap' }}>
         <KpiCard label="Active Clients"  value={activeClients} accent="#FF6000" sub="clients with open tasks" />
         <KpiCard label="In Review"       value={inReview}      accent="#ffc53d" sub="awaiting client response" />
-        <KpiCard label="Due This Week"   value={dueThisWeek}   accent="#1090e0" sub="next 7 days" />
-        <KpiCard label="Overdue"         value={overdue}       accent="#e5484d" sub="past due date" />
+        <KpiCard label="Approved (mo)"   value={approvedThisMonth} accent="#14805f" sub="approved this month" />
       </div>
 
       {/* My Clients grid */}
@@ -286,7 +284,7 @@ export default async function AmPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #e7ebef', background: '#f8f9fb' }}>
-                {['Video Title', 'Client', 'Status', 'Due Date', 'Days Waiting'].map(h => (
+                {['Video Title', 'Client', 'Status', 'Days Waiting'].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontWeight: 600, color: '#8b97a4', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
                 ))}
               </tr>
@@ -299,7 +297,6 @@ export default async function AmPage() {
                   </td>
                   <td style={{ padding: '10px 16px', color: '#54616f' }}>{t.clientName ?? '—'}</td>
                   <td style={{ padding: '10px 16px' }}><StatusBadge status={t.status} /></td>
-                  <td style={{ padding: '10px 16px', color: '#54616f' }}>{fmtDate(t.dueDate)}</td>
                   <td style={{ padding: '10px 16px', fontWeight: 700, color: daysWaiting(t.dateUpdated) > 3 ? '#e5484d' : '#111c28' }}>
                     {daysWaiting(t.dateUpdated)}d
                   </td>
@@ -310,39 +307,33 @@ export default async function AmPage() {
         )}
       </div>
 
-      {/* Due This Week */}
-      <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: '0 0 14px' }}>Due This Week</h2>
-      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10 }} className="db-tscroll">
-        {dueTasks.length === 0 ? (
+      {/* Recently Approved */}
+      <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111c28', margin: '0 0 14px' }}>Recently Approved</h2>
+      <div style={{ background: '#fff', border: '1px solid #e7ebef', borderRadius: 10, marginBottom: 28 }} className="db-tscroll">
+        {recentlyApproved.length === 0 ? (
           <div style={{ padding: '24px', textAlign: 'center', fontSize: 14, color: '#8b97a4' }}>
-            No tasks due in the next 7 days.
+            No recently approved videos.
           </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #e7ebef', background: '#f8f9fb' }}>
-                {['Video Title', 'Client', 'Status', 'Due Date'].map(h => (
+                {['Video Title', 'Client', 'Status', 'Approved On'].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontWeight: 600, color: '#8b97a4', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {dueTasks.map(t => {
-                const isPast = t.dueDate ? new Date(t.dueDate).getTime() < now : false;
-                return (
-                  <tr key={t.clickupTaskId} style={{ borderBottom: '1px solid #f4f6f8' }}>
-                    <td style={{ padding: '10px 16px', fontWeight: 500, color: '#111c28', maxWidth: 300 }}>
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
-                    </td>
-                    <td style={{ padding: '10px 16px', color: '#54616f' }}>{t.clientName ?? '—'}</td>
-                    <td style={{ padding: '10px 16px' }}><StatusBadge status={t.status} /></td>
-                    <td style={{ padding: '10px 16px', fontWeight: isPast ? 700 : 400, color: isPast ? '#e5484d' : '#54616f' }}>
-                      {fmtDate(t.dueDate)}
-                      {isPast && <span style={{ marginLeft: 6, fontSize: 11, background: '#fdedeb', color: '#e5484d', padding: '1px 6px', borderRadius: 4 }}>Overdue</span>}
-                    </td>
-                  </tr>
-                );
-              })}
+              {recentlyApproved.map(t => (
+                <tr key={t.clickupTaskId} style={{ borderBottom: '1px solid #f4f6f8' }}>
+                  <td style={{ padding: '10px 16px', fontWeight: 500, color: '#111c28', maxWidth: 300 }}>
+                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                  </td>
+                  <td style={{ padding: '10px 16px', color: '#54616f' }}>{t.clientName ?? '—'}</td>
+                  <td style={{ padding: '10px 16px' }}><StatusBadge status={t.status} /></td>
+                  <td style={{ padding: '10px 16px', color: '#14805f', fontWeight: 600 }}>{fmtDate(t.approvedAt)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}

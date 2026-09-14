@@ -102,7 +102,7 @@ export default async function VideoDetailPage({ params, searchParams }: { params
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#6c6357', fontWeight: 500, flexWrap: 'wrap' as const }}>
         <span>{daysWaiting(task.dateUpdated)}</span>
-        {task.dueDate && (<><span style={{ width: 3, height: 3, borderRadius: '50%', background: '#9d9488' }} /><span>Due {fmtDate(task.dueDate)}</span></>)}
+        {task.approvedAt && (<><span style={{ width: 3, height: 3, borderRadius: '50%', background: '#9d9488' }} /><span style={{ color: '#14805f', fontWeight: 600 }}>Approved {fmtDate(task.approvedAt)}</span></>)}
       </div>
 
       {task.instagramUrl && (
