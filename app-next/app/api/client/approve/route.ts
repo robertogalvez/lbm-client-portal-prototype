@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { revalidateTag } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { authUsers, pendingDecisions } from '@/lib/db/schema';
+import { authUsers, pendingDecisions, videoCache } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getViewAsClient } from '@/lib/view-as';
 import { resolveTaskClientName, mapTask, type ClickUpTask } from '@/lib/clickup';
@@ -205,7 +205,13 @@ async function handlePost(req: Request) {
   // is exactly the staleness this fix needs to eliminate.
   revalidateTag('clickup-tasks', { expire: 0 });
 
-  await db.update(pendingDecisions).set({ executed: true }).where(eq(pendingDecisions.id, decision.id));
+  const approvedAt = action !== 'changes' ? new Date().toISOString() : null;
+  await Promise.all([
+    db.update(pendingDecisions).set({ executed: true }).where(eq(pendingDecisions.id, decision.id)),
+    approvedAt
+      ? db.update(videoCache).set({ approvedAt }).where(eq(videoCache.clickupTaskId, taskId))
+      : Promise.resolve(),
+  ]);
 
   // Notify AM, post to the Client Approvals chat channel, and text Michel —
   // none of these block the response the client is waiting on.

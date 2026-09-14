@@ -167,6 +167,11 @@ export const videoCache = pgTable('video_cache', {
   // mapped in the sync); isYoutube is kept for backward compatibility with
   // existing callers rather than dropped in the same change.
   deliverableType:   varchar('deliverable_type', { length: 20 }).notNull().default('short_form'),
+  // Stamped by the portal the moment the client approves (action !== 'changes'
+  // in app/api/client/approve). ISO-8601 string matching MappedTask.approvedAt.
+  // Null for tasks approved before this column existed (backfill via
+  // app/api/admin/backfill-approval-dates, which uses dateUpdated as a proxy).
+  approvedAt:        text('approved_at'),
 });
 
 // One row per signed contract. A renewal is a second row for the same
