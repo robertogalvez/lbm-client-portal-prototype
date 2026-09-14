@@ -238,6 +238,7 @@ export async function POST(req: Request) {
       sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS cycle_duration_days integer`,
       sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS cycle_anchor_date date`,
       sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS logo_url text`,
+      sql`ALTER TABLE video_cache ADD COLUMN IF NOT EXISTS approved_at text`,
     ]);
 
     const rows = await sql`

@@ -31,6 +31,7 @@ export async function getTasksFromDB(): Promise<MappedTask[]> {
       dueDate:                videoCache.dueDate,
       lastSyncedAt:           videoCache.lastSyncedAt,
       vistasocialScheduledAt: videoCache.vistasocialScheduledAt,
+      approvedAt:             videoCache.approvedAt,
     })
     .from(videoCache);
   return rows.map(row => ({
@@ -57,9 +58,8 @@ export async function getTasksFromDB(): Promise<MappedTask[]> {
     dateUpdated:      row.dateUpdated ?? String(row.lastSyncedAt?.getTime() ?? Date.now()),
     dueDate:          row.dueDate ?? null,
     publishDate:      row.vistasocialScheduledAt?.toISOString() ?? null,
-    // Not cached in video_cache — only read live in the client video-detail
-    // page, which fetches straight from ClickUp rather than this cache.
-    approvedAt:           null,
+    approvedAt:           row.approvedAt ?? null,
+    // Not cached in video_cache.
     clientFixesChecklist: null,
   }));
 }
