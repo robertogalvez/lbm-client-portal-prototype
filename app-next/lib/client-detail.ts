@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { authUsers, clients as clientsTable, contractPeriods, contractMonths, contractPeriodClients, contractLineItems } from '@/lib/db/schema';
 import { getDashboardTasks } from '@/lib/dashboard-tasks';
 import { buildAdminRows, type AdminClientRow } from '@/lib/admin-views';
+import { resolveCurrentPeriod } from '@/lib/contracts';
 import { norm, parseDate, POSTED, pipelineStageOf, ARCHIVED_STATUSES, deliveryCategory } from '@/lib/pipeline';
 import type { ContractJoinRow } from '@/lib/portfolio';
 import { resolvePostedAt } from '@/lib/portfolio';
@@ -119,6 +120,12 @@ export interface ClientDetailData {
   portal: ClientPortalData | null;
   /** Share of delivered videos approved on revision round 1. null when no revision data exists. */
   firstPassCleanPct: number | null;
+  /**
+   * The period id resolveCurrentPeriod picks for this client's full period
+   * list. When this differs from the URL's period id the page should redirect
+   * so the coverage card always reflects the active contract.
+   */
+  currentPeriodId: string | null;
 }
 
 const DAY_MS = 86_400_000;
@@ -282,6 +289,8 @@ export async function loadClientDetail(id: string): Promise<ClientDetailData | n
       }))
     : [];
 
+  const currentPeriodId = resolveCurrentPeriod(allPeriods, now)?.id ?? null;
+
   const data: ClientDetailData = {
     row,
     displayName,
@@ -291,6 +300,7 @@ export async function loadClientDetail(id: string): Promise<ClientDetailData | n
     deliveredByPeriod,
     clickupTaskId: primaryClient?.clickupTaskId ?? null,
     logoUrl: primaryClient?.logoUrl ?? null,
+    currentPeriodId,
     firstPassCleanPct: (() => {
       const withRevisions = clientTasks.filter(t => norm(t.status) === POSTED && t.revisions != null);
       if (withRevisions.length === 0) return null;
