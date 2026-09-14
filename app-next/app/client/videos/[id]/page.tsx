@@ -80,10 +80,16 @@ export default async function VideoDetailPage({ params, searchParams }: { params
   const normStatus = task.status.toLowerCase().replace(/\s+/g, ' ').trim();
   const isReview = normStatus.includes('client review');
   const delivery = deliveryCategory(task.status, task.publishDate);
+  // Approved takes precedence over scheduled; posted is already a terminal state.
+  const isApproved = !!task.clientApproval && delivery !== 'posted';
   const effectiveStatusLabel =
+    isReview    ? 'Awaiting your review' :
+    isApproved  ? 'Approved' :
     delivery === 'scheduled' ? 'Scheduled to be posted' :
     delivery === 'posted'    ? 'Posted' :
     clientStatusLabel(task.status);
+  const statusColor = isReview ? '#b06f06' : (delivery === 'posted' || isApproved) ? '#30a46c' : delivery === 'scheduled' ? '#20c997' : '#54616f';
+  const statusBg = isReview ? '#fbeecf' : (delivery === 'posted' || isApproved) ? '#d5f0e3' : delivery === 'scheduled' ? '#d5f7ef' : '#eef1f4';
   const embedUrl = task.frameLink ? toFrameioEmbedUrl(task.frameLink) : null;
   const hasCaption = !!task.caption;
 
@@ -91,8 +97,8 @@ export default async function VideoDetailPage({ params, searchParams }: { params
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
         <div className="vd-meta-hide-mobile">
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 9, color: isReview ? '#b06f06' : '#54616f', background: isReview ? '#fbeecf' : '#eef1f4' }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: isReview ? '#b06f06' : '#54616f' }} />
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 9, color: statusColor, background: statusBg }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor }} />
             {effectiveStatusLabel}
           </span>
         </div>
@@ -137,9 +143,6 @@ export default async function VideoDetailPage({ params, searchParams }: { params
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{width:18,height:18}}><path d="m15 18-6-6 6-6"/></svg>
     </Link>
   );
-
-  const statusColor = isReview ? '#b06f06' : delivery === 'posted' ? '#30a46c' : delivery === 'scheduled' ? '#20c997' : '#54616f';
-  const statusBg = isReview ? '#fbeecf' : delivery === 'posted' ? '#d5f0e3' : delivery === 'scheduled' ? '#d5f7ef' : '#eef1f4';
 
   const shell = (
     <main className="vd-shell">
