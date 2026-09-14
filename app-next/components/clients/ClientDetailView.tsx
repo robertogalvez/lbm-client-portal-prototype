@@ -17,6 +17,8 @@ import { PLATFORMS } from '@/lib/socialLinks';
 import { fmtCalendarDate } from '@/lib/calendar-date';
 import { normalizeLogoFile, LogoUploadError } from '@/lib/logo-upload';
 import type { ClientDetailData, LedgerRow, PortalUser } from '@/lib/client-detail';
+import { resolveCurrentPeriod } from '@/lib/contracts';
+import type { ContractPeriodRecord } from '@/lib/contract-records';
 
 const ALL_STATUSES = '__all__';
 
@@ -92,11 +94,29 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
   // sitting on one exact status, not just the coarse waiting/all/published split.
   const statusOptions = [...new Set(ledger.map(r => r.status))];
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (savedPeriods?: ContractPeriodRecord[]) => {
+    // When a new contract period is created, resolveCurrentPeriod may return a
+    // different period than the one in the URL. Navigate there so the coverage
+    // card reflects the new active contract rather than the old one.
+    if (savedPeriods) {
+      const current = resolveCurrentPeriod(savedPeriods, new Date());
+      if (current && current.id !== row.periodId) {
+        router.push(`/admin/clients/${current.id}`);
+        return;
+      }
+    }
     const res = await fetch(`/api/dashboard/client-detail?id=${row.periodId}`);
     if (res.ok) setData(await res.json());
     router.refresh();
   }, [row.periodId, router]);
+
+  // Wraps refresh to match ContractChannelsDrawer's onSaved signature, which
+  // also passes the updated social links (unused here — the page re-fetches on
+  // non-navigation refreshes).
+  const onContractSaved = useCallback(
+    (savedPeriods: ContractPeriodRecord[]) => { void refresh(savedPeriods); },
+    [refresh],
+  );
 
   const archivedCount = ledger.filter(r => r.archived).length;
   const scoped = ledger.filter(r =>
@@ -524,7 +544,7 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
         socialLinks={data.socialLinks}
         coverageOnCurrent={row.periodId && cov ? { periodId: row.periodId, coverage: cov } : undefined}
         deliveredByPeriod={data.deliveredByPeriod}
-        onSaved={refresh}
+        onSaved={onContractSaved}
       />}
     </main>
   );
