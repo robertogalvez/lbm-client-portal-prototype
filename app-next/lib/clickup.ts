@@ -86,6 +86,10 @@ export interface MappedTask {
   // queued into VistaSocial; this date is what tells you whether it has
   // actually gone live yet (past/present) or is still scheduled (future).
   publishDate: string | null;
+  /** ISO timestamp from the "Date Approved by Client" ClickUp date field.
+   *  Set by the approve route when the client approves. Null for tasks
+   *  approved before the field existed, or tasks not yet approved. */
+  approvedAt: string | null;
   // The "Client fixes — <date>" checklist created on approve_with_fixes
   // (see createClientFixesChecklist in lib/clickup-write.ts). Null when the
   // task has no such checklist — most tasks never enter the held state.
@@ -126,6 +130,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
   const amField       = findField(task, 'Account Manager (AM)');
   const qcField       = findField(task, 'QUALITY CHECK (Somu)');
   const publishDateField = findField(task, 'Publish Date (VistaSocial)');
+  const approvedAtField  = findField(task, 'Date Approved by Client');
   const clientFacingTitleField = findField(task, 'Client-Facing Title');
   const revisionsField = findField(task, 'Revision #');
   const deliverableTypeField = findField(task, 'Deliverable Type');
@@ -149,10 +154,15 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     dueDate = isNaN(ms) ? task.due_date : new Date(ms).toISOString();
   }
 
-  // "Publish Date (VistaSocial)" is a ClickUp date field — its value is epoch ms (string|number).
+  // "Publish Date (VistaSocial)" and "Date Approved by Client" are both ClickUp
+  // date fields — their value is epoch ms (string|number).
   let publishDate: string | null = null;
   const pubMs = Number(publishDateField?.value);
   if (Number.isFinite(pubMs) && pubMs > 0) publishDate = new Date(pubMs).toISOString();
+
+  let approvedAt: string | null = null;
+  const approvedMs = Number(approvedAtField?.value);
+  if (Number.isFinite(approvedMs) && approvedMs > 0) approvedAt = new Date(approvedMs).toISOString();
 
   const resolve = (field: ClickUpField | undefined, idx: number | null): string | null => {
     if (!field || idx === null) return null;
@@ -216,6 +226,7 @@ export function mapTask(task: ClickUpTask, sharedOptions: Record<string, { id: s
     isYoutube,
     deliverableType,
     revisions,
+    approvedAt,
     dateUpdated:      task.date_updated,
     dueDate,
     publishDate,
