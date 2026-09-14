@@ -4,16 +4,16 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { authUsers, videoCache } from '@/lib/db/schema';
 import { eq, and, isNotNull } from 'drizzle-orm';
-import { CLIENT_APPROVAL } from '@/lib/clickup-write';
-import { getTask, setDateField } from '@/lib/clickup-write';
+import { CLIENT_APPROVAL, getTask, setDateField } from '@/lib/clickup-write';
 
-// POST /api/admin/backfill-clickup-approval-dates
+// POST /api/admin/backfill-clickup-approval-dates?limit=20&offset=0
 //
-// Reads approved_at from Neon (populated by /api/admin/backfill-approval-dates)
-// and writes those timestamps into the ClickUp "Date Approved by Client" field.
-// Rate-limited to 1 task per second (~2 ClickUp calls each) to stay under the
-// 100 req/min cap. Idempotent — safe to re-run.
-export async function POST() {
+// Processes one batch of tasks per call to stay within Netlify's ~26s timeout.
+// Call repeatedly, incrementing offset by limit, until remaining === 0.
+// No sleep between tasks in a batch — 20 tasks × 2 ClickUp calls = 40 calls,
+// well under the 100 req/min cap. The built-in 429 retry in cuRequest handles
+// any burst spill. Idempotent — safe to re-run.
+export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -27,7 +27,11 @@ export async function POST() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const rows = await db
+  const url = new URL(req.url);
+  const limit  = Math.min(Math.max(1, Number(url.searchParams.get('limit')  ?? 20)), 50);
+  const offset = Math.max(0, Number(url.searchParams.get('offset') ?? 0));
+
+  const allRows = await db
     .select({ clickupTaskId: videoCache.clickupTaskId, approvedAt: videoCache.approvedAt })
     .from(videoCache)
     .where(and(
@@ -35,35 +39,26 @@ export async function POST() {
       isNotNull(videoCache.approvedAt),
     ));
 
-  const results: { taskId: string; status: 'ok' | 'skipped' | 'error'; error?: string }[] = [];
+  const total     = allRows.length;
+  const batch     = allRows.slice(offset, offset + limit);
+  const remaining = Math.max(0, total - offset - batch.length);
 
-  for (const row of rows) {
+  let ok = 0, skipped = 0, errors = 0;
+
+  for (const row of batch) {
     const approvedAtMs = new Date(row.approvedAt!).getTime();
-    if (!Number.isFinite(approvedAtMs) || approvedAtMs <= 0) {
-      results.push({ taskId: row.clickupTaskId, status: 'skipped' });
-      continue;
-    }
+    if (!Number.isFinite(approvedAtMs) || approvedAtMs <= 0) { skipped++; continue; }
 
     try {
-      const raw = await getTask(row.clickupTaskId);
+      const raw   = await getTask(row.clickupTaskId);
       const wrote = await setDateField(raw, 'Date Approved by Client', approvedAtMs);
-      results.push({ taskId: row.clickupTaskId, status: wrote ? 'ok' : 'skipped' });
-    } catch (e) {
-      results.push({
-        taskId: row.clickupTaskId,
-        status: 'error',
-        error: e instanceof Error ? e.message : String(e),
-      });
+      wrote ? ok++ : skipped++;
+    } catch {
+      errors++;
     }
-
-    await new Promise(r => setTimeout(r, 1000));
   }
 
-  const ok      = results.filter(r => r.status === 'ok').length;
-  const skipped = results.filter(r => r.status === 'skipped').length;
-  const errors  = results.filter(r => r.status === 'error').length;
+  console.log('[backfill-clickup-approval-dates]', { offset, limit, ok, skipped, errors, remaining });
 
-  console.log('[backfill-clickup-approval-dates] done', { total: rows.length, ok, skipped, errors });
-
-  return NextResponse.json({ ok, skipped, errors, total: rows.length });
+  return NextResponse.json({ ok, skipped, errors, offset, limit, total, remaining });
 }
