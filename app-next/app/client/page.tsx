@@ -388,7 +388,7 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0 4px' }}>
                   {approvedTasks.map(t => (
                     <VideoRow key={t.clickupTaskId} task={t} showViewLink
-                      label="Approved — ready to post"
+                      label={t.approvedAt ? `Approved · ${fmtDate(t.approvedAt)}` : 'Approved — ready to post'}
                       color="#14805f" colorBg="#e4f3ec"
                     />
                   ))}
@@ -662,7 +662,9 @@ export default async function ClientPortalPage({ searchParams }: { searchParams:
                     <div style={{flex:1}}>
                       <div style={{fontWeight:600, fontSize:14}} title={t.clientFacingTitle || t.title}>{displayTitle(t.clientFacingTitle, t.title)}</div>
                     </div>
-                    <span style={{background:'#e4f3ec', color:'#14805f', fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>Approved — ready to post</span>
+                    <span style={{background:'#e4f3ec', color:'#14805f', fontSize:12, padding:'3px 10px', borderRadius:12, fontWeight:700}}>
+                      {t.approvedAt ? `Approved · ${fmtDate(t.approvedAt)}` : 'Approved — ready to post'}
+                    </span>
                     <Link href={`/client/videos/${t.clickupTaskId}`} style={{fontSize:12, color:'#FF6000', textDecoration:'none', fontWeight:600}}>View →</Link>
                   </div>
                 ))}

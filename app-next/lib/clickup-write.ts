@@ -75,6 +75,15 @@ export function findField(task: ClickUpTaskLite, name: string): ClickUpFieldLite
   return (task.custom_fields ?? []).find(f => f.name === name);
 }
 
+// Set a date custom field. value is epoch milliseconds. Returns false (without
+// throwing) if the field isn't present on the task.
+export async function setDateField(task: ClickUpTaskLite, fieldName: string, valueMs: number): Promise<boolean> {
+  const field = findField(task, fieldName);
+  if (!field) return false;
+  await cuRequest(`/task/${task.id}/field/${field.id}`, { method: 'POST', body: JSON.stringify({ value: valueMs }) });
+  return true;
+}
+
 // Set a URL / text custom field. Returns false (without throwing) if the field
 // isn't present on the task — capture degrades gracefully when the optional
 // "Instagram URL" field hasn't been created in ClickUp yet.
@@ -141,6 +150,11 @@ export const FIELD = {
   // ready to post, so the field travels with the task regardless of which
   // list a given request views it from.
   vistaMediaUrl:  { id: 'db5ae240-38e9-4f36-80e9-9860040facbc', name: 'VistaSocial Media URL' },
+  // Date field the approve route stamps when the client approves a video.
+  // The UUID below is a placeholder — update it once the field is created in
+  // the LBM workspace and its UUID is known; findFieldRef tries the name
+  // fallback automatically when the UUID doesn't match.
+  approvedAt:     { id: '', name: 'Date Approved by Client' },
 } as const satisfies Record<string, FieldRef>;
 
 // DB `publishing_status` cache value (no live ClickUp "Publishing Status" field

@@ -7,7 +7,7 @@ import { authUsers, pendingDecisions } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getViewAsClient } from '@/lib/view-as';
 import { resolveTaskClientName, mapTask, type ClickUpTask } from '@/lib/clickup';
-import { setTaskStatus, postComment, TASK_STATUS, CLIENT_APPROVAL, createClientFixesChecklist } from '@/lib/clickup-write';
+import { setTaskStatus, postComment, TASK_STATUS, CLIENT_APPROVAL, createClientFixesChecklist, setDateField } from '@/lib/clickup-write';
 import { syncFrameioComments, countUnmirroredComments } from '@/lib/frameio-comment-sync';
 import { notifyAmOfDecision } from '@/lib/notify-am';
 import { sendSms, isSmsConfigured } from '@/lib/sms';
@@ -184,8 +184,13 @@ async function handlePost(req: Request) {
   // separately (below) to fix the caption in parallel. Only a real rejection
   // ("changes") routes through corrections.
   const targetStatus = action === 'changes' ? TASK_STATUS.inProgressCorrections : TASK_STATUS.readyToBePosted;
-  const [, checklistResult] = await Promise.all([
+  const [,, checklistResult] = await Promise.all([
     setTaskStatus(taskId, targetStatus).catch(() => { /* non-fatal */ }),
+    // Stamp approval timestamp so AMs can see when the client approved and the
+    // client portal can display it on the approved-videos row.
+    action !== 'changes'
+      ? setDateField(task, 'Date Approved by Client', Date.now()).catch(() => {})
+      : Promise.resolve(),
     action === 'approve_with_fixes' && noteItems && noteItems.length > 0
       ? createClientFixesChecklist(taskId, noteItems, new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })).catch(() => null as { checklistId: string; itemIds: string[] } | null)
       : Promise.resolve(null as { checklistId: string; itemIds: string[] } | null),
