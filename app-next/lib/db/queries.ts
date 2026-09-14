@@ -59,7 +59,6 @@ export async function getTasksFromDB(): Promise<MappedTask[]> {
     dueDate:          row.dueDate ?? null,
     publishDate:      row.vistasocialScheduledAt?.toISOString() ?? null,
     approvedAt:           row.approvedAt ?? null,
-    // Not cached in video_cache.
     clientFixesChecklist: null,
   }));
 }
