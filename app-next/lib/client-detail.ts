@@ -29,6 +29,9 @@ export interface ClientPortalData {
   showInvoices: boolean;
   showReport: boolean;
   notifyEmail: boolean;
+  notifySms: boolean;
+  smsOptInStatus: string;
+  whatsappNumber: string | null;
   portalUsers: PortalUser[];
 }
 
@@ -266,6 +269,9 @@ export async function loadClientDetail(id: string): Promise<ClientDetailData | n
       showInvoices: primaryClient.showInvoices ?? false,
       showReport: primaryClient.showReport ?? false,
       notifyEmail: primaryClient.notifyEmail ?? true,
+      notifySms: primaryClient.notifySms ?? false,
+      smsOptInStatus: primaryClient.smsOptInStatus ?? 'none',
+      whatsappNumber: primaryClient.whatsappNumber ?? null,
       portalUsers,
     } : null,
   };

@@ -297,7 +297,10 @@ export function ClientDetailView({ data: initial }: { data: ClientDetailData }) 
                   showInvoices: portal.showInvoices,
                   showReport: portal.showReport,
                   notifyEmail: portal.notifyEmail,
+                  notifySms: portal.notifySms,
                 }}
+                smsOptInStatus={portal.smsOptInStatus}
+                hasPhoneOnFile={!!portal.whatsappNumber}
                 onChanged={refresh}
               />
             )}
@@ -369,22 +372,35 @@ interface PortalToggles {
   showInvoices: boolean;
   showReport: boolean;
   notifyEmail: boolean;
+  notifySms: boolean;
 }
 
 const TOGGLE_LABELS: { key: keyof PortalToggles; label: string }[] = [
   { key: 'showCalendar', label: 'Publishing calendar' },
   { key: 'showInvoices', label: 'Invoices' },
   { key: 'showReport', label: 'Posted-on-socials report' },
-  { key: 'notifyEmail', label: 'Review-ready notifications' },
+  { key: 'notifyEmail', label: 'Review-ready notifications (email)' },
+  { key: 'notifySms', label: 'Review-ready notifications (SMS)' },
 ];
 
+// A2P 10DLC requires the client to confirm (reply YES) before the SMS
+// toggle actually starts sending — see lib/sms-optin.ts. This just labels
+// where that confirmation stands; it's not itself a control.
+const OPT_IN_BADGE: Record<string, { tone: 'green' | 'amber' | 'red'; label: string } | undefined> = {
+  pending:   { tone: 'amber', label: 'Awaiting their YES' },
+  confirmed: { tone: 'green', label: 'Confirmed' },
+  declined:  { tone: 'red',   label: 'Declined (STOP)' },
+};
+
 function PortalCard({
-  clientId, clientName, users, initialToggles, onChanged,
+  clientId, clientName, users, initialToggles, smsOptInStatus, hasPhoneOnFile, onChanged,
 }: {
   clientId: string;
   clientName: string;
   users: PortalUser[];
   initialToggles: PortalToggles;
+  smsOptInStatus: string;
+  hasPhoneOnFile: boolean;
   onChanged: () => void;
 }) {
   const [toggles, setToggles] = useState(initialToggles);
@@ -395,6 +411,9 @@ function PortalCard({
 
   // Optimistic: the switch moves immediately and rolls back if the write
   // fails, rather than making the admin wait on a round trip per toggle.
+  // notifySms is the one exception worth noting: turning it on kicks off
+  // the A2P opt-in text server-side (see the PUT route), so onChanged()
+  // re-fetches afterward to pick up the resulting smsOptInStatus.
   async function setToggle(key: keyof PortalToggles, next: boolean) {
     const previous = toggles;
     const optimistic = { ...toggles, [key]: next };
@@ -405,10 +424,14 @@ function PortalCard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(optimistic),
       });
-      if (!res.ok) throw new Error('Failed');
-    } catch {
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? 'Failed');
+      }
+      if (key === 'notifySms') onChanged();
+    } catch (e) {
       setToggles(previous);
-      setMsg('Could not save that setting.');
+      setMsg(e instanceof Error ? e.message : 'Could not save that setting.');
     }
   }
 
@@ -459,12 +482,25 @@ function PortalCard({
       )}
 
       <div style={{ marginTop: 12 }}>
-        {TOGGLE_LABELS.map(t => (
-          <div key={t.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 0', borderTop: `1px solid ${T.dividerLight}` }}>
-            <span style={{ fontSize: 13, color: T.ink2 }}>{t.label}</span>
-            <Toggle checked={toggles[t.key]} label={t.label} onChange={next => setToggle(t.key, next)} />
-          </div>
-        ))}
+        {TOGGLE_LABELS.map(t => {
+          const isSms = t.key === 'notifySms';
+          const badge = isSms ? OPT_IN_BADGE[smsOptInStatus] : undefined;
+          const disabled = isSms && !hasPhoneOnFile;
+          return (
+            <div key={t.key} style={{ padding: '10px 0', borderTop: `1px solid ${T.dividerLight}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <span style={{ fontSize: 13, color: disabled ? T.ink3 : T.ink2 }}>{t.label}</span>
+                <Toggle checked={toggles[t.key]} label={t.label} disabled={disabled} onChange={next => setToggle(t.key, next)} />
+              </div>
+              {isSms && disabled && (
+                <div style={{ fontSize: 11.5, color: T.ink3, marginTop: 4 }}>No phone number on file for this client.</div>
+              )}
+              {isSms && toggles.notifySms && badge && (
+                <div style={{ marginTop: 6 }}><StatusBadge tone={badge.tone} dot={false}>{badge.label}</StatusBadge></div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {msg && <div style={{ fontSize: 12, color: T.danger, marginTop: 8 }}>{msg}</div>}

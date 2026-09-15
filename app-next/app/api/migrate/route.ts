@@ -239,6 +239,8 @@ export async function POST(req: Request) {
       // Contract redesign PR 3 (Amendment B) — rolling-cycle renewal fields.
       sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS cycle_duration_days integer`,
       sql`ALTER TABLE contract_periods ADD COLUMN IF NOT EXISTS cycle_anchor_date date`,
+      // A2P 10DLC double opt-in state — see schema.ts comment on smsOptInStatus.
+      sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS sms_opt_in_status varchar(10) NOT NULL DEFAULT 'none'`,
     ]);
 
     const rows = await sql`

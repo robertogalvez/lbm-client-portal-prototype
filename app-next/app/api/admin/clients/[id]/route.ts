@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { authUsers, clients } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { startSmsOptIn } from '@/lib/sms-optin';
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,6 +21,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   // callers that only know about handles never touch these fields.
   const { type, frameioProjectId, vistaSocialProfileIds, showCalendar, showInvoices, showReport, notifyEmail, notifySms } = body;
 
+  const [existing] = await db.select({ notifySms: clients.notifySms }).from(clients).where(eq(clients.id, id)).limit(1);
+  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  // A2P 10DLC requires opt-in consent before texting a real notification —
+  // flipping this on doesn't just flip a boolean, it kicks off the double
+  // opt-in flow (see lib/sms-optin.ts). Only the false→true transition
+  // matters; toggling off, or leaving it on, needs no opt-in action here.
+  const turningSmsOn = (notifySms ?? false) && !existing.notifySms;
+
   const [updated] = await db.update(clients).set({
     type: type || null,
     frameioProjectId: frameioProjectId || null,
@@ -31,7 +40,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     notifySms: notifySms ?? false,
   }).where(eq(clients.id, id)).returning();
 
-  if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (turningSmsOn) {
+    const optIn = await startSmsOptIn(id);
+    if (!optIn.ok) {
+      // Roll back — don't leave notifySms on if we couldn't even send the
+      // disclosure message; the admin would otherwise think it's live.
+      await db.update(clients).set({ notifySms: false }).where(eq(clients.id, id));
+      return NextResponse.json({ error: optIn.error ?? 'Could not start SMS opt-in' }, { status: 400 });
+    }
+  }
+
   return NextResponse.json({ ok: true, client: updated });
 }
 

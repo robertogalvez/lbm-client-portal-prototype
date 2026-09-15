@@ -23,7 +23,7 @@ export interface ReviewReadyNotice {
 export async function notifyClientReviewReady(notice: ReviewReadyNotice): Promise<void> {
   try {
     const [client] = await db
-      .select({ contactEmail: clients.contactEmail, whatsappNumber: clients.whatsappNumber, notifyEmail: clients.notifyEmail, notifySms: clients.notifySms })
+      .select({ contactEmail: clients.contactEmail, whatsappNumber: clients.whatsappNumber, notifyEmail: clients.notifyEmail, notifySms: clients.notifySms, smsOptInStatus: clients.smsOptInStatus })
       .from(clients)
       .where(eq(clients.name, notice.clientName))
       .limit(1);
@@ -59,7 +59,10 @@ export async function notifyClientReviewReady(notice: ReviewReadyNotice): Promis
         `,
       });
     }
-    if (client.notifySms && client.whatsappNumber) {
+    // A2P 10DLC requires a confirmed opt-in (the client replied YES to the
+    // disclosure text — see lib/sms-optin.ts) before any real notification
+    // goes out, not just the admin's notifySms toggle being on.
+    if (client.notifySms && client.whatsappNumber && client.smsOptInStatus === 'confirmed') {
       if (!isSmsConfigured()) {
         console.warn('[notifyClientReviewReady] notifySms is on but Twilio is not configured yet — skipping');
       } else {
@@ -85,11 +88,11 @@ export async function notifyClientReportReady(notice: ReportReadyNotice): Promis
     if (!isSmsConfigured()) return;
 
     const [client] = await db
-      .select({ whatsappNumber: clients.whatsappNumber, notifySms: clients.notifySms })
+      .select({ whatsappNumber: clients.whatsappNumber, notifySms: clients.notifySms, smsOptInStatus: clients.smsOptInStatus })
       .from(clients)
       .where(eq(clients.name, notice.clientName))
       .limit(1);
-    if (!client || !client.notifySms || !client.whatsappNumber) return;
+    if (!client || !client.notifySms || !client.whatsappNumber || client.smsOptInStatus !== 'confirmed') return;
 
     const reportUrl = `${notice.portalOrigin}/client?tab=report`;
     await sendSms({ to: client.whatsappNumber, body: `LBM Portal: your new monthly report is ready. ${reportUrl}` });

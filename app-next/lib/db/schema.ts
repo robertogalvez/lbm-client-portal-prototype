@@ -88,6 +88,13 @@ export const clients = pgTable('clients', {
   notifyEmail:       boolean('notify_email').notNull().default(true),
   notifySms:         boolean('notify_sms').notNull().default(false),
   notifyPush:        boolean('notify_push').notNull().default(false),
+  // A2P 10DLC requires explicit double opt-in before texting a real
+  // notification: turning notifySms on only sends the disclosure/opt-in
+  // message (see lib/sms-optin.ts) and sets this to 'pending'. Actual
+  // notification sends (lib/notify-client.ts) require 'confirmed' — the
+  // client must reply YES first. 'declined' after a STOP reply; notifySms
+  // is left as the admin's on/off intent and is not reset by opt-in state.
+  smsOptInStatus:    varchar('sms_opt_in_status', { length: 10 }).notNull().default('none'),
   // The portal account (auth_user.id) auto-provisioned from this client's
   // ClickUp "Contact Email Address" — ClickUp is the source of truth for who
   // the primary contact is, so re-syncing keeps THIS ONE account's email/name
