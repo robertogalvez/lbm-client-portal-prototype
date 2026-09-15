@@ -21,13 +21,19 @@ export function isSmsConfigured(): boolean {
 // Sends the Twilio-compliant opt-in disclosure message. Must be called once
 // when an admin enables SMS notifications for a user (notifySms: false→true).
 // The user replies YES to confirm enrollment, or STOP to decline.
+//
+// The Terms/Privacy links below must stay in sync with the URLs registered
+// on the Twilio A2P 10DLC campaign (legacybuildingmedia.com's real legal
+// pages) — they previously pointed at ${APP_URL}/terms and /privacy, which
+// don't exist on this app and didn't match what was registered, a
+// compliance mismatch that can get the campaign suspended even after
+// approval.
 export async function sendSmsConsent({ to }: { to: string }): Promise<boolean> {
-  const appUrl = (process.env.APP_URL ?? '').replace(/\/$/, '');
   const body = [
     "LBM Media: You've been enrolled for portal notifications (up to 2 msg/month).",
     'Msg & data rates may apply.',
     'Reply STOP to opt out, HELP for help.',
-    `Terms: ${appUrl}/terms  Privacy: ${appUrl}/privacy`,
+    'Terms: https://legacybuildingmedia.com/terms-and-conditions/  Privacy: https://legacybuildingmedia.com/privacy-policy/',
     'Reply YES to confirm enrollment, or STOP to decline.',
   ].join(' ');
   return sendSms({ to, body });
